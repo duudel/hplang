@@ -19,4 +19,6 @@ these features have less priority:
 - possibility to define structures containing other types
 - string datatype
 - floating point numbers of sizes 32 and 64
+- compile time code execution
+ - for meta programming
 
