@@ -218,19 +218,19 @@ static FSM lex_default(FSM fsm, char c, FileInfo *file_info)
         return fsm;
     }
 
-    file_info->column++; 
+    file_info->column++;
     switch (fsm.state)
     {
     case LS_Default:
         switch (c)
         {
             case ' ':
-            case '\t': 
+            case '\t':
                 fsm.state = LS_Junk;
                 break;
             case '\n': case '\r': case '\f':
-                file_info->line++; 
-                file_info->column = 0; 
+                file_info->line++;
+                file_info->column = 0;
                 fsm.state = LS_Junk;
                 break;
             case '0': case '1': case '2': case '3': case '4':
@@ -358,31 +358,31 @@ static FSM lex_default(FSM fsm, char c, FileInfo *file_info)
             case '=':
                 fsm.state = LS_Eq;
                 break;
-            case '!': 
+            case '!':
                 fsm.state = LS_Bang;
                 break;
-            case '<': 
+            case '<':
                 fsm.state = LS_Less;
                 break;
-            case '>': 
+            case '>':
                 fsm.state = LS_Greater;
                 break;
-            case '+': 
+            case '+':
                 fsm.state = LS_Plus;
                 break;
-            case '-': 
+            case '-':
                 fsm.state = LS_Minus;
                 break;
-            case '*': 
+            case '*':
                 fsm.state = LS_Star;
                 break;
-            case '/': 
+            case '/':
                 fsm.state = LS_Slash;
                 break;
-            case '&': 
+            case '&':
                 fsm.state = LS_And;
                 break;
-            case '|': 
+            case '|':
                 fsm.state = LS_Or;
                 break;
 
@@ -921,8 +921,6 @@ void Lex(LexerContext *ctx, const char *text, s64 text_length)
     ctx->current_token.value_end = text;
     ctx->current_token.file_info = ctx->file_info;
 
-    s64 count = 0;
-
     FSM fsm = { };
     fsm.emit = false;
     fsm.state = LS_Default;
@@ -954,7 +952,7 @@ void Lex(LexerContext *ctx, const char *text, s64 text_length)
         {
             ctx->file_info.column--;
             ctx->current_token.value_end = text + cur;
-            printf("Emit token: %d\n", fsm.state);
+            printf("Emit token: %d  ", fsm.state);
             printf("Token value: ");
             s64 token_value_len = ctx->current_token.value_end - ctx->current_token.value;
             for (s64 i = 0; i < token_value_len; i++)
@@ -962,10 +960,6 @@ void Lex(LexerContext *ctx, const char *text, s64 text_length)
                 putchar(ctx->current_token.value[i]);
             }
             printf("\n");
-
-            //if (count > 5)
-            //    break;
-            //count++;
 
             fsm.emit = false;
             fsm.state = LS_Default;
@@ -976,6 +970,10 @@ void Lex(LexerContext *ctx, const char *text, s64 text_length)
     if (fsm.done)
     {
         ctx->status = LEX_Done;
+    }
+    else if (ctx->error_ctx.error_count > 0)
+    {
+        ctx->status = LEX_Error;
     }
     else
     {
