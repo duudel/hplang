@@ -1,0 +1,22 @@
+hplang
+------
+
+Group members:
+Henrik Paananen
+henrik.j.paananen@student.jyu.fi
+
+The language will be procedural with:
+- static typing
+- simple type inference
+- a few primitive datatypes:
+ - signed & unsigned integers of sizes 8, 16, 32 and 64 bits
+ - boolean
+ - 8 bit character
+ - raw pointers
+
+these features have less priority:
+- multiple return values from procedures
+- possibility to define structures containing other types
+- string datatype
+- floating point numbers of sizes 32 and 64
+
