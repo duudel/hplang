@@ -22,3 +22,24 @@ these features have less priority:
 - compile time code execution
  - for meta programming
 
+The target language is AMD64 for Windows (and maybe Linux).
+
+
+; A simple program that prints the team name in AMD64 (for NASM)
+
+global main
+extern puts
+section .text
+
+main:
+    sub     rsp, 0x20
+    lea     rcx, [hello]
+    call    puts
+    mov     eax, 0
+    add     rsp, 0x20
+    ret
+
+align 8
+hello:
+    db "hplang", 0
+
