@@ -9,6 +9,15 @@ string :: struct
     data : *char;
 }
 
+AstNode :: struct
+{
+    type : AstKind;
+    {
+        AstUnExpr un;
+        AstBinExpr bin;
+    }
+}
+
 assert("".length == 0);
 assert("".data == null);
 
