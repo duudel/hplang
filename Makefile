@@ -1,6 +1,6 @@
 
 COMPILER := gcc
-COMPILER_FLAGS := -std=c++11
+COMPILER_FLAGS := -std=c++11 -g
 EXENAME := hplangc.exe
 
 SOURCES := \
@@ -12,3 +12,12 @@ SOURCES := \
 build:
 	$(COMPILER) $(COMPILER_FLAGS) $(SOURCES) -o $(EXENAME)
 
+
+run:
+	-./$(EXENAME) samples/fibo.hp
+
+
+GDB := /usr/bin/gdb.exe
+
+run_debug:
+	$(GDB) ./$(EXENAME)

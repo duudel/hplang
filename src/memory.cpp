@@ -17,7 +17,7 @@ namespace hplang
         void *new_ptr = ::realloc(ptr.ptr, new_size);
 
         ptr.ptr = new_ptr;
-        ptr.size = new_ptr ? 0 : new_size;
+        ptr.size = new_ptr ? new_size : 0;
         return ptr;
     }
 
