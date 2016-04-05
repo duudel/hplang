@@ -1,6 +1,7 @@
 
 #include "hplang.h"
 #include "lexer.h"
+#include "error.h"
 
 #include <cstdio>
 #include <cstring>
@@ -40,12 +41,6 @@ void PrintVersion()
             HPLANG_VER_MAJOR, HPLANG_VER_MINOR, HPLANG_VER_PATCH);
     printf("Copyright (c) 2016 Henrik Paananen\n");
 }
-
-struct String
-{
-    s64 size;
-    char *data;
-};
 
 struct Open_File
 {
@@ -203,44 +198,18 @@ int main(int argc, char **argv)
 
     const char *source = argv[1];
 
-    Compiler_Context cctx = { };
+    Compiler_Context compiler_ctx = { };
+    Error_Context error_ctx = { };
+    error_ctx.file = stderr; // TODO(henrik): Move error_ctx to Compiler_Context
 
-    Open_File *file = OpenFile(&cctx, source);
-
-    //FILE *source_file = fopen(source, "rb");
-    //if (!source_file)
-    //{
-    //    printf("Could not open source file '%s', exiting...\n", source);
-    //    return -1;
-    //}
-
-    //fseek(source_file, 0, SEEK_END);
-    //s64 file_size = ftell(source_file);
-    //fseek(source_file, 0, SEEK_SET);
-
-    //Pointer source_data = Alloc(file_size + 1);
-    //if (fread(source_data.ptr, 1, file_size, source_file) != file_size)
-    //{
-    //    Free(source_data);
-    //    printf("Error reading source file '%s', exiting...\n", source);
-    //    return -1;
-    //}
-    //fclose(source_file);
-
-    //char *source_text = (char*)source_data.ptr;
-    //source_text[source_data.size - 1] = 0;
-
-    //printf("source %d: %s\n", source_data.size, source_text);
+    Open_File *file = OpenFile(&compiler_ctx, source);
 
     char *source_text = (char*)file->contents.ptr;
-    printf("source %s\n", source_text);
+    //printf("source %s\n", source_text);
 
-    LexerContext lexer_ctx = NewLexerContext();
+    Lexer_Context lexer_ctx = NewLexerContext(&error_ctx);
+    lexer_ctx.file_loc.filename = file->filename;
     Lex(&lexer_ctx, source_text, file->contents.size);
-
-//    const char text[] = "if (test) return;\nelse a + b;\n    /*+-*/ ++ += . :: import for (bool) while string 0.0 3.12f, 43.0d @ #";
-//    s64 text_length = sizeof(text);
-//    Lex(&lexer_ctx, text, text_length);
 
     return 0;
 }

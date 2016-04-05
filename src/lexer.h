@@ -5,7 +5,9 @@
 namespace hplang
 {
 
-enum LexerStatus
+struct Error_Context;
+
+enum Lexer_Status
 {
     LEX_None,
     LEX_Pending,
@@ -13,34 +15,25 @@ enum LexerStatus
     LEX_Error
 };
 
-struct ErrorContext
+struct Lexer_Context
 {
-    s64 error_count;
-};
-
-void PrintError(FileInfo *file_info, const char *error);
-void PrintError(Token *token, const char *error);
-
-struct LexerContext
-{
-    TokenArena *token_arena;
+    Token_Arena *token_arena;
     s64 token_count;
     Token *tokens;
 
     s64 current;
     s64 state;
+    Lexer_Status status;
 
     Token current_token;
 
-    FileInfo file_info;
-    ErrorContext error_ctx;
-
-    LexerStatus status;
+    File_Location file_loc;
+    Error_Context *error_ctx;
 };
 
-LexerContext NewLexerContext();
+Lexer_Context NewLexerContext(Error_Context *err_ctx);
 
-void Lex(LexerContext *ctx, const char *text, s64 text_length);
+void Lex(Lexer_Context *ctx, const char *text, s64 text_length);
 
 } // hplang
 

@@ -4,14 +4,14 @@
 namespace hplang
 {
 
-TokenArena* AllocateTokenArena(TokenArena *arena, s64 token_count)
+Token_Arena* AllocateTokenArena(Token_Arena *arena, s64 token_count)
 {
-    s64 needed_size = sizeof(TokenArena) + token_count * sizeof(Token);
+    s64 needed_size = sizeof(Token_Arena) + token_count * sizeof(Token);
     Pointer pointer = Alloc(needed_size);
     if (!pointer.ptr)
         return arena;
 
-    TokenArena *new_arena = (TokenArena*)pointer.ptr;
+    Token_Arena *new_arena = (Token_Arena*)pointer.ptr;
     Token *tokens_begin = (Token*)(new_arena + 1);
     new_arena->memory = pointer;
     new_arena->begin = tokens_begin;
@@ -22,17 +22,17 @@ TokenArena* AllocateTokenArena(TokenArena *arena, s64 token_count)
     return new_arena;
 }
 
-void DeallocateTokenArena(TokenArena *arena)
+void DeallocateTokenArena(Token_Arena *arena)
 {
     do
     {
-        TokenArena *prev_arena = arena->prev_arena;
+        Token_Arena *prev_arena = arena->prev_arena;
         Free(arena->memory);
         arena = prev_arena;
     } while (arena);
 }
 
-Token* PushToken(TokenArena *arena)
+Token* PushToken(Token_Arena *arena)
 {
     if (arena->current >= arena->end)
     {

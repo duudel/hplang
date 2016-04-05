@@ -1,28 +1,30 @@
 
 #include "lexer.h"
+#include "error.h"
 
-#include <cstdio>
+#include <cstdio> // TODO(henrik): remove direct dependency to stdio
 #include <cctype>
 
 namespace hplang
 {
 
-LexerContext NewLexerContext()
+Lexer_Context NewLexerContext(Error_Context *error_ctx)
 {
-    TokenArena *arena = AllocateTokenArena(nullptr, DEFAULT_TOKEN_ARENA_SIZE);
-    LexerContext ctx = { };
+    Token_Arena *arena = AllocateTokenArena(nullptr, DEFAULT_TOKEN_ARENA_SIZE);
+    Lexer_Context ctx = { };
     ctx.token_arena = arena;
     ctx.status = LEX_None;
+    ctx.error_ctx = error_ctx;
     return ctx;
 }
 
-struct TokenTypeAndString
+struct Token_Type_And_String
 {
     TokenType type;
     const char *str;
 };
 
-TokenTypeAndString g_token_type_and_str[] = {
+static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_Comment,           nullptr},
     {TOK_Multiline_comment, nullptr},
 
@@ -209,7 +211,7 @@ struct FSM
     b32 done;
 };
 
-static FSM lex_default(FSM fsm, char c, FileInfo *file_info)
+static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
 {
     if (c == 0)
     {
@@ -218,7 +220,7 @@ static FSM lex_default(FSM fsm, char c, FileInfo *file_info)
         return fsm;
     }
 
-    file_info->column++;
+    file_loc->column++;
     switch (fsm.state)
     {
     case LS_Default:
@@ -229,8 +231,8 @@ static FSM lex_default(FSM fsm, char c, FileInfo *file_info)
                 fsm.state = LS_Junk;
                 break;
             case '\n': case '\r': case '\f':
-                file_info->line++;
-                file_info->column = 0;
+                file_loc->line++;
+                file_loc->column = 0;
                 fsm.state = LS_Junk;
                 break;
             case '0': case '1': case '2': case '3': case '4':
@@ -893,33 +895,41 @@ static FSM lex_default(FSM fsm, char c, FileInfo *file_info)
     return fsm;
 }
 
-void Error(ErrorContext *ctx, FileInfo file_info, const char *message, const Token *token)
+void PrintFileLocation(FILE *file, File_Location file_loc)
+{
+    fwrite(file_loc.filename.data, 1, file_loc.filename.size, file);
+    fprintf(file, ":%d:%d", file_loc.line, file_loc.column);
+}
+
+void PrintTokenValue(FILE *file, const Token *token)
+{
+    s64 size = token->value_end - token->value;
+    fwrite(token->value, 1, size, file);
+}
+
+void Error(Error_Context *ctx, File_Location file_loc, const char *message, const Token *token)
 {
     ctx->error_count++;
     if (!token)
     {
-        printf("(%d) %s %d:%d: %s\n",
-            ctx->error_count,
-            file_info.filename ? file_info.filename : "",
-            file_info.line, file_info.column,
-            message);
+        PrintFileLocation(ctx->file, file_loc);
+        fprintf(ctx->file, ": %s\n", message);
     }
     else
     {
-        printf("(%d) %s %d:%d: %s '%c'\n",
-            ctx->error_count,
-            file_info.filename ? file_info.filename : "",
-            file_info.line, file_info.column,
-            message, token->value[0]);
+        PrintFileLocation(ctx->file, file_loc);
+        fprintf(ctx->file, ": %s '", message);
+        PrintTokenValue(ctx->file, token);
+        fprintf(ctx->file, "' (%i)\n", token->value[0]);
     }
 }
 
-void Lex(LexerContext *ctx, const char *text, s64 text_length)
+void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
 {
     s64 cur = ctx->current;
     ctx->current_token.value = text;
     ctx->current_token.value_end = text;
-    ctx->current_token.file_info = ctx->file_info;
+    ctx->current_token.file_loc = ctx->file_loc;
 
     FSM fsm = { };
     fsm.emit = false;
@@ -929,16 +939,18 @@ void Lex(LexerContext *ctx, const char *text, s64 text_length)
         while (!fsm.emit && cur < text_length)
         {
             char c = text[cur];
-            fsm = lex_default(fsm, c, &ctx->file_info);
+            fsm = lex_default(fsm, c, &ctx->file_loc);
             if (!fsm.emit && fsm.state != LS_KW_end)
             {
                 cur++;
                 if (fsm.state == LS_Invalid)
                 {
-                    Error(&ctx->error_ctx, ctx->file_info, "Invalid character", &ctx->current_token);
+                    ctx->current_token.value_end = text + cur;
+                    Error(ctx->error_ctx, ctx->file_loc,
+                        "Invalid character", &ctx->current_token);
                     fsm.state = LS_Default;
                     ctx->current_token.value = text + cur;
-                    ctx->current_token.value_end = text + cur;
+                    //ctx->current_token.value_end = text + cur;
                 }
                 else if (fsm.state == LS_Junk)
                 {
@@ -950,16 +962,12 @@ void Lex(LexerContext *ctx, const char *text, s64 text_length)
         }
         if (fsm.emit)
         {
-            ctx->file_info.column--;
+            ctx->file_loc.column--;
             ctx->current_token.value_end = text + cur;
-            printf("Emit token: %d  ", fsm.state);
-            printf("Token value: ");
-            s64 token_value_len = ctx->current_token.value_end - ctx->current_token.value;
-            for (s64 i = 0; i < token_value_len; i++)
-            {
-                putchar(ctx->current_token.value[i]);
-            }
-            printf("\n");
+            //fprintf(stderr, "Emit token: %d  ", fsm.state);
+            //fprintf(stderr, "Token value: ");
+            //PrintTokenValue(stderr, &ctx->current_token);
+            //fprintf(stderr, "\n");
 
             fsm.emit = false;
             fsm.state = LS_Default;
@@ -971,7 +979,7 @@ void Lex(LexerContext *ctx, const char *text, s64 text_length)
     {
         ctx->status = LEX_Done;
     }
-    else if (ctx->error_ctx.error_count > 0)
+    else if (ctx->error_ctx->error_count > 0)
     {
         ctx->status = LEX_Error;
     }

@@ -6,12 +6,6 @@
 namespace hplang
 {
 
-struct FileInfo
-{
-    const char *filename;
-    s64 line, column;
-};
-
 enum TokenType
 {
     TOK_Comment,
@@ -94,26 +88,26 @@ struct Token
 {
     const char *value;
     const char *value_end;
-    FileInfo file_info;
+    File_Location file_loc;
 };
 
 enum {
     DEFAULT_TOKEN_ARENA_SIZE = 4*4096
 };
 
-struct TokenArena
+struct Token_Arena
 {
     Pointer memory;
     Token *begin;
     const Token *end;
     Token *current;
 
-    TokenArena *prev_arena;
+    Token_Arena *prev_arena;
 };
 
-TokenArena* AllocateTokenArena(TokenArena *arena, s64 token_count);
-void DeallocateTokenArena(TokenArena *arena);
-Token* PushToken(TokenArena *arena);
+Token_Arena* AllocateTokenArena(Token_Arena *arena, s64 token_count);
+void DeallocateTokenArena(Token_Arena *arena);
+Token* PushToken(Token_Arena *arena);
 
 } // hplang
 
