@@ -22,13 +22,15 @@ fibo2 :: (x : s64) // : s64
 
 main :: () : s64
 {
+    print("This is a call to print\n");
+    '\n' '0' 'h' 'e' 'l''l''o';
     assert(fibo(0) == 1);
     assert(fibo(1) == 1);
     assert(fibo(2) == 2);
     assert(fibo(3) == 3);
     assert(fibo(4) == 5);
     assert(fibo(5) == 8);
-    # assert(fibo(10) == 123);
+    // assert(fibo(10) == 123);
     return 0;
 }
 

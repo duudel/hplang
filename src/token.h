@@ -70,6 +70,8 @@ enum TokenType
     TOK_StarAssign,     // *=
     TOK_SlashAssign,    // /=
 
+    TOK_Bang,           // !
+
     TOK_And,            // &&
     TOK_Or,             // ||
 

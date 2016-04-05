@@ -14,6 +14,7 @@ Lexer_Context NewLexerContext(Error_Context *error_ctx)
     Lexer_Context ctx = { };
     ctx.token_arena = arena;
     ctx.status = LEX_None;
+    ctx.file_loc.line = 1;
     ctx.error_ctx = error_ctx;
     return ctx;
 }
@@ -98,6 +99,13 @@ enum LexerState
     LS_Float,
     LS_FloatF,
     LS_FloatD,
+
+    LS_StringLit,
+    LS_StringLitEsc,
+    LS_StringLitEnd,
+    LS_CharLit,
+    LS_CharLitEsc,
+    LS_CharLitEnd,
 
     LS_KW_end,
     LS_Ident,
@@ -197,6 +205,9 @@ enum LexerState
     LS_Or,              // |
     LS_OrOr,            // ||
 
+    LS_Comment,          // //
+    LS_MultilineComment, // /*
+    LS_MultilineCommentStar, // *
 
     LS_Invalid, // Give error
     LS_Junk,    // Discard
@@ -230,6 +241,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '\t':
                 fsm.state = LS_Junk;
                 break;
+            // TODO(henrik): Fix handling of \r\n (Windows CRLF)
             case '\n': case '\r': case '\f':
                 file_loc->line++;
                 file_loc->column = 0;
@@ -239,154 +251,112 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '5': case '6': case '7': case '8': case '9':
                 fsm.state = LS_Int;
                 break;
+            case '"':
+                fsm.state = LS_StringLit;
+                break;
+            case '\'':
+                fsm.state = LS_CharLit;
+                break;
             case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
             case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N':
             case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
             case 'V': case 'W': case 'X': case 'Y': case 'Z':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'a':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'b':
-                fsm.state = LS_STR_b;
-                break;
+                fsm.state = LS_STR_b; break;
             case 'c':
-                fsm.state = LS_STR_c;
-                break;
+                fsm.state = LS_STR_c; break;
             case 'd':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'e':
-                fsm.state = LS_STR_e;
-                break;
+                fsm.state = LS_STR_e; break;
             case 'f':
-                fsm.state = LS_STR_f;
-                break;
+                fsm.state = LS_STR_f; break;
             case 'g':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'h':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'i':
-                fsm.state = LS_STR_i;
-                break;
+                fsm.state = LS_STR_i; break;
             case 'j':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'k':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'l':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'm':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'n':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'o':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'p':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'q':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'r':
-                fsm.state = LS_STR_r;
-                break;
+                fsm.state = LS_STR_r; break;
             case 's':
-                fsm.state = LS_STR_s;
-                break;
+                fsm.state = LS_STR_s; break;
             case 't':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'u':
-                fsm.state = LS_STR_u;
-                break;
+                fsm.state = LS_STR_u; break;
             case 'v':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'w':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'x':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'y':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
             case 'z':
-                fsm.state = LS_Ident;
-                break;
+                fsm.state = LS_Ident; break;
 
             case '#':
-                fsm.state = LS_Hash;
-                break;
+                fsm.state = LS_Hash; break;
             case ':':
-                fsm.state = LS_Colon;
-                break;
+                fsm.state = LS_Colon; break;
             case ';':
-                fsm.state = LS_Semicolon;
-                break;
+                fsm.state = LS_Semicolon; break;
             case ',':
-                fsm.state = LS_Comma;
-                break;
+                fsm.state = LS_Comma; break;
             case '.':
-                fsm.state = LS_Period;
-                break;
+                fsm.state = LS_Period; break;
             case '{':
-                fsm.state = LS_OpenBlock;
-                break;
+                fsm.state = LS_OpenBlock; break;
             case '}':
-                fsm.state = LS_CloseBlock;
-                break;
+                fsm.state = LS_CloseBlock; break;
             case '(':
-                fsm.state = LS_OpenParent;
-                break;
+                fsm.state = LS_OpenParent; break;
             case ')':
-                fsm.state = LS_CloseParent;
-                break;
+                fsm.state = LS_CloseParent; break;
             case '[':
-                fsm.state = LS_OpenBracket;
-                break;
+                fsm.state = LS_OpenBracket; break;
             case ']':
-                fsm.state = LS_CloseBracket;
-                break;
+                fsm.state = LS_CloseBracket; break;
             case '=':
-                fsm.state = LS_Eq;
-                break;
+                fsm.state = LS_Eq; break;
             case '!':
-                fsm.state = LS_Bang;
-                break;
+                fsm.state = LS_Bang; break;
             case '<':
-                fsm.state = LS_Less;
-                break;
+                fsm.state = LS_Less; break;
             case '>':
-                fsm.state = LS_Greater;
-                break;
+                fsm.state = LS_Greater; break;
             case '+':
-                fsm.state = LS_Plus;
-                break;
+                fsm.state = LS_Plus; break;
             case '-':
-                fsm.state = LS_Minus;
-                break;
+                fsm.state = LS_Minus; break;
             case '*':
-                fsm.state = LS_Star;
-                break;
+                fsm.state = LS_Star; break;
             case '/':
-                fsm.state = LS_Slash;
-                break;
+                fsm.state = LS_Slash; break;
             case '&':
-                fsm.state = LS_And;
-                break;
+                fsm.state = LS_And; break;
             case '|':
-                fsm.state = LS_Or;
-                break;
+                fsm.state = LS_Or; break;
 
             default:
                 fsm.state = LS_Invalid;
@@ -421,6 +391,39 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_FloatF:
     case LS_FloatD:
         fsm.emit = true;
+        break;
+
+    case LS_StringLit:
+        if (c == '\\')
+        {
+            fsm.state = LS_StringLitEsc;
+        }
+        else if (c == '"')
+        {
+            fsm.state = LS_StringLitEnd;
+        } break;
+    case LS_StringLitEsc:
+        fsm.state = LS_StringLit;
+        break;
+    case LS_StringLitEnd:
+        fsm.emit = true;
+        break;
+
+    case LS_CharLit:
+        if (c == '\\')
+        {
+            fsm.state = LS_CharLitEsc;
+        }
+        else if (c == '\'')
+        {
+            fsm.state = LS_CharLitEnd;
+        } break;
+    case LS_CharLitEsc:
+        fsm.state = LS_CharLit;
+        break;
+    case LS_CharLitEnd:
+        fsm.emit = true;
+        break;
 
     case LS_KW_end:
     case LS_Ident:
@@ -810,6 +813,14 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             default:
                 fsm.emit = true;
         } break;
+    case LS_Bang:
+        switch (c)
+        {
+            case '=':
+                fsm.state = LS_NotEq; break;
+            default:
+                fsm.emit = true;
+        } break;
     case LS_Less:
         switch (c)
         {
@@ -853,6 +864,10 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_Slash:
         switch (c)
         {
+            case '/':
+                fsm.state = LS_Comment; break;
+            case '*':
+                fsm.state = LS_MultilineComment; break;
             case '=':
                 fsm.state = LS_SlashAssign; break;
             default:
@@ -876,6 +891,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         } break;
 
     case LS_EqEq:
+    case LS_NotEq:
     case LS_LessEq:
     case LS_GreaterEq:
     case LS_PlusAssign:
@@ -886,6 +902,35 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_OrOr:
         fsm.emit = true;
         break;
+
+    case LS_Comment:
+        if (c == '\n' || c == '\r' || c == '\f')
+        {
+            file_loc->line++;
+            file_loc->column = 0;
+            fsm.state = LS_Junk;
+        } break;
+    case LS_MultilineComment:
+        if (c == '*')
+        {
+            fsm.state = LS_MultilineCommentStar;
+        } break;
+    case LS_MultilineCommentStar:
+        if (c == '*')
+        { }
+        else if (c == '\n' || c == '\r' || c == '\f')
+        {
+            file_loc->line++;
+            file_loc->column = 0;
+        }
+        else if (c == '/')
+        {
+            fsm.state = LS_Junk;
+        }
+        else
+        {
+            fsm.state = LS_MultilineComment;
+        } break;
 
     default:
         fsm.state = LS_Invalid;
@@ -946,17 +991,19 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
                 if (fsm.state == LS_Invalid)
                 {
                     ctx->current_token.value_end = text + cur;
-                    Error(ctx->error_ctx, ctx->file_loc,
-                        "Invalid character", &ctx->current_token);
+                    Error(ctx->error_ctx, ctx->current_token.file_loc,
+                        "Invalid token", &ctx->current_token);
+
                     fsm.state = LS_Default;
                     ctx->current_token.value = text + cur;
-                    //ctx->current_token.value_end = text + cur;
+                    ctx->current_token.file_loc = ctx->file_loc;
                 }
                 else if (fsm.state == LS_Junk)
                 {
                     fsm.state = LS_Default;
                     ctx->current_token.value = text + cur;
                     ctx->current_token.value_end = text + cur;
+                    ctx->current_token.file_loc = ctx->file_loc;
                 }
             }
         }
@@ -965,13 +1012,14 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
             ctx->file_loc.column--;
             ctx->current_token.value_end = text + cur;
             //fprintf(stderr, "Emit token: %d  ", fsm.state);
-            //fprintf(stderr, "Token value: ");
-            //PrintTokenValue(stderr, &ctx->current_token);
-            //fprintf(stderr, "\n");
+            fprintf(stderr, "Token value: ");
+            PrintTokenValue(stderr, &ctx->current_token);
+            fprintf(stderr, "\n");
 
             fsm.emit = false;
             fsm.state = LS_Default;
             ctx->current_token.value = text + cur;
+            ctx->current_token.file_loc = ctx->file_loc;
         }
     }
 

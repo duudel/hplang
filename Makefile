@@ -14,7 +14,8 @@ build:
 
 
 run:
-	-./$(EXENAME) samples/fibo.hp
+	@#-./$(EXENAME) samples/fibo.hp
+	-./$(EXENAME) samples/token_test.hp
 
 
 GDB := /usr/bin/gdb.exe
