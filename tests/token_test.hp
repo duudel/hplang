@@ -1,10 +1,10 @@
 "String literal with\nescape sequences"
-'c''char''a''c''\t''e''\r''\l''i''t''e' 'r''a''l''s''\n'
+//'c''char''a''c''\t''e''\r''\l''i''t''e' 'r''a''l''s''\n'
 123 // integer literal
 // Comment
 //* Multi-
 //line comment */
-
+?
 main::(){}
 
 print("Hello\n");
@@ -28,4 +28,3 @@ if (c != identifier1234with_numebers_andUnderScores)
 /=
 
 !
-

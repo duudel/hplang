@@ -23,6 +23,7 @@ struct Lexer_Context
 
     s64 current;
     s64 state;
+    b32 carriage_return;
     Lexer_Status status;
 
     Token current_token;

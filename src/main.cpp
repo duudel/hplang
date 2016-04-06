@@ -1,6 +1,7 @@
 
 #include "hplang.h"
 #include "lexer.h"
+#include "compiler.h"
 #include "error.h"
 
 #include <cstdio>
@@ -42,141 +43,6 @@ void PrintVersion()
     printf("Copyright (c) 2016 Henrik Paananen\n");
 }
 
-struct Open_File
-{
-    String filename;
-    Pointer contents;
-};
-
-struct Memory_Block
-{
-    Pointer memory;
-    s64 top_pointer;
-    Memory_Block *prev;
-};
-
-struct Memory_Arena
-{
-    Memory_Block *head;
-};
-
-
-b32 AllocateNewMemoryBlock(Memory_Arena *arena)
-{
-    s64 MEMORY_BLOCK_SIZE = MBytes(16);
-    Pointer data = Alloc(sizeof(Memory_Block) + MEMORY_BLOCK_SIZE);
-    if (!data.ptr) return false;
-
-    Memory_Block *block = (Memory_Block*)data.ptr;
-    block->memory.ptr = (void*)(block + 1);
-    block->memory.size = MEMORY_BLOCK_SIZE;
-    block->top_pointer = 0;
-
-    block->prev = arena->head;
-    arena->head = block;
-    return true;
-}
-
-
-void* AllocateFromMemoryBlock(Memory_Block *block, s64 size, s64 alignment)
-{
-    if (!block)
-        return nullptr;
-    if (block->top_pointer + size > block->memory.size)
-        return nullptr;
-    char *ptr = (char*)block->memory.ptr + block->top_pointer;
-    block->top_pointer += size;
-    return (void*)ptr;
-}
-
-
-void* PushData(Memory_Arena *arena, s64 size, s64 alignment)
-{
-    void *ptr = AllocateFromMemoryBlock(arena->head, size, alignment);
-    if (!ptr)
-    {
-        if (!AllocateNewMemoryBlock(arena))
-            return nullptr;
-        ptr = AllocateFromMemoryBlock(arena->head, size, alignment);
-    }
-    return ptr;
-}
-
-Pointer PushDataPointer(Memory_Arena *arena, s64 size, s64 alignment)
-{
-    Pointer result = { };
-    result.ptr = PushData(arena, size, alignment);
-    result.size = result.ptr ? size : 0;
-    return result;
-}
-
-template <class S>
-S* PushStruct(Memory_Arena *arena)
-{
-    return (S*)PushData(arena, sizeof(S), alignof(S));
-}
-
-String PushString(Memory_Arena *arena, const char *s, s64 size)
-{
-    String result = { };
-    result.data = (char*)PushData(arena, size, 1);
-    if (result.data)
-    {
-        for (s64 i = 0; i < size; i++)
-            result.data[i] = s[i];
-        result.size = size;
-    }
-    return result;
-}
-
-String PushString(Memory_Arena *arena, const char *s)
-{
-    return PushString(arena, s, strlen(s));
-}
-
-struct Compiler_Context
-{
-    Memory_Arena arena;
-};
-
-Open_File* OpenFile(Compiler_Context *ctx, const char *filename)
-{
-    FILE *file = fopen(filename, "rb");
-    if (!file) return nullptr;
-
-    Open_File *open_file = PushStruct<Open_File>(&ctx->arena);
-    open_file->filename = PushString(&ctx->arena, filename);
-    if (open_file && open_file->filename.data)
-    {
-        fseek(file, 0, SEEK_END);
-        s64 file_size = ftell(file);
-        fseek(file, 0, SEEK_SET);
-
-        // NOTE(henrik): Allocate one extra byte for null termination.
-        open_file->contents = PushDataPointer(&ctx->arena, file_size + 1, 1);
-
-        if (fread(open_file->contents.ptr, 1, file_size, file) != file_size)
-        {
-            // NOTE(henrik): We do not free the open_file->contents here as
-            // the file contents will be freed with the compiler context.
-            // There was already an error reading the file, so the compilation
-            // will not complete in any case. But if we want, we could introduce
-            // an API to "rewind" the memory arena, but only if the pointers are
-            // freed in the correct order. This needs information on how big the
-            // allocation was to make sure we rewound the arena correctly.
-            fprintf(stderr, "Error reading source file '%s', exiting...\n", filename);
-            open_file->contents = { };
-        }
-        else
-        {
-            char *text = (char*)open_file->contents.ptr;
-            text[file_size] = 0;
-        }
-        fclose(file);
-    }
-    return open_file;
-}
-
 int main(int argc, char **argv)
 {
     if (argc == 1)
@@ -199,17 +65,12 @@ int main(int argc, char **argv)
     const char *source = argv[1];
 
     Compiler_Context compiler_ctx = { };
-    Error_Context error_ctx = { };
-    error_ctx.file = stderr; // TODO(henrik): Move error_ctx to Compiler_Context
+    compiler_ctx.error_ctx.file = stderr;
 
     Open_File *file = OpenFile(&compiler_ctx, source);
+    Compile(&compiler_ctx, file);
 
-    char *source_text = (char*)file->contents.ptr;
-    //printf("source %s\n", source_text);
-
-    Lexer_Context lexer_ctx = NewLexerContext(&error_ctx);
-    lexer_ctx.file_loc.filename = file->filename;
-    Lex(&lexer_ctx, source_text, file->contents.size);
+    FreeCompilerContext(&compiler_ctx);
 
     return 0;
 }

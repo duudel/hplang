@@ -15,6 +15,7 @@ Lexer_Context NewLexerContext(Error_Context *error_ctx)
     ctx.token_arena = arena;
     ctx.status = LEX_None;
     ctx.file_loc.line = 1;
+    ctx.file_loc.column = 1;
     ctx.error_ctx = error_ctx;
     return ctx;
 }
@@ -205,7 +206,7 @@ enum LexerState
     LS_Or,              // |
     LS_OrOr,            // ||
 
-    LS_Comment,          // //
+    LS_Comment,         // //
     LS_MultilineComment, // /*
     LS_MultilineCommentStar, // *
 
@@ -220,6 +221,7 @@ struct FSM
     LexerState state;
     b32 emit;
     b32 done;
+    b32 carriage_return;
 };
 
 static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
@@ -231,20 +233,18 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         return fsm;
     }
 
-    file_loc->column++;
     switch (fsm.state)
     {
     case LS_Default:
         switch (c)
         {
-            case ' ':
-            case '\t':
+            case ' ': case '\t':
                 fsm.state = LS_Junk;
                 break;
-            // TODO(henrik): Fix handling of \r\n (Windows CRLF)
-            case '\n': case '\r': case '\f':
-                file_loc->line++;
-                file_loc->column = 0;
+            case '\r':
+                fsm.state = LS_Junk;
+                break;
+            case '\n': case '\f': case '\v':
                 fsm.state = LS_Junk;
                 break;
             case '0': case '1': case '2': case '3': case '4':
@@ -904,10 +904,8 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         break;
 
     case LS_Comment:
-        if (c == '\n' || c == '\r' || c == '\f')
+        if (c == '\r' || c == '\n' || c == '\f' || c == '\v')
         {
-            file_loc->line++;
-            file_loc->column = 0;
             fsm.state = LS_Junk;
         } break;
     case LS_MultilineComment:
@@ -918,11 +916,6 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_MultilineCommentStar:
         if (c == '*')
         { }
-        else if (c == '\n' || c == '\r' || c == '\f')
-        {
-            file_loc->line++;
-            file_loc->column = 0;
-        }
         else if (c == '/')
         {
             fsm.state = LS_Junk;
@@ -952,9 +945,14 @@ void PrintTokenValue(FILE *file, const Token *token)
     fwrite(token->value, 1, size, file);
 }
 
-void Error(Error_Context *ctx, File_Location file_loc, const char *message, const Token *token)
+void Error(Error_Context *ctx, File_Location file_loc,
+            const char *message, const Token *token)
 {
     ctx->error_count++;
+    if (ctx->error_count == 1)
+    {
+        ctx->first_error_loc = file_loc;
+    }
     if (!token)
     {
         PrintFileLocation(ctx->file, file_loc);
@@ -979,15 +977,48 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
     FSM fsm = { };
     fsm.emit = false;
     fsm.state = LS_Default;
+    fsm.carriage_return = false;
+
+    File_Location *file_loc = &ctx->file_loc;
     while (cur < text_length - 1)
     {
         while (!fsm.emit && cur < text_length)
         {
             char c = text[cur];
             fsm = lex_default(fsm, c, &ctx->file_loc);
+
             if (!fsm.emit && fsm.state != LS_KW_end)
             {
                 cur++;
+                file_loc->column++;
+                if (c == '\r')
+                {
+                    file_loc->line++;
+                    file_loc->column = 1;
+                    ctx->carriage_return = true;
+                }
+                else
+                {
+                    if (c == '\n')
+                    {
+                        if (ctx->carriage_return)
+                        {
+                            file_loc->column = 1;
+                        }
+                        else
+                        {
+                            file_loc->line++;
+                            file_loc->column = 1;
+                        }
+                    }
+                    else if (c == '\f' || c == '\v')
+                    {
+                        file_loc->line++;
+                        file_loc->column = 0;
+                    }
+                    ctx->carriage_return = false;
+                }
+
                 if (fsm.state == LS_Invalid)
                 {
                     ctx->current_token.value_end = text + cur;
@@ -1009,12 +1040,11 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
         }
         if (fsm.emit)
         {
-            ctx->file_loc.column--;
+            //ctx->file_loc.column--;
             ctx->current_token.value_end = text + cur;
-            //fprintf(stderr, "Emit token: %d  ", fsm.state);
-            fprintf(stderr, "Token value: ");
-            PrintTokenValue(stderr, &ctx->current_token);
-            fprintf(stderr, "\n");
+            //fprintf(stderr, "Token value: ");
+            //PrintTokenValue(stderr, &ctx->current_token);
+            //fprintf(stderr, "\n");
 
             fsm.emit = false;
             fsm.state = LS_Default;
