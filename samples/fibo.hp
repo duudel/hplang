@@ -4,7 +4,7 @@
 io :: import "io";
 import "io";
 
- Recursive Fibonacci function
+// Recursive Fibonacci function
 fibo :: (x : s64) : s64**
 {
     assert(x >= 0);

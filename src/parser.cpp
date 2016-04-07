@@ -72,17 +72,20 @@ static void Error_UnexpectedEOF(Parser_Context *ctx, const Token *token)
 
 static Token eof_token = { TOK_EOF };
 
-static const Token* GetNextToken(Parser_Context *ctx)
-{
-    if (ctx->current_token < ctx->tokens.count)
-        return ctx->tokens.begin + ctx->current_token++;
-    return &eof_token;
-}
-
 static const Token* GetCurrentToken(Parser_Context *ctx)
 {
     if (ctx->current_token < ctx->tokens.count)
         return ctx->tokens.begin + ctx->current_token;
+    return &eof_token;
+}
+
+static const Token* GetNextToken(Parser_Context *ctx)
+{
+    //fprintf(stderr, "  : ");
+    //PrintTokenValue(stderr, GetCurrentToken(ctx));
+    //fprintf(stderr, "\n");
+    if (ctx->current_token < ctx->tokens.count)
+        return ctx->tokens.begin + ++ctx->current_token;
     return &eof_token;
 }
 
@@ -124,39 +127,39 @@ b32 Parse(Parser_Context *ctx)
 {
     ctx->ast_root = PushNode(ctx, AST_TopLevel, nullptr);
 
-    const Token *token = GetNextToken(ctx);
+    const Token *token = GetCurrentToken(ctx);
     while (ContinueParsing(ctx))
     {
+        if (token->type == TOK_EOF)
+            break;
         switch (token->type)
         {
         case TOK_Import:
+            GetNextToken(ctx);
             ParseImport(ctx, nullptr, ctx->ast_root);
             break;
         case TOK_Identifier:
+            GetNextToken(ctx);
             ParseTopLevelIdentifier(ctx, token, ctx->ast_root);
-            break;
-        case TOK_EOF:
             break;
         default:
             Error(ctx, token->file_loc, "Unexpected token", token);
-            fprintf(ctx->error_ctx->file, "TOK(%s)\n", TokenTypeToString(token->type));
+            GetNextToken(ctx);
         }
-        if (token->type == TOK_EOF)
-            break;
-        token = GetNextToken(ctx);
+        token = GetCurrentToken(ctx);
     }
+    return ctx->error_ctx->error_count != 0;
 }
 
 void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
 {
-    const Token *prev_token = GetCurrentToken(ctx);
-    const Token *token = GetNextToken(ctx);
+    const Token *token = GetCurrentToken(ctx);
     switch (token->type)
     {
         case TOK_StringLit:
             {
                 Ast_Node *import_node = PushNode(ctx, AST_Import,
-                        ident_tok ? ident_tok : prev_token);
+                        ident_tok ? ident_tok : token);
                 import_node->import.name = ident_tok;
                 import_node->import.module_name = token;
                 PushNodeList(&root->node_list, import_node);
@@ -164,11 +167,12 @@ void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
             break;
 
         case TOK_EOF:
-            Error_UnexpectedEOF(ctx, prev_token);
+            Error_UnexpectedEOF(ctx, token);
             return;
         default:
             Error(ctx, token->file_loc, "Expecting string literal, not", token);
     }
+    GetNextToken(ctx);
     Expect(ctx, TOK_Semicolon);
 }
 
@@ -224,11 +228,13 @@ Ast_Node* ParseType(Parser_Context *ctx)
         if (token->type == TOK_Star)
         {
             Ast_Node *pointer_node = PushNode(ctx, AST_Type_Pointer, token);
+            s64 indirection = 0;
             while (token->type == TOK_Star)
             {
-                pointer_node->type_node.pointer.indirection++;
+                indirection++;
                 token = GetNextToken(ctx);
             }
+            pointer_node->type_node.pointer.indirection = indirection;
             pointer_node->type_node.pointer.base_type = type_node;
             type_node = pointer_node;
         }
