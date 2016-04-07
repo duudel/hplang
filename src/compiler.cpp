@@ -7,6 +7,14 @@
 namespace hplang
 {
 
+Compiler_Context NewCompilerContext()
+{
+    Compiler_Context result = { };
+    result.error_ctx.file = stderr;
+    result.options = DefaultCompilerOptions();
+    return result;
+}
+
 void FreeCompilerContext(Compiler_Context *ctx)
 {
     FreeMemoryArena(&ctx->arena);

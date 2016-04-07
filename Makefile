@@ -4,9 +4,14 @@ COMPILER_FLAGS := -std=c++11 -g
 EXENAME := hplangc.exe
 
 SOURCES := \
+	src/assert.cpp \
+	src/ast_types.cpp \
 	src/compiler.cpp \
+	src/error.cpp \
 	src/lexer.cpp \
 	src/memory.cpp \
+	src/compiler_options.cpp \
+	src/parser.cpp \
 	src/token.cpp
 
 COMPILER_SOURCES := \
@@ -18,9 +23,10 @@ build:
 
 
 run:
-	@#-./$(EXENAME) samples/fibo.hp
+	@#-./$(EXENAME) samples/compiletime.hp
+	-./$(EXENAME) samples/fibo.hp
 	@#-./$(EXENAME) tests/token_test.hp
-	-./$(EXENAME) tests/crlf_test.hp
+	@#-./$(EXENAME) tests/crlf_test.hp
 
 
 run_debug:

@@ -77,7 +77,7 @@ b32 CheckLexingResult(Compiler_Context *compiler_ctx,
 s64 RunTest(const Test &test)
 {
     s64 failed = 0;
-    Compiler_Context compiler_ctx = { };
+    Compiler_Context compiler_ctx = NewCompilerContext();
 
     Open_File *file = OpenFile(&compiler_ctx, test.filename);
     if (file)

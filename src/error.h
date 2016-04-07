@@ -1,6 +1,7 @@
 #ifndef H_HPLANG_ERROR_H
 
 #include <cstdio>
+#include "token.h"
 
 namespace hplang
 {
@@ -22,8 +23,10 @@ struct Error_Context
     Compilation_Phase compilation_phase;
 };
 
-//void PrintError(File_Location *file_loc, const char *error);
-//void PrintError(Token *token, const char *error);
+void AddError(Error_Context *ctx, File_Location file_loc);
+
+void PrintFileLocation(FILE *file, File_Location file_loc);
+void PrintTokenValue(FILE *file, const Token *token);
 
 } // hplang
 

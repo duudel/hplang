@@ -64,8 +64,7 @@ int main(int argc, char **argv)
 
     const char *source = argv[1];
 
-    Compiler_Context compiler_ctx = { };
-    compiler_ctx.error_ctx.file = stderr;
+    Compiler_Context compiler_ctx = NewCompilerContext();
 
     Open_File *file = OpenFile(&compiler_ctx, source);
     Compile(&compiler_ctx, file);

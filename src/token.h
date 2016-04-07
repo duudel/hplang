@@ -6,7 +6,7 @@
 namespace hplang
 {
 
-enum TokenType
+enum Token_Type
 {
     TOK_Comment,
     TOK_Multiline_comment,
@@ -23,6 +23,7 @@ enum TokenType
     TOK_While,          // while
     TOK_Return,         // return
     TOK_Struct,         // struct
+    TOK_Null,           // null
 
     // TODO: Implement enums
 
@@ -39,9 +40,9 @@ enum TokenType
     TOK_Type_String,    // string
 
     TOK_Hash,           // #
-    TOK_DefineConst,    // ::
-    TOK_Define,         // :
-    TOK_DefineAssign,   // :=
+    TOK_ColonColon,     // ::
+    TOK_Colon,          // :
+    TOK_ColonAssign,    // :=
     TOK_Semicolon,      // ;
     TOK_Comma,          // ,
     TOK_Period,         // .
@@ -83,19 +84,22 @@ enum TokenType
 
     TOK_StarStar,       // **
 
+    TOK_EOF,            // Special token that is used to signal
+                        // end of token stream in the parser.
+
     TOK_COUNT
 };
 
 struct Token
 {
+    Token_Type type;
     const char *value;
     const char *value_end;
     File_Location file_loc;
 };
 
-enum {
-    DEFAULT_TOKEN_ARENA_SIZE = 4*4096
-};
+const char* TokenTypeToString(Token_Type type);
+
 
 struct Token_Arena
 {
@@ -104,12 +108,15 @@ struct Token_Arena
     const Token *end;
     Token *current;
 
+    Token_Arena *next_arena;
     Token_Arena *prev_arena;
 };
 
-Token_Arena* AllocateTokenArena(Token_Arena *arena, s64 token_count);
-void DeallocateTokenArena(Token_Arena *arena);
+Token_Arena* AllocateTokenArena(Token_Arena *arena);
+void FreeTokenArena(Token_Arena *arena);
 Token* PushToken(Token_Arena *arena);
+Token_Arena* RewindTokenArena(Token_Arena *arena);
+Token* GetNextToken(Token_Arena *arena);
 
 } // hplang
 

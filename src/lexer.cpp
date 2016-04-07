@@ -10,7 +10,7 @@ namespace hplang
 
 Lexer_Context NewLexerContext(Error_Context *error_ctx)
 {
-    Token_Arena *arena = AllocateTokenArena(nullptr, DEFAULT_TOKEN_ARENA_SIZE);
+    Token_Arena *arena = AllocateTokenArena(nullptr);
     Lexer_Context ctx = { };
     ctx.token_arena = arena;
     ctx.status = LEX_None;
@@ -20,78 +20,11 @@ Lexer_Context NewLexerContext(Error_Context *error_ctx)
     return ctx;
 }
 
-struct Token_Type_And_String
+void FreeLexerContext(Lexer_Context *ctx)
 {
-    TokenType type;
-    const char *str;
-};
+    FreeTokenArena(ctx->token_arena);
+}
 
-static Token_Type_And_String g_token_type_and_str[] = {
-    {TOK_Comment,           nullptr},
-    {TOK_Multiline_comment, nullptr},
-
-    {TOK_StringLit,         nullptr},
-    {TOK_CharLit,           nullptr},
-
-    {TOK_Identifier,        nullptr},
-
-    {TOK_Import,            "import"},
-    {TOK_If,                "if"},
-    {TOK_Else,              "else"},
-    {TOK_For,               "for"},
-    {TOK_While,             "while"},
-    {TOK_Return,            "return"},
-    {TOK_Struct,            "struct"},
-
-    {TOK_Type_Bool,         "bool"},
-    {TOK_Type_Char,         "char"},
-    {TOK_Type_S8,           "s8"},
-    {TOK_Type_U8,           "u8"},
-    {TOK_Type_S16,          "s16"},
-    {TOK_Type_U16,          "u16"},
-    {TOK_Type_S32,          "s32"},
-    {TOK_Type_U32,          "u32"},
-    {TOK_Type_S64,          "s64"},
-    {TOK_Type_U64,          "u64"},
-    {TOK_Type_String,       "string"},
-
-    {TOK_Hash,              "#"},
-    {TOK_DefineConst,       "::"},
-    {TOK_Define,            ":"},
-    {TOK_DefineAssign,      ":="},
-    {TOK_Semicolon,         ";"},
-    {TOK_Comma,             ","},
-    {TOK_Period,            "."},
-    {TOK_OpenBlock,         "{"},
-    {TOK_CloseBlock,        "}"},
-    {TOK_OpenParent,        "("},
-    {TOK_CloseParent,       ")"},
-    {TOK_OpenBracket,       "["},
-    {TOK_CloseBracket,      "]"},
-
-    {TOK_Eq,                "=="},
-    {TOK_NotEq,             "!="},
-    {TOK_Less,              "<"},
-    {TOK_LessEq,            "<="},
-    {TOK_Greater,           ">"},
-    {TOK_GreaterEq,         ">="},
-
-    {TOK_Plus,              "+"},
-    {TOK_Minus,             "-"},
-    {TOK_Star,              "*"},
-    {TOK_Slash,             "/"},
-
-    {TOK_Assign,            "="},
-    {TOK_PlusAssign,        "+="},
-    {TOK_MinusAssign,       "-="},
-    {TOK_StarAssign,        "*="},
-    {TOK_SlashAssign,       "/="},
-
-    {TOK_And,               "&&"},
-    {TOK_Or,                "||"},
-
-    {TOK_StarStar,          "**"},
-};
 
 enum LexerState
 {
@@ -133,6 +66,10 @@ enum LexerState
     LS_STR_impo,
     LS_STR_impor,
     LS_STR_import,
+    LS_STR_n,
+    LS_STR_nu,
+    LS_STR_nul,
+    LS_STR_null,
     LS_STR_r,
     LS_STR_re,
     LS_STR_ret,
@@ -238,12 +175,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_Default:
         switch (c)
         {
-            case ' ': case '\t':
-                fsm.state = LS_Junk;
-                break;
-            case '\r':
-                fsm.state = LS_Junk;
-                break;
+            case ' ': case '\t': case '\r':
             case '\n': case '\f': case '\v':
                 fsm.state = LS_Junk;
                 break;
@@ -289,7 +221,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'm':
                 fsm.state = LS_Ident; break;
             case 'n':
-                fsm.state = LS_Ident; break;
+                fsm.state = LS_STR_n; break;
             case 'o':
                 fsm.state = LS_Ident; break;
             case 'p':
@@ -433,6 +365,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_STR_for:
     case LS_STR_if:
     case LS_STR_import:
+    case LS_STR_null:
     case LS_STR_return:
     case LS_STR_string:
     case LS_STR_struct:
@@ -578,6 +511,30 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         {
             case 't':
                 fsm.state = LS_STR_import; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_n:
+        switch (c)
+        {
+            case 'u':
+                fsm.state = LS_STR_nu; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_nu:
+        switch (c)
+        {
+            case 'l':
+                fsm.state = LS_STR_nul; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_nul:
+        switch (c)
+        {
+            case 'l':
+                fsm.state = LS_STR_null; break;
             default:
                 fsm.state = LS_KW_end;
         } break;
@@ -933,26 +890,10 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     return fsm;
 }
 
-void PrintFileLocation(FILE *file, File_Location file_loc)
-{
-    fwrite(file_loc.filename.data, 1, file_loc.filename.size, file);
-    fprintf(file, ":%d:%d", file_loc.line, file_loc.column);
-}
-
-void PrintTokenValue(FILE *file, const Token *token)
-{
-    s64 size = token->value_end - token->value;
-    fwrite(token->value, 1, size, file);
-}
-
 void Error(Error_Context *ctx, File_Location file_loc,
             const char *message, const Token *token)
 {
-    ctx->error_count++;
-    if (ctx->error_count == 1)
-    {
-        ctx->first_error_loc = file_loc;
-    }
+    AddError(ctx, file_loc);
     if (!token)
     {
         PrintFileLocation(ctx->file, file_loc);
@@ -1040,11 +981,13 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
         }
         if (fsm.emit)
         {
-            //ctx->file_loc.column--;
             ctx->current_token.value_end = text + cur;
             //fprintf(stderr, "Token value: ");
             //PrintTokenValue(stderr, &ctx->current_token);
             //fprintf(stderr, "\n");
+
+            Token *token = PushToken(ctx->token_arena);
+            *token = ctx->current_token;
 
             fsm.emit = false;
             fsm.state = LS_Default;
