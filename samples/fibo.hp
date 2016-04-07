@@ -5,7 +5,7 @@ io :: import "io";
 import "io";
 
  Recursive Fibonacci function
-fibo :: (x : s64) : s64
+fibo :: (x : s64) : s64**
 {
     assert(x >= 0);
     if x == 0   return 0;
@@ -15,7 +15,7 @@ fibo :: (x : s64) : s64
 
 // Iterative Fibonacci function
 // (Uses type inference for the return type.)
-fibo2 :: (x : s64) // : s64
+fibo2 :: (x : s64*) // : s64
 {
     a := 0; // type of a and be will be inferred to be s64
     b := 1;

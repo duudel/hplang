@@ -123,24 +123,6 @@ struct Token_List
 void FreeTokenList(Token_List *tokens);
 Token* PushTokenList(Token_List *tokens);
 
-struct Token_Arena
-{
-    Pointer memory;
-    Token *begin;
-    const Token *end;
-    Token *current;
-    Token *it;
-
-    Token_Arena *next_arena;
-    Token_Arena *prev_arena;
-};
-
-Token_Arena* AllocateTokenArena(Token_Arena *arena);
-void FreeTokenArena(Token_Arena *arena);
-Token* PushToken(Token_Arena *arena);
-Token_Arena* RewindTokenArena(Token_Arena *arena);
-Token* GetNextToken(Token_Arena **arena);
-
 } // hplang
 
 #define H_HPLANG_TOKEN_H

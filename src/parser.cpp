@@ -74,8 +74,6 @@ static Token eof_token = { TOK_EOF };
 
 static const Token* GetNextToken(Parser_Context *ctx)
 {
-    //const Token *token = GetNextToken(ctx->tokens);
-    //return token ? token : &eof_token;
     if (ctx->current_token < ctx->tokens.count)
         return ctx->tokens.begin + ctx->current_token++;
     return &eof_token;
@@ -176,7 +174,7 @@ void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
 
 Ast_Node* ParseStmtBlock(Parser_Context *ctx)
 {
-    PushNode(ctx, AST_StmtBlock, GetCurrentToken(ctx));
+    Ast_Node *block_node = PushNode(ctx, AST_StmtBlock, GetCurrentToken(ctx));
     Expect(ctx, TOK_OpenBlock);
     do
     {
@@ -186,6 +184,7 @@ Ast_Node* ParseStmtBlock(Parser_Context *ctx)
             break;
         }
     } while (true);
+    return block_node;
 }
 
 Ast_Node* ParseType(Parser_Context *ctx)
@@ -197,7 +196,7 @@ Ast_Node* ParseType(Parser_Context *ctx)
         case TOK_OpenParent:
             {
                 GetNextToken(ctx);
-                Ast_Node *type_node = ParseType(ctx);
+                type_node = ParseType(ctx);
                 Expect(ctx, TOK_CloseParent);
             } break;
 
@@ -214,7 +213,7 @@ Ast_Node* ParseType(Parser_Context *ctx)
         case TOK_Type_U64:
             {
                 GetNextToken(ctx);
-                Ast_Node *type_node = PushNode(ctx, AST_Type_Plain, token);
+                type_node = PushNode(ctx, AST_Type_Plain, token);
             } break;
     }
     if (!type_node)
@@ -241,6 +240,7 @@ Ast_Node* ParseType(Parser_Context *ctx)
             while (token->type == TOK_Star)
             {
                 array_node->type_node.array.array++;
+
                 GetNextToken(ctx);
                 Expect(ctx, TOK_CloseBracket);
                 token = GetNextToken(ctx);
