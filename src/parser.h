@@ -14,7 +14,9 @@ struct Parser_Context
 {
     Memory_Arena arena;
     Ast_Node *ast_root;
-    Token_Arena *tokens;
+
+    s64 current_token;
+    Token_List tokens;
 
     Error_Context *error_ctx;
 
@@ -22,24 +24,13 @@ struct Parser_Context
 };
 
 Parser_Context NewParserContext(
-        Memory_Arena *parser_arena,
-        Token_Arena *tokens,
-        Error_Context *err_ctx);
+        Token_List tokens,
+        Error_Context *error_ctx,
+        Compiler_Options *options);
 
 void FreeParserContext(Parser_Context *ctx);
 
-//b32 Parse(Parser_Context *parser_ctx)
-//{
-//    Token *token = GetNextToken(parser_ctx->tokens);
-//    while (token)
-//    {
-//        switch (token->type)
-//        {
-//        case TOK_Identifier:
-//            Parse
-//        }
-//    }
-//}
+b32 Parse(Parser_Context *ctx);
 
 } // hplang
 

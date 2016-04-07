@@ -1,6 +1,7 @@
 
 #include "compiler.h"
 #include "lexer.h"
+#include "parser.h"
 
 #include <cstdio>
 
@@ -68,7 +69,14 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
     if (ctx->error_ctx.error_count != 0)
         return false;
 
-    // parsing
+    ctx->error_ctx.compilation_phase = COMP_Parsing;
+
+    Parser_Context parser_ctx = NewParserContext(
+            lexer_ctx.tokens, &ctx->error_ctx, &ctx->options);
+
+    Parse(&parser_ctx);
+    if (ctx->error_ctx.error_count != 0)
+        return false;
 
     // semantic checking
 

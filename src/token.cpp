@@ -17,6 +17,8 @@ static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_Comment,           "comment"},
     {TOK_Multiline_comment, "multiline comment"},
 
+    {TOK_IntegerLit,        "integer literal"},
+    {TOK_FloatLit,          "floating point literal"},
     {TOK_StringLit,         "string literal"},
     {TOK_CharLit,           "character literal"},
 
@@ -69,14 +71,23 @@ static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_Star,              "*"},
     {TOK_Slash,             "/"},
 
-    {TOK_Bang,              "!"},
-
     {TOK_Assign,            "="},
     {TOK_PlusAssign,        "+="},
     {TOK_MinusAssign,       "-="},
     {TOK_StarAssign,        "*="},
     {TOK_SlashAssign,       "/="},
 
+    {TOK_Ampersand,         "&"},
+    {TOK_Pipe,              "|"},
+    {TOK_Hat,               "^"},
+    {TOK_Tilde,             "~"},
+
+    {TOK_AmpAssign,         "&="},
+    {TOK_PipeAssign,        "|="},
+    {TOK_HatAssign,         "^="},
+    {TOK_TildeAssign,       "~="},
+
+    {TOK_Bang,              "!"},
     {TOK_And,               "&&"},
     {TOK_Or,                "||"},
 
@@ -93,6 +104,37 @@ const char* TokenTypeToString(Token_Type type)
 enum {
     DEFAULT_ARENA_TOKEN_COUNT = 4 * 4096
 };
+
+void FreeTokenList(Token_List *tokens)
+{
+    Free(tokens->memory);
+}
+
+b32 GrowTokenList(Token_List *tokens)
+{
+    s64 new_size = tokens->memory.size + DEFAULT_ARENA_TOKEN_COUNT * sizeof(Token);
+    Pointer new_memory = Realloc(tokens->memory, new_size);
+    if (!new_memory.ptr) return false;
+
+    tokens->memory = new_memory;
+    tokens->begin = (Token*)tokens->memory.ptr;
+    tokens->end = tokens->begin;
+    return true;
+}
+
+Token* PushTokenList(Token_List *tokens)
+{
+    Token *memory_end = (Token*)((char*)tokens->memory.ptr + tokens->memory.size);
+    if (tokens->end >= memory_end)
+    {
+        if (!GrowTokenList(tokens))
+            return nullptr;
+    }
+    Token *result = tokens->end;
+    tokens->end++;
+    tokens->count = tokens->end - tokens->begin;
+    return result;
+}
 
 Token_Arena* AllocateTokenArena(Token_Arena *arena)
 {
@@ -144,6 +186,7 @@ Token_Arena* RewindTokenArena(Token_Arena *arena)
     Token_Arena *it = arena;
     while (it)
     {
+        it->it = it->begin; // NOTE(henrik): Set the iterator to the begin
         Token_Arena *prev_arena = it->prev_arena;
         arena = it;
         it = prev_arena;
@@ -151,8 +194,15 @@ Token_Arena* RewindTokenArena(Token_Arena *arena)
     return arena;
 }
 
-Token* GetNextToken(Token_Arena *arena)
+Token* GetNextToken(Token_Arena **arena)
 {
+    Token_Arena *a = *arena;
+    if (a->it >= a->end)
+    {
+        a = a->next_arena;
+        if (!a)
+            return nullptr;
+    }
 }
 
 } // hplang

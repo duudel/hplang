@@ -79,9 +79,31 @@ enum Ast_Assignment_Op
 struct Token;
 struct Ast_Node;
 
-struct Ast_IntLiteral
+struct Ast_Node_List
+{
+    s64 capacity;
+    s64 node_count;
+    Ast_Node **nodes;
+};
+
+struct Ast_Int_Literal
 {
     s64 value;
+};
+
+struct Ast_Float_Literal
+{
+    f64 value;
+};
+
+struct Ast_Char_Literal
+{
+    char value;
+};
+
+struct Ast_String_Literal
+{
+    String value;
 };
 
 struct Ast_Binary_Expr
@@ -99,7 +121,10 @@ struct Ast_Unary_Expr
 struct Ast_Expression
 {
     union {
-        Ast_IntLiteral      int_literal;
+        Ast_Int_Literal     int_literal;
+        Ast_Float_Literal   float_literal;
+        Ast_Char_Literal    char_literal;
+        Ast_String_Literal  string_literal;
         Ast_Binary_Expr     binary_expr;
         Ast_Unary_Expr      unary_expr;
     };
@@ -121,11 +146,18 @@ struct Ast_Import
     const Token *module_name;
 };
 
-struct Ast_Node_List
+struct Ast_Function
 {
-    s64 capacity;
-    s64 node_count;
-    Ast_Node **nodes;
+    const Token *name;
+    Ast_Node_List parameters;
+    Ast_Node *return_type;
+    Ast_Node *body;
+};
+
+struct Ast_Parameter
+{
+    const Token *name;
+    Ast_Node *type;
 };
 
 struct Ast_Node
@@ -134,6 +166,8 @@ struct Ast_Node
     union {
         Ast_Node_List   node_list;
         Ast_Import      import;
+        Ast_Function    function;
+        Ast_Parameter   parameter;
         Ast_Assignment  assignment;
         Ast_Expression  expression;
     };

@@ -14,11 +14,12 @@ static b32 GrowNodeList(Ast_Node_List *nodes)
         new_capacity = nodes->capacity + nodes->capacity / 2;
     Pointer nodes_p;
     nodes_p.ptr = nodes->nodes;
-    nodes_p.size = nodes->capacity * sizeof(Ast_Node);
+    nodes_p.size = nodes->capacity * sizeof(Ast_Node*);
     nodes_p = Realloc(nodes_p, new_capacity);
     if (nodes_p.ptr)
     {
-
+        nodes->capacity = new_capacity;
+        nodes->nodes = (Ast_Node**)nodes_p.ptr;
         return true;
     }
     return false;

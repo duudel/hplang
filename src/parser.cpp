@@ -5,10 +5,15 @@
 namespace hplang
 {
 
-Parser_Context NewParserContext(Token_Arena *tokens)
+Parser_Context NewParserContext(
+        Token_List tokens,
+        Error_Context *error_ctx,
+        Compiler_Options *options)
 {
     Parser_Context ctx = { };
     ctx.tokens = tokens;
+    ctx.error_ctx = error_ctx;
+    ctx.options = options;
     return ctx;
 }
 
@@ -36,7 +41,7 @@ static void Error(Parser_Context *ctx, File_Location file_loc,
         PrintFileLocation(ctx->error_ctx->file, file_loc);
         fprintf(ctx->error_ctx->file, ": %s '", message);
         PrintTokenValue(ctx->error_ctx->file, token);
-        fprintf(ctx->error_ctx->file, "' (%i)\n", token->value[0]);
+        fprintf(ctx->error_ctx->file, "'\n");
     }
 }
 
@@ -68,14 +73,18 @@ static Token eof_token = { TOK_EOF };
 
 static const Token* GetNextToken(Parser_Context *ctx)
 {
-    const Token *token = GetNextToken(ctx->tokens);
-    return token ? token : &eof_token;
+    //const Token *token = GetNextToken(ctx->tokens);
+    //return token ? token : &eof_token;
+    if (ctx->current_token < ctx->tokens.count)
+        return ctx->tokens.begin + ctx->current_token++;
+    return &eof_token;
 }
 
 static const Token* GetCurrentToken(Parser_Context *ctx)
 {
-    const Token *token = ctx->tokens->current;
-    return token ? token : &eof_token;
+    if (ctx->current_token < ctx->tokens.count)
+        return ctx->tokens.begin + ctx->current_token;
+    return &eof_token;
 }
 
 static b32 Accept(Parser_Context *ctx, Token_Type token_type)
@@ -127,10 +136,14 @@ b32 Parse(Parser_Context *ctx)
         case TOK_Identifier:
             ParseTopLevelIdentifier(ctx, token, ctx->ast_root);
             break;
-
         case TOK_EOF:
             break;
+        default:
+            Error(ctx, token->file_loc, "Unexpected token", token);
+            fprintf(ctx->error_ctx->file, "TOK(%s)\n", TokenTypeToString(token->type));
         }
+        if (token->type == TOK_EOF)
+            break;
         token = GetNextToken(ctx);
     }
 }
@@ -160,17 +173,46 @@ void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
     Expect(ctx, TOK_Semicolon);
 }
 
-void ParseTopLevelIdentifier(Parser_Context *ctx, const Token *ident, Ast_Node *node)
+Ast_Node* ParseStmtBlock(Parser_Context *ctx)
+{
+    PushNode(ctx, AST_StmtBlock, GetCurrentToken(ctx));
+    Expect(ctx, TOK_OpenBlock);
+    do
+    {
+        if (Accept(ctx, TOK_CloseBlock)) break;
+        else
+        {
+            break;
+        }
+    } while (true);
+}
+
+void ParseFunction(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
+{
+    Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
+    Expect(ctx, TOK_CloseParent);
+    if (Accept(ctx, TOK_Colon))
+    {
+        //ParseType(ctx, func_def);
+    }
+    Ast_Node *block = ParseStmtBlock(ctx);
+    if (block)
+    {
+        func_def->function.body = block;
+    }
+}
+
+void ParseTopLevelIdentifier(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
 {
     if (Accept(ctx, TOK_ColonColon))
     {
-        const Token *token = GetCurrentToken(ctx);
-        switch (token->type)
+        if (Accept(ctx, TOK_Import))
         {
-        case TOK_Import:
-            ParseImport(ctx, ident, node);
-            break;
-        // Other cases
+            ParseImport(ctx, ident_tok, node);
+        }
+        else if (Accept(ctx, TOK_OpenParent))
+        {
+            ParseFunction(ctx, ident_tok, node);
         }
     }
 }

@@ -17,9 +17,8 @@ enum Lexer_Status
 
 struct Lexer_Context
 {
-    Token_Arena *token_arena;
-    s64 token_count;
-    Token *tokens;
+    //Token_Arena *token_arena;
+    Token_List tokens;
 
     s64 current;
     s64 state;

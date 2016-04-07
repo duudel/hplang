@@ -1,6 +1,7 @@
 
 #include "lexer.h"
 #include "error.h"
+#include "assert.h"
 
 #include <cstdio> // TODO(henrik): remove direct dependency to stdio
 #include <cctype>
@@ -10,9 +11,10 @@ namespace hplang
 
 Lexer_Context NewLexerContext(Error_Context *error_ctx)
 {
-    Token_Arena *arena = AllocateTokenArena(nullptr);
+    //Token_Arena *arena = AllocateTokenArena(nullptr);
     Lexer_Context ctx = { };
-    ctx.token_arena = arena;
+    //ctx.token_arena = arena;
+    ctx.tokens = { };
     ctx.status = LEX_None;
     ctx.file_loc.line = 1;
     ctx.file_loc.column = 1;
@@ -22,11 +24,12 @@ Lexer_Context NewLexerContext(Error_Context *error_ctx)
 
 void FreeLexerContext(Lexer_Context *ctx)
 {
-    FreeTokenArena(ctx->token_arena);
+    //FreeTokenArena(ctx->token_arena);
+    FreeTokenList(&ctx->tokens);
 }
 
 
-enum LexerState
+enum Lexer_State
 {
     LS_Default,
     LS_Int,
@@ -138,14 +141,21 @@ enum LexerState
     LS_StarAssign,      // *=
     LS_SlashAssign,     // /=
 
-    LS_And,             // &
-    LS_AndAnd,          // &&
-    LS_Or,              // |
-    LS_OrOr,            // ||
+    LS_Ampersand,       // &
+    LS_AmpAmp,          // &&
+    LS_Pipe,            // |
+    LS_PipePipe,        // ||
+    LS_Hat,             // ^
+    LS_Tilde,           // ~
 
-    LS_Comment,         // //
-    LS_MultilineComment, // /*
-    LS_MultilineCommentStar, // *
+    LS_AmpAssign,       // &=
+    LS_PipeAssign,      // |=
+    LS_HatAssign,       // ^=
+    LS_TildeAssign,     // ~=
+
+    LS_Comment,
+    LS_MultilineComment,
+    LS_MultilineCommentStar,
 
     LS_Invalid, // Give error
     LS_Junk,    // Discard
@@ -155,7 +165,7 @@ enum LexerState
 
 struct FSM
 {
-    LexerState state;
+    Lexer_State state;
     b32 emit;
     b32 done;
     b32 carriage_return;
@@ -165,7 +175,8 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
 {
     if (c == 0)
     {
-        fsm.emit = true;
+        if (fsm.state != LS_Default)
+            fsm.emit = true;
         fsm.done = true;
         return fsm;
     }
@@ -286,9 +297,13 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '/':
                 fsm.state = LS_Slash; break;
             case '&':
-                fsm.state = LS_And; break;
+                fsm.state = LS_Ampersand; break;
             case '|':
-                fsm.state = LS_Or; break;
+                fsm.state = LS_Pipe; break;
+            case '^':
+                fsm.state = LS_Hat; break;
+            case '~':
+                fsm.state = LS_Tilde; break;
 
             default:
                 fsm.state = LS_Invalid;
@@ -830,19 +845,39 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             default:
                 fsm.emit = true;
         } break;
-    case LS_And:
+    case LS_Ampersand:
         switch (c)
         {
+            case '=':
+                fsm.state = LS_AmpAssign; break;
             case '&':
-                fsm.state = LS_AndAnd; break;
+                fsm.state = LS_AmpAmp; break;
             default:
                 fsm.emit = true;
         } break;
-    case LS_Or:
+    case LS_Pipe:
         switch (c)
         {
+            case '=':
+                fsm.state = LS_PipeAssign; break;
             case '|':
-                fsm.state = LS_OrOr; break;
+                fsm.state = LS_PipePipe; break;
+            default:
+                fsm.emit = true;
+        } break;
+    case LS_Hat:
+        switch (c)
+        {
+            case '=':
+                fsm.state = LS_HatAssign; break;
+            default:
+                fsm.emit = true;
+        } break;
+    case LS_Tilde:
+        switch (c)
+        {
+            case '=':
+                fsm.state = LS_TildeAssign; break;
             default:
                 fsm.emit = true;
         } break;
@@ -855,8 +890,12 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_MinusAssign:
     case LS_StarAssign:
     case LS_SlashAssign:
-    case LS_AndAnd:
-    case LS_OrOr:
+    case LS_AmpAssign:
+    case LS_PipeAssign:
+    case LS_HatAssign:
+    case LS_TildeAssign:
+    case LS_AmpAmp:
+    case LS_PipePipe:
         fsm.emit = true;
         break;
 
@@ -906,6 +945,270 @@ void Error(Error_Context *ctx, File_Location file_loc,
         PrintTokenValue(ctx->file, token);
         fprintf(ctx->file, "' (%i)\n", token->value[0]);
     }
+}
+
+void EmitToken(Lexer_Context *ctx, Lexer_State state)
+{
+    switch (state)
+    {
+        case LS_Default:
+            ASSERT(0); break;
+
+        case LS_Int:
+            ctx->current_token.type = TOK_IntegerLit; break;
+        case LS_Float:
+            ctx->current_token.type = TOK_FloatLit; break;
+        case LS_FloatF:
+            ctx->current_token.type = TOK_FloatLit; break;
+        case LS_FloatD:
+            ctx->current_token.type = TOK_FloatLit; break;
+
+        case LS_StringLit:
+        case LS_StringLitEsc:
+            ASSERT(0); break;
+
+        case LS_StringLitEnd:
+            ctx->current_token.type = TOK_StringLit; break;
+
+        case LS_CharLit:
+        case LS_CharLitEsc:
+            ASSERT(0); break;
+
+        case LS_CharLitEnd:
+            ctx->current_token.type = TOK_CharLit; break;
+
+        case LS_KW_end:
+        case LS_Ident:
+            ctx->current_token.type = TOK_Identifier; break;
+
+        case LS_STR_b:
+        case LS_STR_bo:
+        case LS_STR_boo:
+            ASSERT(0); break;
+
+        case LS_STR_bool:
+            ctx->current_token.type = TOK_Type_Bool; break;
+
+        case LS_STR_c:
+        case LS_STR_ch:
+        case LS_STR_cha:
+            ASSERT(0); break;
+
+        case LS_STR_char:
+            ctx->current_token.type = TOK_Type_Char; break;
+
+        case LS_STR_e:
+        case LS_STR_el:
+        case LS_STR_els:
+            ASSERT(0); break;
+
+        case LS_STR_else:
+            ctx->current_token.type = TOK_Else; break;
+
+        case LS_STR_f:
+        case LS_STR_fo:
+            ASSERT(0); break;
+
+        case LS_STR_for:
+            ctx->current_token.type = TOK_For; break;
+
+        case LS_STR_i:
+            ASSERT(0); break;
+
+        case LS_STR_if:
+            ctx->current_token.type = TOK_If; break;
+
+        case LS_STR_im:
+        case LS_STR_imp:
+        case LS_STR_impo:
+        case LS_STR_impor:
+            ASSERT(0); break;
+
+        case LS_STR_import:
+            ctx->current_token.type = TOK_Import; break;
+
+        case LS_STR_n:
+        case LS_STR_nu:
+        case LS_STR_nul:
+            ASSERT(0); break;
+
+        case LS_STR_null:
+            ctx->current_token.type = TOK_Null; break;
+
+        case LS_STR_r:
+        case LS_STR_re:
+        case LS_STR_ret:
+        case LS_STR_retu:
+        case LS_STR_retur:
+            ASSERT(0); break;
+
+        case LS_STR_return:
+            ctx->current_token.type = TOK_Return; break;
+
+        case LS_STR_s:
+        case LS_STR_st:
+        case LS_STR_str:
+        case LS_STR_stri:
+        case LS_STR_strin:
+            ASSERT(0); break;
+
+        case LS_STR_string:
+            ctx->current_token.type = TOK_Type_String; break;
+
+        case LS_STR_stru:
+        case LS_STR_struc:
+            ASSERT(0); break;
+
+        case LS_STR_struct:
+            ctx->current_token.type = TOK_Struct; break;
+
+        case LS_STR_s8:
+            ctx->current_token.type = TOK_Type_S8; break;
+
+        case LS_STR_s1:
+            ASSERT(0); break;
+
+        case LS_STR_s16:
+            ctx->current_token.type = TOK_Type_S16; break;
+
+        case LS_STR_s3:
+            ASSERT(0); break;
+
+        case LS_STR_s32:
+            ctx->current_token.type = TOK_Type_S32; break;
+
+        case LS_STR_s6:
+            ASSERT(0); break;
+
+        case LS_STR_s64:
+            ctx->current_token.type = TOK_Type_S64; break;
+
+        case LS_STR_u:
+            ASSERT(0); break;
+
+        case LS_STR_u8:
+            ctx->current_token.type = TOK_Type_U8; break;
+
+        case LS_STR_u1:
+            ASSERT(0); break;
+
+        case LS_STR_u16:
+            ctx->current_token.type = TOK_Type_U16; break;
+
+        case LS_STR_u3:
+            ASSERT(0); break;
+
+        case LS_STR_u32:
+            ctx->current_token.type = TOK_Type_U32; break;
+
+        case LS_STR_u6:
+            ASSERT(0); break;
+
+        case LS_STR_u64:
+            ctx->current_token.type = TOK_Type_U64; break;
+
+        case LS_STR_w:
+        case LS_STR_wh:
+        case LS_STR_whi:
+        case LS_STR_whil:
+            ASSERT(0); break;
+
+        case LS_STR_while:
+            ctx->current_token.type = TOK_While; break;
+
+        case LS_Hash:
+            ctx->current_token.type = TOK_Hash; break;
+        case LS_Colon:
+            ctx->current_token.type = TOK_Colon; break;
+        case LS_ColonColon:
+            ctx->current_token.type = TOK_ColonColon; break;
+        case LS_Semicolon:
+            ctx->current_token.type = TOK_Semicolon; break;
+        case LS_Comma:
+            ctx->current_token.type = TOK_Comma; break;
+        case LS_Period:
+            ctx->current_token.type = TOK_Period; break;
+        case LS_OpenBlock:
+            ctx->current_token.type = TOK_OpenBlock; break;
+        case LS_CloseBlock:
+            ctx->current_token.type = TOK_CloseBlock; break;
+        case LS_OpenParent:
+            ctx->current_token.type = TOK_OpenParent; break;
+        case LS_CloseParent:
+            ctx->current_token.type = TOK_CloseParent; break;
+        case LS_OpenBracket:
+            ctx->current_token.type = TOK_OpenBracket; break;
+        case LS_CloseBracket:
+            ctx->current_token.type = TOK_CloseBracket; break;
+
+        case LS_Eq:
+            ctx->current_token.type = TOK_Assign; break;
+        case LS_EqEq:
+            ctx->current_token.type = TOK_Eq; break;
+        case LS_Bang:
+            ctx->current_token.type = TOK_Bang; break;
+        case LS_NotEq:
+            ctx->current_token.type = TOK_NotEq; break;
+        case LS_Less:
+            ctx->current_token.type = TOK_Less; break;
+        case LS_LessEq:
+            ctx->current_token.type = TOK_LessEq; break;
+        case LS_Greater:
+            ctx->current_token.type = TOK_Greater; break;
+        case LS_GreaterEq:
+            ctx->current_token.type = TOK_GreaterEq; break;
+
+        case LS_Plus:
+            ctx->current_token.type = TOK_Plus; break;
+        case LS_Minus:
+            ctx->current_token.type = TOK_Minus; break;
+        case LS_Star:
+            ctx->current_token.type = TOK_Star; break;
+        case LS_Slash:
+            ctx->current_token.type = TOK_Slash; break;
+
+        case LS_PlusAssign:
+            ctx->current_token.type = TOK_PlusAssign; break;
+        case LS_MinusAssign:
+            ctx->current_token.type = TOK_MinusAssign; break;
+        case LS_StarAssign:
+            ctx->current_token.type = TOK_StarAssign; break;
+        case LS_SlashAssign:
+            ctx->current_token.type = TOK_SlashAssign; break;
+
+        case LS_Ampersand:
+            ctx->current_token.type = TOK_Ampersand; break;
+        case LS_AmpAmp:
+            ctx->current_token.type = TOK_And; break;
+        case LS_Pipe:
+            ctx->current_token.type = TOK_Pipe; break;
+        case LS_PipePipe:
+            ctx->current_token.type = TOK_Or; break;
+        case LS_Hat:
+            ctx->current_token.type = TOK_Hat; break;
+        case LS_Tilde:
+            ctx->current_token.type = TOK_Tilde; break;
+
+        case LS_AmpAssign:
+            ctx->current_token.type = TOK_AmpAssign; break;
+        case LS_PipeAssign:
+            ctx->current_token.type = TOK_PipeAssign; break;
+        case LS_HatAssign:
+            ctx->current_token.type = TOK_HatAssign; break;
+        case LS_TildeAssign:
+            ctx->current_token.type = TOK_TildeAssign; break;
+
+        case LS_Comment:
+        case LS_MultilineComment:
+        case LS_MultilineCommentStar:
+
+        case LS_Invalid:
+        case LS_Junk:
+        default:
+            ASSERT(0);
+    }
+    Token *token = PushTokenList(&ctx->tokens);
+    *token = ctx->current_token;
 }
 
 void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
@@ -986,8 +1289,7 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
             //PrintTokenValue(stderr, &ctx->current_token);
             //fprintf(stderr, "\n");
 
-            Token *token = PushToken(ctx->token_arena);
-            *token = ctx->current_token;
+            EmitToken(ctx, fsm.state);
 
             fsm.emit = false;
             fsm.state = LS_Default;

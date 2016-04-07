@@ -1,12 +1,15 @@
 // hplang - Fibonacci sample
 // 2016-03-31
 
+io :: import "io";
+import "io";
+
 // Recursive Fibonacci function
-fibo :: (x : s64) : s64
-{
-    assert(x >= 0);
-    return (x in 0..1) ? 1 : fibo(x - 1) + fibo(x - 2);
-}
+//fibo :: (x : s64) : s64
+//{
+//    assert(x >= 0);
+//    return (x in 0..1) ? 1 : fibo(x - 1) + fibo(x - 2);
+//}
 
 // Iterative Fibonacci function
 // (Uses type inference for the return type.)

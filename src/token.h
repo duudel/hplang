@@ -11,6 +11,8 @@ enum Token_Type
     TOK_Comment,
     TOK_Multiline_comment,
 
+    TOK_IntegerLit,
+    TOK_FloatLit,
     TOK_StringLit,      // "xyz"
     TOK_CharLit,        // 'x'
 
@@ -71,8 +73,17 @@ enum Token_Type
     TOK_StarAssign,     // *=
     TOK_SlashAssign,    // /=
 
-    TOK_Bang,           // !
+    TOK_Ampersand,      // &
+    TOK_Pipe,           // |
+    TOK_Hat,            // ^
+    TOK_Tilde,          // ~
 
+    TOK_AmpAssign,      // &=
+    TOK_PipeAssign,     // |=
+    TOK_HatAssign,      // ^=
+    TOK_TildeAssign,    // ~=
+
+    TOK_Bang,           // !
     TOK_And,            // &&
     TOK_Or,             // ||
 
@@ -101,12 +112,24 @@ struct Token
 const char* TokenTypeToString(Token_Type type);
 
 
+struct Token_List
+{
+    Pointer memory;
+    Token *begin;
+    Token *end;
+    s64 count;
+};
+
+void FreeTokenList(Token_List *tokens);
+Token* PushTokenList(Token_List *tokens);
+
 struct Token_Arena
 {
     Pointer memory;
     Token *begin;
     const Token *end;
     Token *current;
+    Token *it;
 
     Token_Arena *next_arena;
     Token_Arena *prev_arena;
@@ -116,7 +139,7 @@ Token_Arena* AllocateTokenArena(Token_Arena *arena);
 void FreeTokenArena(Token_Arena *arena);
 Token* PushToken(Token_Arena *arena);
 Token_Arena* RewindTokenArena(Token_Arena *arena);
-Token* GetNextToken(Token_Arena *arena);
+Token* GetNextToken(Token_Arena **arena);
 
 } // hplang
 
