@@ -1,6 +1,7 @@
 
 #include "parser.h"
 #include "error.h"
+#include "assert.h"
 
 namespace hplang
 {
@@ -187,13 +188,113 @@ Ast_Node* ParseStmtBlock(Parser_Context *ctx)
     } while (true);
 }
 
+Ast_Node* ParseType(Parser_Context *ctx)
+{
+    const Token *token = GetCurrentToken(ctx);
+    Ast_Node *type_node = nullptr;
+    switch (token->type)
+    {
+        case TOK_OpenParent:
+            {
+                GetNextToken(ctx);
+                Ast_Node *type_node = ParseType(ctx);
+                Expect(ctx, TOK_CloseParent);
+            } break;
+
+        case TOK_Type_Bool:
+        case TOK_Type_Char:
+        case TOK_Type_String:
+        case TOK_Type_S8:
+        case TOK_Type_S16:
+        case TOK_Type_S32:
+        case TOK_Type_S64:
+        case TOK_Type_U8:
+        case TOK_Type_U16:
+        case TOK_Type_U32:
+        case TOK_Type_U64:
+            {
+                GetNextToken(ctx);
+                Ast_Node *type_node = PushNode(ctx, AST_Type_Plain, token);
+            } break;
+    }
+    if (!type_node)
+        return nullptr;
+    while (true)
+    {
+        const Token *token = GetCurrentToken(ctx);
+        if (token->type == TOK_Star)
+        {
+            Ast_Node *pointer_node = PushNode(ctx, AST_Type_Pointer, token);
+            while (token->type == TOK_Star)
+            {
+                pointer_node->type_node.pointer.indirection++;
+                token = GetNextToken(ctx);
+            }
+            pointer_node->type_node.pointer.base_type = type_node;
+            type_node = pointer_node;
+        }
+        else if (token->type == TOK_OpenBracket)
+        {
+            Ast_Node *array_node = PushNode(ctx, AST_Type_Array, token);
+            GetNextToken(ctx);
+            Expect(ctx, TOK_CloseBracket);
+            while (token->type == TOK_Star)
+            {
+                array_node->type_node.array.array++;
+                GetNextToken(ctx);
+                Expect(ctx, TOK_CloseBracket);
+                token = GetNextToken(ctx);
+            }
+            array_node->type_node.array.base_type = type_node;
+            type_node = array_node;
+        }
+        else
+        {
+            break;
+        }
+    }
+    return type_node;
+}
+
+void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
+{
+    ASSERT(func_def->type == AST_FunctionDef);
+    do
+    {
+        const Token *token = GetCurrentToken(ctx);
+        if (token->type == TOK_Identifier)
+        {
+            GetNextToken(ctx);
+            Ast_Node *param_node = PushNode(ctx, AST_Parameter, token);
+            param_node->parameter.name = token;
+
+            Expect(ctx, TOK_Colon);
+            Ast_Node *type_node = ParseType(ctx);
+            param_node->parameter.type = type_node;
+
+            PushNodeList(&func_def->function.parameters, param_node);
+        }
+        else if (token->type == TOK_CloseParent)
+        {
+            break;
+        }
+        else
+        {
+            Error(ctx, token->file_loc, "Expected parameter name, got", token);
+        }
+    } while (Accept(ctx, TOK_Comma) && ContinueParsing(ctx));
+}
+
 void ParseFunction(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
 {
     Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
+    ParseParameters(ctx, func_def);
     Expect(ctx, TOK_CloseParent);
     if (Accept(ctx, TOK_Colon))
     {
-        //ParseType(ctx, func_def);
+        // NOTE(henrik): the return type node can be nullptr
+        Ast_Node *return_type = ParseType(ctx);
+        func_def->function.return_type = return_type;
     }
     Ast_Node *block = ParseStmtBlock(ctx);
     if (block)

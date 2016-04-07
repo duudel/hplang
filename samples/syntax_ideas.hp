@@ -10,7 +10,7 @@
 // was a keyword, and dealing with that in the lexer is not ideal (IMHO).
 // There still is a problem though: what to do if we want to have have
 // namespace for the module?
-import "io";    
+import "io";
 
 import if; // Would be problematic
 
@@ -28,6 +28,26 @@ wh :: import "while"    // named import
 wh.something();
 
 // Problem solved! (parsing is a bit more tedious, but meh :)
+
+
+// -- Types
+variable : s64;
+func :: () : u64;
+
+array : s64[];
+str_array : string[];
+arr : *s8[][]   // array of array of pointers to s8
+arr[0]  §       // type is *s8[]
+arr[1][5]       // type is *s8
+
+// Which one of these syntaxes is better?
+array : s64*[]; // pointer to array of s64
+array : *(s64[]); // pointer to array of s64
+
+s64*[] == ((s64)*)[]
+
+s64**[] == ((s64)**)[] == (s64**)[]
+
 
 
 // -- Data type definition syntax
@@ -66,6 +86,21 @@ Ast_Node :: struct
         Ast_BinExpr bin;
     }
 }
+
+
+// -- for loops
+for i := 0..10      // should the range end be inclusive?
+    print("i = %d", i);
+
+for 0..10
+    print("it = %d, it); // Automatically defined iterator variable "it".
+
+half := 2;
+for -half..half
+    print("%d ", it);   // Prints "-2 -1 0 1 2"
+
+for (i := 1; i <= 10; i += 1) // maybe this should also be supported?
+    print("%d ", i);
 
 
 my_vector :: struct

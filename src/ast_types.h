@@ -14,6 +14,12 @@ enum Ast_Type
     AST_FunctionDef,    // <ident> :: (<param_list>) : <type> {<stmt_block>}
     AST_StructDef,      // <ident> :: struct {<struct_body>}
 
+    AST_Parameter,
+
+    AST_Type_Plain,
+    AST_Type_Pointer,
+    AST_Type_Array,
+
     AST_StructBody,
     AST_StmtBlock,
     AST_AssignStmt,     // <ident> = <expr>
@@ -154,6 +160,33 @@ struct Ast_Function
     Ast_Node *body;
 };
 
+struct Ast_Type_Node
+{
+    /*enum Kind
+    {
+        Kind_Pointer,
+        Kind_Array,
+        Kind_Plain
+    };
+    Kind kind;*/
+    struct Pointer {
+        s64 indirection;
+        Ast_Node *base_type;
+    };
+    struct Array {
+        s64 array;
+        Ast_Node *base_type;
+    };
+    struct Plain {
+        // uses Ast_Node::token
+    };
+    union {
+        Pointer pointer;
+        Array array;
+        Plain plain;
+    };
+};
+
 struct Ast_Parameter
 {
     const Token *name;
@@ -170,6 +203,7 @@ struct Ast_Node
         Ast_Parameter   parameter;
         Ast_Assignment  assignment;
         Ast_Expression  expression;
+        Ast_Type_Node   type_node;
     };
     const Token *token;
 };
