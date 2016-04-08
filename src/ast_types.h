@@ -21,8 +21,14 @@ enum Ast_Type
     AST_Type_Array,
 
     AST_StructBody,
+    // struct field and stuff
+
     AST_StmtBlock,
-    AST_AssignStmt,     // <ident> = <expr>
+    AST_IfStmt,
+    AST_ForStmt,
+    AST_WhileStmt,
+    AST_ReturnStmt,
+    AST_AssignStmt,     // <lvalue-expr> = <rvalue-expr>
     AST_ExpressionStmt,
     AST_Expression,
 
@@ -148,7 +154,7 @@ struct Ast_Import
     // import "module_name";
     // or
     // name :: import "module_name";
-    const Token *name;
+    const Token *name;  // NOTE(henrik): This is optional, so may be null.
     const Token *module_name;
 };
 
@@ -193,6 +199,13 @@ struct Ast_Parameter
     Ast_Node *type;
 };
 
+struct Ast_If_Stmt
+{
+    Ast_Node *condition_expr;
+    Ast_Node *true_stmt;
+    Ast_Node *false_stmt;
+};
+
 struct Ast_Node
 {
     Ast_Type type;
@@ -201,6 +214,7 @@ struct Ast_Node
         Ast_Import      import;
         Ast_Function    function;
         Ast_Parameter   parameter;
+        Ast_If_Stmt     if_stmt;
         Ast_Assignment  assignment;
         Ast_Expression  expression;
         Ast_Type_Node   type_node;

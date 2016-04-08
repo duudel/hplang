@@ -115,6 +115,7 @@ enum Lexer_State
     LS_Semicolon,       // ;
     LS_Comma,           // ,
     LS_Period,          // .
+    LS_QuestionMark,    // ?
     LS_OpenBlock,       // {
     LS_CloseBlock,      // }
     LS_OpenParent,      // (
@@ -205,105 +206,57 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
             case 'V': case 'W': case 'X': case 'Y': case 'Z':
                 fsm.state = LS_Ident; break;
-            case 'a':
-                fsm.state = LS_Ident; break;
-            case 'b':
-                fsm.state = LS_STR_b; break;
-            case 'c':
-                fsm.state = LS_STR_c; break;
-            case 'd':
-                fsm.state = LS_Ident; break;
-            case 'e':
-                fsm.state = LS_STR_e; break;
-            case 'f':
-                fsm.state = LS_STR_f; break;
-            case 'g':
-                fsm.state = LS_Ident; break;
-            case 'h':
-                fsm.state = LS_Ident; break;
-            case 'i':
-                fsm.state = LS_STR_i; break;
-            case 'j':
-                fsm.state = LS_Ident; break;
-            case 'k':
-                fsm.state = LS_Ident; break;
-            case 'l':
-                fsm.state = LS_Ident; break;
-            case 'm':
-                fsm.state = LS_Ident; break;
-            case 'n':
-                fsm.state = LS_STR_n; break;
-            case 'o':
-                fsm.state = LS_Ident; break;
-            case 'p':
-                fsm.state = LS_Ident; break;
-            case 'q':
-                fsm.state = LS_Ident; break;
-            case 'r':
-                fsm.state = LS_STR_r; break;
-            case 's':
-                fsm.state = LS_STR_s; break;
-            case 't':
-                fsm.state = LS_Ident; break;
-            case 'u':
-                fsm.state = LS_STR_u; break;
-            case 'v':
-                fsm.state = LS_Ident; break;
-            case 'w':
-                fsm.state = LS_Ident; break;
-            case 'x':
-                fsm.state = LS_Ident; break;
-            case 'y':
-                fsm.state = LS_Ident; break;
-            case 'z':
-                fsm.state = LS_Ident; break;
+            case 'a': fsm.state = LS_Ident; break;
+            case 'b': fsm.state = LS_STR_b; break;
+            case 'c': fsm.state = LS_STR_c; break;
+            case 'd': fsm.state = LS_Ident; break;
+            case 'e': fsm.state = LS_STR_e; break;
+            case 'f': fsm.state = LS_STR_f; break;
+            case 'g': fsm.state = LS_Ident; break;
+            case 'h': fsm.state = LS_Ident; break;
+            case 'i': fsm.state = LS_STR_i; break;
+            case 'j': fsm.state = LS_Ident; break;
+            case 'k': fsm.state = LS_Ident; break;
+            case 'l': fsm.state = LS_Ident; break;
+            case 'm': fsm.state = LS_Ident; break;
+            case 'n': fsm.state = LS_STR_n; break;
+            case 'o': fsm.state = LS_Ident; break;
+            case 'p': fsm.state = LS_Ident; break;
+            case 'q': fsm.state = LS_Ident; break;
+            case 'r': fsm.state = LS_STR_r; break;
+            case 's': fsm.state = LS_STR_s; break;
+            case 't': fsm.state = LS_Ident; break;
+            case 'u': fsm.state = LS_STR_u; break;
+            case 'v': fsm.state = LS_Ident; break;
+            case 'w': fsm.state = LS_Ident; break;
+            case 'x': fsm.state = LS_Ident; break;
+            case 'y': fsm.state = LS_Ident; break;
+            case 'z': fsm.state = LS_Ident; break;
 
-            case '#':
-                fsm.state = LS_Hash; break;
-            case ':':
-                fsm.state = LS_Colon; break;
-            case ';':
-                fsm.state = LS_Semicolon; break;
-            case ',':
-                fsm.state = LS_Comma; break;
-            case '.':
-                fsm.state = LS_Period; break;
-            case '{':
-                fsm.state = LS_OpenBlock; break;
-            case '}':
-                fsm.state = LS_CloseBlock; break;
-            case '(':
-                fsm.state = LS_OpenParent; break;
-            case ')':
-                fsm.state = LS_CloseParent; break;
-            case '[':
-                fsm.state = LS_OpenBracket; break;
-            case ']':
-                fsm.state = LS_CloseBracket; break;
-            case '=':
-                fsm.state = LS_Eq; break;
-            case '!':
-                fsm.state = LS_Bang; break;
-            case '<':
-                fsm.state = LS_Less; break;
-            case '>':
-                fsm.state = LS_Greater; break;
-            case '+':
-                fsm.state = LS_Plus; break;
-            case '-':
-                fsm.state = LS_Minus; break;
-            case '*':
-                fsm.state = LS_Star; break;
-            case '/':
-                fsm.state = LS_Slash; break;
-            case '&':
-                fsm.state = LS_Ampersand; break;
-            case '|':
-                fsm.state = LS_Pipe; break;
-            case '^':
-                fsm.state = LS_Hat; break;
-            case '~':
-                fsm.state = LS_Tilde; break;
+            case '#': fsm.state = LS_Hash; break;
+            case ':': fsm.state = LS_Colon; break;
+            case ';': fsm.state = LS_Semicolon; break;
+            case ',': fsm.state = LS_Comma; break;
+            case '.': fsm.state = LS_Period; break;
+            case '?': fsm.state = LS_QuestionMark; break;
+            case '{': fsm.state = LS_OpenBlock; break;
+            case '}': fsm.state = LS_CloseBlock; break;
+            case '(': fsm.state = LS_OpenParent; break;
+            case ')': fsm.state = LS_CloseParent; break;
+            case '[': fsm.state = LS_OpenBracket; break;
+            case ']': fsm.state = LS_CloseBracket; break;
+            case '=': fsm.state = LS_Eq; break;
+            case '!': fsm.state = LS_Bang; break;
+            case '<': fsm.state = LS_Less; break;
+            case '>': fsm.state = LS_Greater; break;
+            case '+': fsm.state = LS_Plus; break;
+            case '-': fsm.state = LS_Minus; break;
+            case '*': fsm.state = LS_Star; break;
+            case '/': fsm.state = LS_Slash; break;
+            case '&': fsm.state = LS_Ampersand; break;
+            case '|': fsm.state = LS_Pipe; break;
+            case '^': fsm.state = LS_Hat; break;
+            case '~': fsm.state = LS_Tilde; break;
 
             default:
                 fsm.state = LS_Invalid;
@@ -316,8 +269,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9':
                 break;
-            case '.':
-                fsm.state = LS_Float; break;
+            case '.': fsm.state = LS_Float; break;
             default:
                 fsm.emit = true;
         } break;
@@ -328,10 +280,8 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9':
                 break;
-            case 'f':
-                fsm.state = LS_FloatF; break;
-            case 'd':
-                fsm.state = LS_FloatD; break;
+            case 'f': fsm.state = LS_FloatF; break;
+            case 'd': fsm.state = LS_FloatD; break;
             default:
                 fsm.emit = true;
         } break;
@@ -755,20 +705,11 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         } break;
 
     case LS_Hash:
-        fsm.emit = true;
-        break;
-    case LS_Colon:
-        switch (c)
-        {
-            case ':':
-                fsm.state = LS_ColonColon; break;
-            default:
-                fsm.emit = true;
-        } break;
     case LS_ColonColon:
     case LS_Semicolon:
     case LS_Comma:
     case LS_Period:
+    case LS_QuestionMark:
     case LS_OpenBlock:
     case LS_CloseBlock:
     case LS_OpenParent:
@@ -777,107 +718,100 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_CloseBracket:
         fsm.emit = true;
         break;
+
+    case LS_Colon:
+        switch (c)
+        {
+            case ':': fsm.state = LS_ColonColon; break;
+            default:
+                fsm.emit = true;
+        } break;
+
     case LS_Eq:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_EqEq; break;
+            case '=': fsm.state = LS_EqEq; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Bang:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_NotEq; break;
+            case '=': fsm.state = LS_NotEq; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Less:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_LessEq; break;
+            case '=': fsm.state = LS_LessEq; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Greater:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_GreaterEq; break;
+            case '=': fsm.state = LS_GreaterEq; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Plus:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_PlusAssign; break;
+            case '=': fsm.state = LS_PlusAssign; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Minus:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_MinusAssign; break;
+            case '=': fsm.state = LS_MinusAssign; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Star:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_StarAssign; break;
+            case '=': fsm.state = LS_StarAssign; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Slash:
         switch (c)
         {
-            case '/':
-                fsm.state = LS_Comment; break;
-            case '*':
-                fsm.state = LS_MultilineComment; break;
-            case '=':
-                fsm.state = LS_SlashAssign; break;
+            case '/': fsm.state = LS_Comment; break;
+            case '*': fsm.state = LS_MultilineComment; break;
+            case '=': fsm.state = LS_SlashAssign; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Ampersand:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_AmpAssign; break;
-            case '&':
-                fsm.state = LS_AmpAmp; break;
+            case '=': fsm.state = LS_AmpAssign; break;
+            case '&': fsm.state = LS_AmpAmp; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Pipe:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_PipeAssign; break;
-            case '|':
-                fsm.state = LS_PipePipe; break;
+            case '=': fsm.state = LS_PipeAssign; break;
+            case '|': fsm.state = LS_PipePipe; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Hat:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_HatAssign; break;
+            case '=': fsm.state = LS_HatAssign; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Tilde:
         switch (c)
         {
-            case '=':
-                fsm.state = LS_TildeAssign; break;
+            case '=': fsm.state = LS_TildeAssign; break;
             default:
                 fsm.emit = true;
         } break;
@@ -1128,6 +1062,8 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
             ctx->current_token.type = TOK_Comma; break;
         case LS_Period:
             ctx->current_token.type = TOK_Period; break;
+        case LS_QuestionMark:
+            ctx->current_token.type = TOK_QuestionMark; break;
         case LS_OpenBlock:
             ctx->current_token.type = TOK_OpenBlock; break;
         case LS_CloseBlock:

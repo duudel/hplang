@@ -176,19 +176,65 @@ void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
     Expect(ctx, TOK_Semicolon);
 }
 
+Ast_Node* ParseExpression(Parser_Context *ctx)
+{
+    // TODO(henrik): Implement expression parsing
+    return nullptr;
+}
+
+Ast_Node* ParseStmtBlock(Parser_Context *ctx);
+Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok);
+
+Ast_Node* ParseStatement(Parser_Context *ctx)
+{
+    const Token *token = GetCurrentToken(ctx);
+    if (token->type == TOK_OpenBlock)
+    {
+        return ParseStmtBlock(ctx);
+    }
+    if (Accept(ctx, TOK_If))
+    {
+        return ParseIfStatement(ctx, token);
+    }
+    else
+    {
+        Error(ctx, token->file_loc, "Expected statement", token);
+        GetNextToken(ctx);
+    }
+    return nullptr;
+}
+
 Ast_Node* ParseStmtBlock(Parser_Context *ctx)
 {
     Ast_Node *block_node = PushNode(ctx, AST_StmtBlock, GetCurrentToken(ctx));
     Expect(ctx, TOK_OpenBlock);
     do
     {
-        if (Accept(ctx, TOK_CloseBlock)) break;
-        else
-        {
+        if (Accept(ctx, TOK_CloseBlock))
             break;
+        Ast_Node *stmt_node = ParseStatement(ctx);
+        if (stmt_node)
+        {
+            PushNodeList(&block_node->node_list, stmt_node);
         }
     } while (true);
     return block_node;
+}
+
+Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok)
+{
+    Ast_Node *if_node = PushNode(ctx, AST_IfStmt, if_tok);
+    Ast_Node *expr = ParseExpression(ctx);
+    Ast_Node *true_stmt = ParseStatement(ctx);
+    Ast_Node *false_stmt = nullptr;
+    if (Accept(ctx, TOK_Else))
+    {
+        false_stmt = ParseStatement(ctx);
+    }
+    if_node->if_stmt.condition_expr = expr;
+    if_node->if_stmt.true_stmt = true_stmt;
+    if_node->if_stmt.false_stmt = false_stmt;
+    return if_node;
 }
 
 Ast_Node* ParseType(Parser_Context *ctx)

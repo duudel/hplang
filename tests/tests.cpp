@@ -22,7 +22,8 @@ struct Test
 
 Test tests[] = {
     (Test){ "tests/crlf_test.hp", {4, 26}, { } },
-    (Test){ "tests/token_test.hp", {}, {} }
+    (Test){ "tests/token_test.hp", { }, {1, 1} },
+    (Test){ "tests/hello_test.hp", { }, { } },
 };
 
 b32 CheckLexingResult(Compiler_Context *compiler_ctx,
@@ -74,6 +75,55 @@ b32 CheckLexingResult(Compiler_Context *compiler_ctx,
     }
 }
 
+b32 CheckParsingResult(Compiler_Context *compiler_ctx,
+        const Test &test, b32 compiler_result)
+{
+    b32 should_fail_parsing =
+        (test.fail_parsing.line && test.fail_parsing.column);
+
+    if (compiler_result)
+    {
+        if (!should_fail_parsing)
+        {
+            return true;
+        }
+    }
+    else if (should_fail_parsing)
+    {
+        if (compiler_ctx->error_ctx.compilation_phase == COMP_Parsing)
+        {
+            File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
+            if (error_loc.line == test.fail_parsing.line &&
+                error_loc.column == test.fail_parsing.column)
+            {
+                return true;
+            }
+            fprintf(stderr, "%s:%d:%d: Unexpected lexing error\n",
+                    test.filename,
+                    error_loc.line,
+                    error_loc.column);
+        }
+        fprintf(stderr, "%s:%d:%d: Expecting lexing error\n",
+                test.filename,
+                test.fail_parsing.line,
+                test.fail_parsing.column);
+        return false;
+    }
+    else // compilation failed, was not expecting lexing failure
+    {
+        if (compiler_ctx->error_ctx.compilation_phase == COMP_Parsing)
+        {
+            File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
+            fprintf(stderr, "%s:%d:%d: Unexpected parsing error\n",
+                    test.filename,
+                    error_loc.line,
+                    error_loc.column);
+            return false;
+        }
+        return true;
+    }
+}
+
 s64 RunTest(const Test &test)
 {
     s64 failed = 0;
@@ -95,6 +145,10 @@ s64 RunTest(const Test &test)
         b32 result = Compile(&compiler_ctx, file);
 
         if (!CheckLexingResult(&compiler_ctx, test, result))
+        {
+            failed = 1;
+        }
+        else if (!CheckParsingResult(&compiler_ctx, test, result))
         {
             failed = 1;
         }

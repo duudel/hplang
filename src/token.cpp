@@ -52,6 +52,7 @@ static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_Semicolon,         ";"},
     {TOK_Comma,             ","},
     {TOK_Period,            "."},
+    {TOK_QuestionMark,      "?"},
     {TOK_OpenBlock,         "{"},
     {TOK_CloseBlock,        "}"},
     {TOK_OpenParent,        "("},
