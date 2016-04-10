@@ -8,23 +8,43 @@ henrik.j.paananen@student.jyu.fi
 The language will be procedural with:
 - static typing
 - simple type inference
+    // these are equivalent:
+    a : s64 = 0;
+    a := 0;
+- control structures:
+    - if, for, while
 - a few primitive datatypes:
- - signed & unsigned integers of sizes 8, 16, 32 and 64 bits
- - boolean
- - 8 bit character
- - raw pointers
+    - signed & unsigned integers of sizes 8, 16, 32 and 64 bits
+        - s8, s16, s32, s64, u8, ...
+    - boolean (bool)
+    - 8 bit character (char)
+    - raw pointers (char*, s8*, ...)
+- printing functionality
+    printf("Hello, %s\n", name);
 
 these features have less priority:
+- procedures with variadic arguments
 - multiple return values from procedures
+    x, y := calculate_xy();
+- deferred code-blocks (defer keyword):
+    defer {
+        <code-that is run after the scope ends>
+    }
 - possibility to define structures containing other types
-- string datatype
 - floating point numbers of sizes 32 and 64
+- string datatype
+- array datatype
 - compile time code execution (for meta programming)
 
 Sample programs are found in "samples" directory.
 
-The target language is AMD64 for Windows (and maybe Linux).
+Testing happens with regularly compiling and running some test programs.
+Test harness and test programs are in "test" directory.
+
+Target language: AMD64 for Windows (and maybe Linux).
 (I may change the target language to LLVM.)
+
+Host language: C/C++
 
 
 ; A simple program that prints the team name.
