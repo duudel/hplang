@@ -8,13 +8,6 @@
 namespace hplang
 {
 
-struct Open_File
-{
-    String filename;
-    Pointer contents;
-};
-
-
 struct Compiler_Context
 {
     Memory_Arena arena;

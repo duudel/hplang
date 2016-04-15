@@ -72,7 +72,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
     ctx->error_ctx.compilation_phase = COMP_Parsing;
 
     Parser_Context parser_ctx = NewParserContext(
-            lexer_ctx.tokens, &ctx->error_ctx, &ctx->options);
+            lexer_ctx.tokens, file, &ctx->error_ctx, &ctx->options);
 
     Parse(&parser_ctx);
     if (ctx->error_ctx.error_count != 0)

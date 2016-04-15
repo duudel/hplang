@@ -18,6 +18,8 @@ struct Parser_Context
     s64 current_token;
     Token_List tokens;
 
+    Open_File *open_file;
+
     Error_Context *error_ctx;
 
     Compiler_Options *options;
@@ -25,6 +27,7 @@ struct Parser_Context
 
 Parser_Context NewParserContext(
         Token_List tokens,
+        Open_File *open_file,
         Error_Context *error_ctx,
         Compiler_Options *options);
 

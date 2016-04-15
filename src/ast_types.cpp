@@ -8,7 +8,7 @@ namespace hplang
 static b32 GrowNodeList(Ast_Node_List *nodes)
 {
     s64 new_capacity = 0;
-    if (nodes->capacity < 2)
+    if (nodes->capacity < 8)
         new_capacity = 8;
     else
         new_capacity = nodes->capacity + nodes->capacity / 2;

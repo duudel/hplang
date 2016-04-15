@@ -46,8 +46,8 @@ enum Ast_Type
 
 enum Ast_Binary_Op
 {
-    AST_OP_Plus,
-    AST_OP_Minus,
+    AST_OP_Add,
+    AST_OP_Subtract,
     AST_OP_Multiply,
     AST_OP_Divide,
     // TODO(henrik): Add modulo op (should it work for floats too?)
@@ -79,8 +79,8 @@ enum Ast_Assignment_Op
     AST_OP_Assign,
 
     // Shorthand assigment operators
-    AST_OP_PlusAssign,
-    AST_OP_MinusAssign,
+    AST_OP_AddAssign,
+    AST_OP_SubtractAssign,
     AST_OP_MultiplyAssign,
     AST_OP_DivideAssign,
     // TODO(henrik): Add module assignment op

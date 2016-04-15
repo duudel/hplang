@@ -20,6 +20,12 @@ typedef float       f32;
 typedef double      f64;
 
 
+struct Pointer
+{
+    void *ptr;
+    s64 size;
+};
+
 struct String
 {
     s64 size;
@@ -30,6 +36,16 @@ struct File_Location
 {
     String filename;
     s64 line, column;
+    s64 offset_start;   // token file offset start
+    s64 offset_end;     // token file offset end
+    // offset from the begin of the file to the start of previous line
+    s64 line_offset;
+};
+
+struct Open_File
+{
+    String filename;
+    Pointer contents;
 };
 
 } // hplang

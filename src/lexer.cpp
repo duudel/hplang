@@ -870,14 +870,14 @@ void Error(Error_Context *ctx, File_Location file_loc,
     if (!token)
     {
         PrintFileLocation(ctx->file, file_loc);
-        fprintf(ctx->file, ": %s\n", message);
+        fprintf(ctx->file, "%s\n", message);
     }
     else
     {
         PrintFileLocation(ctx->file, file_loc);
-        fprintf(ctx->file, ": %s '", message);
+        fprintf(ctx->file, "%s '", message);
         PrintTokenValue(ctx->file, token);
-        fprintf(ctx->file, "' (%i)\n", token->value[0]);
+        fprintf(ctx->file, "'\n");
     }
 }
 
@@ -1165,7 +1165,7 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
         while (!fsm.emit && cur < text_length)
         {
             char c = text[cur];
-            fsm = lex_default(fsm, c, &ctx->file_loc);
+            fsm = lex_default(fsm, c, file_loc);
 
             if (!fsm.emit && fsm.state != LS_KW_end)
             {
@@ -1175,26 +1175,20 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
                 {
                     file_loc->line++;
                     file_loc->column = 1;
+                    file_loc->line_offset = cur;
                     ctx->carriage_return = true;
                 }
                 else
                 {
-                    if (c == '\n')
+                    if (c == '\n' && ctx->carriage_return)
                     {
-                        if (ctx->carriage_return)
-                        {
-                            file_loc->column = 1;
-                        }
-                        else
-                        {
-                            file_loc->line++;
-                            file_loc->column = 1;
-                        }
+                        file_loc->column = 1;
                     }
-                    else if (c == '\f' || c == '\v')
+                    else if (c == '\n' || c == '\f' || c == '\v')
                     {
                         file_loc->line++;
-                        file_loc->column = 0;
+                        file_loc->column = 1;
+                        file_loc->line_offset = cur;
                     }
                     ctx->carriage_return = false;
                 }
@@ -1206,20 +1200,23 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
                         "Invalid token", &ctx->current_token);
 
                     fsm.state = LS_Default;
+                    ctx->file_loc.offset_start = cur;
                     ctx->current_token.value = text + cur;
-                    ctx->current_token.file_loc = ctx->file_loc;
+                    ctx->current_token.file_loc = *file_loc;
                 }
                 else if (fsm.state == LS_Junk)
                 {
                     fsm.state = LS_Default;
+                    ctx->file_loc.offset_start = cur;
                     ctx->current_token.value = text + cur;
                     ctx->current_token.value_end = text + cur;
-                    ctx->current_token.file_loc = ctx->file_loc;
+                    ctx->current_token.file_loc = *file_loc;
                 }
             }
         }
         if (fsm.emit)
         {
+            ctx->file_loc.offset_end = cur;
             ctx->current_token.value_end = text + cur;
             //fprintf(stderr, "Token value: ");
             //PrintTokenValue(stderr, &ctx->current_token);
@@ -1229,11 +1226,13 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
 
             fsm.emit = false;
             fsm.state = LS_Default;
+            file_loc->offset_start = cur;
             ctx->current_token.value = text + cur;
-            ctx->current_token.file_loc = ctx->file_loc;
+            ctx->current_token.file_loc = *file_loc;
         }
     }
 
+    ctx->current = cur;
     if (fsm.done)
     {
         ctx->status = LEX_Done;

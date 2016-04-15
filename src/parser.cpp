@@ -8,11 +8,13 @@ namespace hplang
 
 Parser_Context NewParserContext(
         Token_List tokens,
+        Open_File *open_file,
         Error_Context *error_ctx,
         Compiler_Options *options)
 {
     Parser_Context ctx = { };
     ctx.tokens = tokens;
+    ctx.open_file = open_file;
     ctx.error_ctx = error_ctx;
     ctx.options = options;
     return ctx;
@@ -28,45 +30,89 @@ static b32 ContinueParsing(Parser_Context *ctx)
     return ctx->error_ctx->error_count < ctx->options->max_error_count;
 }
 
-static void Error(Parser_Context *ctx, File_Location file_loc,
-            const char *message, const Token *token)
+//static void Error(Parser_Context *ctx, File_Location file_loc,
+//            const char *message, const Token *token)
+//{
+//    AddError(ctx->error_ctx, file_loc);
+//    if (!token)
+//    {
+//        PrintFileLocation(ctx->error_ctx->file, file_loc);
+//        fprintf(ctx->error_ctx->file, ": %s\n", message);
+//    }
+//    else
+//    {
+//        PrintFileLocation(ctx->error_ctx->file, file_loc);
+//        fprintf(ctx->error_ctx->file, ": %s '", message);
+//        PrintTokenValue(ctx->error_ctx->file, token);
+//        fprintf(ctx->error_ctx->file, "'\n");
+//    }
+//}
+
+static void PrintFileLine(Error_Context *error_ctx,
+        Open_File *open_file,
+        File_Location file_loc)
 {
-    AddError(ctx->error_ctx, file_loc);
-    if (!token)
+    const char *file_start = (const char*)open_file->contents.ptr;
+    ASSERT(file_start != nullptr);
+    ASSERT(file_loc.line_offset < open_file->contents.size);
+
+    const char *line_start = file_start + file_loc.line_offset;
+    s64 line_len = 0;
+
+    while (line_len < open_file->contents.size)
     {
-        PrintFileLocation(ctx->error_ctx->file, file_loc);
-        fprintf(ctx->error_ctx->file, ": %s\n", message);
+        char c = line_start[line_len];
+        if (c == '\n' || c == '\r' || c == '\v' || c == '\f')
+            break;
+        line_len++;
     }
-    else
+
+    fwrite(line_start, 1, line_len, error_ctx->file);
+    fprintf(error_ctx->file, "\n");
+}
+
+static void PrintFileLocArrow(Error_Context *ctx, File_Location file_loc)
+{
+    const char dashes[81] = "--------------------------------------------------------------------------------";
+    if (file_loc.column > 0 && file_loc.column < 81 - 1)
     {
-        PrintFileLocation(ctx->error_ctx->file, file_loc);
-        fprintf(ctx->error_ctx->file, ": %s '", message);
-        PrintTokenValue(ctx->error_ctx->file, token);
-        fprintf(ctx->error_ctx->file, "'\n");
+        fwrite(dashes, 1, file_loc.column - 1, ctx->file);
+        fprintf(ctx->file, "^\n");
     }
 }
 
-static void ErrorExpected(Parser_Context *ctx, File_Location file_loc,
-        const char *expected_token, const Token *token)
+static void PrintSourceLineAndArrow(Parser_Context *ctx, File_Location file_loc)
 {
-    AddError(ctx->error_ctx, file_loc);
-    if (!token)
+    if (ctx->error_ctx->error_count < 3)
     {
-        PrintFileLocation(ctx->error_ctx->file, file_loc);
-        fprintf(ctx->error_ctx->file, ": Expected %s\n", expected_token);
-    }
-    else
-    {
-        PrintFileLocation(ctx->error_ctx->file, file_loc);
-        fprintf(ctx->error_ctx->file, ": Expected %s, instead got ", expected_token);
-        PrintTokenValue(ctx->error_ctx->file, token);
+        fprintf(ctx->error_ctx->file, "\n");
+        PrintFileLine(ctx->error_ctx, ctx->open_file, file_loc);
+        PrintFileLocArrow(ctx->error_ctx, file_loc);
         fprintf(ctx->error_ctx->file, "\n");
     }
 }
 
+static void Error(Parser_Context *ctx, const Token *token, const char *message)
+{
+    AddError(ctx->error_ctx, token->file_loc);
+    PrintFileLocation(ctx->error_ctx->file, token->file_loc);
+    fprintf(ctx->error_ctx->file, "%s\n", message);
+    PrintSourceLineAndArrow(ctx, token->file_loc);
+}
+
+static void ErrorExpected(Parser_Context *ctx,
+        const Token *token,
+        const char *expected_token)
+{
+    AddError(ctx->error_ctx, token->file_loc);
+    PrintFileLocation(ctx->error_ctx->file, token->file_loc);
+    fprintf(ctx->error_ctx->file, "Expecting %s\n", expected_token);
+    PrintSourceLineAndArrow(ctx, token->file_loc);
+}
+
 static void Error_UnexpectedEOF(Parser_Context *ctx, const Token *token)
 {
-    Error(ctx, token->file_loc, "Unexpected end of file after", token);
+    Error(ctx, token, "Unexpected end of file");
 }
 
 
@@ -105,8 +151,7 @@ static b32 Expect(Parser_Context *ctx, Token_Type token_type)
     if (!Accept(ctx, token_type))
     {
         const Token *token = GetCurrentToken(ctx);
-        ErrorExpected(ctx, token->file_loc,
-                TokenTypeToString(token_type), token);
+        ErrorExpected(ctx, token, TokenTypeToString(token_type));
         return false;
     }
     return true;
@@ -143,7 +188,7 @@ b32 Parse(Parser_Context *ctx)
             ParseTopLevelIdentifier(ctx, token, ctx->ast_root);
             break;
         default:
-            Error(ctx, token->file_loc, "Unexpected token", token);
+            Error(ctx, token, "Unexpected token");
             GetNextToken(ctx);
         }
         token = GetCurrentToken(ctx);
@@ -170,7 +215,7 @@ void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
             Error_UnexpectedEOF(ctx, token);
             return;
         default:
-            Error(ctx, token->file_loc, "Expecting string literal, not", token);
+            Error(ctx, token, "Expecting string literal");
     }
     GetNextToken(ctx);
     Expect(ctx, TOK_Semicolon);
@@ -178,7 +223,28 @@ void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
 
 Ast_Node* ParseExpression(Parser_Context *ctx)
 {
-    // TODO(henrik): Implement expression parsing
+    /*
+     * operator precedence (LR: left to right, RL: right to left)
+     * RL: = += -= *= /=        assignment
+     * LR: == != < > <= >=      comparison
+     * LR: && ||                logical and/or
+     * LR: >> <<                bit shift
+     * LR: + - & | ^            add, sub, bit and/or/xor
+     * LR: * / %                mult, div, mod
+     * LR: + - ~                unary pos/neg, bit complement
+     */
+    // z = x = y / 7 * 2
+    //   =
+    //  / \
+    // z   =
+    //    / \
+    //   x   /
+    //      / \
+    //     y   *
+    //        / \
+    //       7   2
+    //Ast_Node *expr = ParseAssignmentExpr(ctx);
+    //return expr;
     return nullptr;
 }
 
@@ -198,7 +264,7 @@ Ast_Node* ParseStatement(Parser_Context *ctx)
     }
     else
     {
-        Error(ctx, token->file_loc, "Expected statement", token);
+        Error(ctx, token, "Expecting statement");
         GetNextToken(ctx);
     }
     return nullptr;
@@ -217,7 +283,7 @@ Ast_Node* ParseStmtBlock(Parser_Context *ctx)
         {
             PushNodeList(&block_node->node_list, stmt_node);
         }
-    } while (true);
+    } while (ContinueParsing(ctx));
     return block_node;
 }
 
@@ -225,6 +291,11 @@ Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok)
 {
     Ast_Node *if_node = PushNode(ctx, AST_IfStmt, if_tok);
     Ast_Node *expr = ParseExpression(ctx);
+    if (!expr)
+    {
+        Error(ctx, GetCurrentToken(ctx), "Expecting condition expression for if statement");
+        GetNextToken(ctx);
+    }
     Ast_Node *true_stmt = ParseStatement(ctx);
     Ast_Node *false_stmt = nullptr;
     if (Accept(ctx, TOK_Else))
@@ -332,7 +403,7 @@ void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
         }
         else
         {
-            Error(ctx, token->file_loc, "Expected parameter name, got", token);
+            Error(ctx, token, "Expecting parameter name");
         }
     } while (Accept(ctx, TOK_Comma) && ContinueParsing(ctx));
 }
