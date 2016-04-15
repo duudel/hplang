@@ -38,6 +38,7 @@ enum Ast_Type
     AST_StringLiteral,
     AST_VariableRef,
     AST_FunctionCall,
+    AST_FunctionCallArgs,
 
     AST_BinaryExpr,
     AST_UnaryExpr,
@@ -65,8 +66,7 @@ enum Ast_Unary_Op
 {
     AST_OP_Positive,
     AST_OP_Negative,
-    // TODO(henrik): Add bitwise complement op
-    //AST_OP_Complement,
+    AST_OP_Complement,
 
     AST_OP_Not,
 
@@ -130,6 +130,19 @@ struct Ast_Unary_Expr
     Ast_Node *expr;
 };
 
+struct Ast_Variable_Ref
+{
+    // The name can be looked up from the Ast_Node::token.
+    // A general Name type would be good (containing pre computed hash of the
+    // name for faster compares or hash map operations).
+};
+
+struct Ast_Function_Call
+{
+    // The name can be looked up from the Ast_Node::token.
+    Ast_Node *args;
+};
+
 struct Ast_Expression
 {
     union {
@@ -139,6 +152,7 @@ struct Ast_Expression
         Ast_String_Literal  string_literal;
         Ast_Binary_Expr     binary_expr;
         Ast_Unary_Expr      unary_expr;
+        Ast_Function_Call   function_call;
     };
 };
 

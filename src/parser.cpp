@@ -30,24 +30,6 @@ static b32 ContinueParsing(Parser_Context *ctx)
     return ctx->error_ctx->error_count < ctx->options->max_error_count;
 }
 
-//static void Error(Parser_Context *ctx, File_Location file_loc,
-//            const char *message, const Token *token)
-//{
-//    AddError(ctx->error_ctx, file_loc);
-//    if (!token)
-//    {
-//        PrintFileLocation(ctx->error_ctx->file, file_loc);
-//        fprintf(ctx->error_ctx->file, ": %s\n", message);
-//    }
-//    else
-//    {
-//        PrintFileLocation(ctx->error_ctx->file, file_loc);
-//        fprintf(ctx->error_ctx->file, ": %s '", message);
-//        PrintTokenValue(ctx->error_ctx->file, token);
-//        fprintf(ctx->error_ctx->file, "'\n");
-//    }
-//}
-
 static void PrintFileLine(Error_Context *error_ctx,
         Open_File *open_file,
         File_Location file_loc)
@@ -164,8 +146,8 @@ static Ast_Node* PushNode(Parser_Context *ctx, Ast_Type type, const Token *token
     return node;
 }
 
-void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node);
-void ParseTopLevelIdentifier(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node);
+static void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node);
+static void ParseTopLevelIdentifier(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node);
 
 b32 Parse(Parser_Context *ctx)
 {
@@ -195,7 +177,7 @@ b32 Parse(Parser_Context *ctx)
     return ctx->error_ctx->error_count != 0;
 }
 
-void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
+static void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
 {
     const Token *token = GetCurrentToken(ctx);
     switch (token->type)
@@ -219,6 +201,8 @@ void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
     GetNextToken(ctx);
     Expect(ctx, TOK_Semicolon);
 }
+
+static Ast_Node* ParseExpression(Parser_Context *ctx);
 
 static s64 ParseInt(const char *s, const char *end)
 {
@@ -282,7 +266,7 @@ static String ParseString(Memory_Arena *arena, const char *s, const char *end)
     return result;
 }
 
-Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
+static Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
 {
     const Token *token = Accept(ctx, TOK_IntegerLit);
     if (token)
@@ -307,32 +291,116 @@ Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
     }
 }
 
-static Ast_Node* ParseExpression(Parser_Context *ctx);
-
-Ast_Node* ParseFactorExpr(Parser_Context *ctx)
+static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
 {
-    // TODO(henrik): pre ops
+    const Token *op_token = Accept(ctx, TOK_Plus);
+    if (!op_token) op_token = Accept(ctx, TOK_Minus);
+    if (!op_token) op_token = Accept(ctx, TOK_Tilde);
+    if (!op_token) op_token = Accept(ctx, TOK_Bang);
+
+    if (!op_token) return nullptr;
+
+    Ast_Node *pre_op = PushNode(ctx, AST_UnaryExpr, op_token);
+
+    Ast_Unary_Op op;
+    switch (op_token->type)
+    {
+        case TOK_Plus:  op = AST_OP_Positive; break;
+        case TOK_Minus: op = AST_OP_Negative; break;
+        case TOK_Tilde: op = AST_OP_Complement; break;
+        case TOK_Bang:  op = AST_OP_Not; break;
+
+        // TODO(henrik): Add parsing of & (address-of) and @ (deference) operators
+    }
+    pre_op->expression.unary_expr.op = op;
+    pre_op->expression.unary_expr.expr = nullptr;
+    return pre_op;
+}
+
+static Ast_Node* ParseFunctionArgs(Parser_Context *ctx)
+{
+    Ast_Node *args = PushNode(ctx, AST_FunctionCallArgs, GetCurrentToken(ctx));
+
+    Ast_Node *arg = ParseExpression(ctx);
+    if (arg)
+    {
+        PushNodeList(&args->node_list, arg);
+        while (Accept(ctx, TOK_Comma))
+        {
+            Ast_Node *arg = ParseExpression(ctx);
+            if (!arg)
+            {
+                Error(ctx, GetCurrentToken(ctx),
+                        "Expecting function argument after comma");
+                break;
+            }
+            PushNodeList(&args->node_list, arg);
+        }
+    }
+    return args;
+}
+
+static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
+{
+    Ast_Node *pre_op = ParsePrefixOperator(ctx);
 
     Ast_Node *factor = ParseLiteralExpr(ctx);
+
+    if (!factor)
+    {
+        const Token *identifier_tok = Accept(ctx, TOK_Identifier);
+        if (identifier_tok)
+        {
+            // NOTE(henrik): Only accept function call for identifiers.
+            // Is there any benefit to accept same syntax for other types of
+            // factors? Maybe even for error reporting reasonsr?
+            if (Accept(ctx, TOK_OpenParent))
+            {
+                factor = PushNode(ctx, AST_FunctionCall, identifier_tok);
+                Ast_Node *args = ParseFunctionArgs(ctx);
+                factor->expression.function_call.args = args;
+                Expect(ctx, TOK_CloseParent);
+            }
+            else
+            {
+                factor = PushNode(ctx, AST_VariableRef, identifier_tok);
+            }
+        }
+    }
 
     if (!factor && Accept(ctx, TOK_OpenParent))
     {
         factor = ParseExpression(ctx);
         if (!factor)
         {
-            Error(ctx, GetCurrentToken(ctx), "Expecting expression after left parenthesis");
+            Error(ctx, GetCurrentToken(ctx),
+                    "Expecting expression after left parenthesis");
         }
         Expect(ctx, TOK_CloseParent);
     }
 
-    if (factor)
+    if (!factor)
     {
-        // TODO(henrik): post ops
+        if (pre_op)
+        {
+            Error(ctx, GetCurrentToken(ctx),
+                    "Expecting operand for unary prefix operator");
+        }
+        return nullptr;
     }
+
+    // TODO(henrik): post ops
+
+    if (pre_op)
+    {
+        pre_op->expression.unary_expr.expr = factor;
+        factor = pre_op;
+    }
+
     return factor;
 }
 
-Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
+static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
 {
     Ast_Node *expr = ParseFactorExpr(ctx);
     if (!expr) return nullptr;
@@ -360,7 +428,7 @@ Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
     return expr;
 }
 
-Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
+static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
 {
     Ast_Node *expr = ParseMultDivExpr(ctx);
     if (!expr) return nullptr;
@@ -388,26 +456,26 @@ Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
     return expr;
 }
 
-Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
+static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
 {
     //Ast_Node *expr = ParseShiftExpr(ctx);
     Ast_Node *expr = ParseAddSubExpr(ctx);
     return expr;
 }
 
-Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
+static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
 {
     Ast_Node *expr = ParseLogicalExpr(ctx);
     return expr;
 }
 
-Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
+static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
 {
     Ast_Node *expr = ParseComparisonExpr(ctx);
     return expr;
 }
 
-Ast_Node* ParseExpression(Parser_Context *ctx)
+static Ast_Node* ParseExpression(Parser_Context *ctx)
 {
     /*
      * operator precedence (LR: left to right, RL: right to left)
@@ -433,10 +501,10 @@ Ast_Node* ParseExpression(Parser_Context *ctx)
     return expr;
 }
 
-Ast_Node* ParseStmtBlock(Parser_Context *ctx);
-Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok);
+static Ast_Node* ParseStmtBlock(Parser_Context *ctx);
+static Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok);
 
-Ast_Node* ParseStatement(Parser_Context *ctx)
+static Ast_Node* ParseStatement(Parser_Context *ctx)
 {
     const Token *token = GetCurrentToken(ctx);
     if (token->type == TOK_OpenBlock)
@@ -460,7 +528,7 @@ Ast_Node* ParseStatement(Parser_Context *ctx)
     return nullptr;
 }
 
-Ast_Node* ParseStmtBlock(Parser_Context *ctx)
+static Ast_Node* ParseStmtBlock(Parser_Context *ctx)
 {
     Ast_Node *block_node = PushNode(ctx, AST_StmtBlock, GetCurrentToken(ctx));
     Expect(ctx, TOK_OpenBlock);
@@ -477,13 +545,14 @@ Ast_Node* ParseStmtBlock(Parser_Context *ctx)
     return block_node;
 }
 
-Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok)
+static Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok)
 {
     Ast_Node *if_node = PushNode(ctx, AST_IfStmt, if_tok);
     Ast_Node *expr = ParseExpression(ctx);
     if (!expr)
     {
-        Error(ctx, GetCurrentToken(ctx), "Expecting condition expression for if statement");
+        Error(ctx, GetCurrentToken(ctx),
+                "Expecting condition expression for if statement");
         GetNextToken(ctx);
     }
     Ast_Node *true_stmt = ParseStatement(ctx);
@@ -498,7 +567,7 @@ Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok)
     return if_node;
 }
 
-Ast_Node* ParseType(Parser_Context *ctx)
+static Ast_Node* ParseType(Parser_Context *ctx)
 {
     const Token *token = GetCurrentToken(ctx);
     Ast_Node *type_node = nullptr;
@@ -569,7 +638,7 @@ Ast_Node* ParseType(Parser_Context *ctx)
     return type_node;
 }
 
-void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
+static void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
 {
     ASSERT(func_def->type == AST_FunctionDef);
     do
@@ -598,7 +667,7 @@ void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
     } while (Accept(ctx, TOK_Comma) && ContinueParsing(ctx));
 }
 
-void ParseFunction(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
+static void ParseFunction(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
 {
     Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
     ParseParameters(ctx, func_def);
@@ -616,7 +685,7 @@ void ParseFunction(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
     }
 }
 
-void ParseTopLevelIdentifier(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
+static void ParseTopLevelIdentifier(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
 {
     if (Accept(ctx, TOK_ColonColon))
     {
