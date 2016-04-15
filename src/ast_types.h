@@ -39,9 +39,9 @@ enum Ast_Type
     AST_VariableRef,
     AST_FunctionCall,
 
-    AST_BinaryOp,
-    AST_UnaryOp,
-    AST_TernaryOp,      // <expr> ? <exptr> : <expr>
+    AST_BinaryExpr,
+    AST_UnaryExpr,
+    AST_TernaryExpr,      // <expr> ? <exptr> : <expr>
 };
 
 enum Ast_Binary_Op

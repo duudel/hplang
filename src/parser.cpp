@@ -135,26 +135,25 @@ static const Token* GetNextToken(Parser_Context *ctx)
     return &eof_token;
 }
 
-static b32 Accept(Parser_Context *ctx, Token_Type token_type)
+static const Token* Accept(Parser_Context *ctx, Token_Type token_type)
 {
     const Token *token = GetCurrentToken(ctx);
     if (token->type == token_type)
     {
         GetNextToken(ctx);
-        return true;
+        return token;
     }
-    return false;
+    return nullptr;
 }
 
-static b32 Expect(Parser_Context *ctx, Token_Type token_type)
+static const Token* Expect(Parser_Context *ctx, Token_Type token_type)
 {
-    if (!Accept(ctx, token_type))
-    {
-        const Token *token = GetCurrentToken(ctx);
-        ErrorExpected(ctx, token, TokenTypeToString(token_type));
-        return false;
-    }
-    return true;
+    const Token *token = Accept(ctx, token_type);
+    if (token)
+        return token;
+    token = GetCurrentToken(ctx);
+    ErrorExpected(ctx, token, TokenTypeToString(token_type));
+    return nullptr;
 }
 
 static Ast_Node* PushNode(Parser_Context *ctx, Ast_Type type, const Token *token)
@@ -221,6 +220,193 @@ void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
     Expect(ctx, TOK_Semicolon);
 }
 
+static s64 ParseInt(const char *s, const char *end)
+{
+    s64 result = 0;
+    while (s != end)
+    {
+        char c = *s++;
+        result *= 10;
+        result += s64(c - '0');
+    }
+    return result;
+}
+
+static f64 ParseFloat(const char *s, const char *end)
+{
+    // TODO(henrik): Implement float parsing with c-standard lib
+    return 0.0;
+}
+
+static String ParseString(Memory_Arena *arena, const char *s, const char *end)
+{
+    // NOTE(henrik): Assumes that the resulting string can only be as long or
+    // shorter than the original string. This is due to escaping sequences
+    // that never resulting more characters than is used to represent them.
+    // We could also use the fact that no one else is going to allocate from
+    // the same arena, as we construct the string value, to allocate each
+    // character as we advance the string to make the used memory match the
+    // length of the string (so no extra memory is reserved).
+    String result = PushString(arena, s, end - s);
+    s64 i = 0;
+    while (s != end)
+    {
+        char c = *s++;
+        switch (c)
+        {
+            case '\\':
+            {
+                if (s != end)
+                {
+                    c = *s++;
+                    switch (c)
+                    {
+                        case '\\': c = '\\'; break;
+                        case '"': c = '"'; break;
+                        case 't': c = '\t'; break;
+                        case 'n': c = '\n'; break;
+                        case 'r': c = '\r'; break;
+                    }
+                }
+                else
+                {
+                    // error
+                    continue;
+                }
+            }
+            break;
+        }
+        result.data[i++] = c;
+    }
+    result.size = i;
+    return result;
+}
+
+Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
+{
+    const Token *token = Accept(ctx, TOK_IntegerLit);
+    if (token)
+    {
+        Ast_Node *literal = PushNode(ctx, AST_IntLiteral, token);
+        literal->expression.int_literal.value = ParseInt(token->value, token->value_end);
+        return literal;
+    }
+    token = Accept(ctx, TOK_FloatLit);
+    if (token)
+    {
+        Ast_Node *literal = PushNode(ctx, AST_FloatLiteral, token);
+        literal->expression.float_literal.value = ParseFloat(token->value, token->value_end);
+        return literal;
+    }
+    token = Accept(ctx, TOK_StringLit);
+    if (token)
+    {
+        Ast_Node *literal = PushNode(ctx, AST_StringLiteral, token);
+        literal->expression.string_literal.value = ParseString(&ctx->arena, token->value, token->value_end);
+        return literal;
+    }
+}
+
+static Ast_Node* ParseExpression(Parser_Context *ctx);
+
+Ast_Node* ParseFactorExpr(Parser_Context *ctx)
+{
+    // TODO(henrik): pre ops
+
+    Ast_Node *factor = ParseLiteralExpr(ctx);
+
+    if (!factor && Accept(ctx, TOK_OpenParent))
+    {
+        factor = ParseExpression(ctx);
+        if (!factor)
+        {
+            Error(ctx, GetCurrentToken(ctx), "Expecting expression after left parenthesis");
+        }
+        Expect(ctx, TOK_CloseParent);
+    }
+
+    if (factor)
+    {
+        // TODO(henrik): post ops
+    }
+    return factor;
+}
+
+Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
+{
+    Ast_Node *expr = ParseFactorExpr(ctx);
+    if (!expr) return nullptr;
+
+    while (true)
+    {
+        const Token *op_token = Accept(ctx, TOK_Star);
+        if (!op_token) op_token = Accept(ctx, TOK_Slash);
+        if (!op_token) break;
+
+        Ast_Binary_Op op;
+        switch (op_token->type)
+        {
+            case TOK_Star:  op = AST_OP_Multiply; break;
+            case TOK_Slash: op = AST_OP_Divide; break;
+        }
+
+        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+        bin_expr->expression.binary_expr.op = op;
+        bin_expr->expression.binary_expr.left = expr;
+        bin_expr->expression.binary_expr.right = ParseFactorExpr(ctx);
+
+        expr = bin_expr;
+    }
+    return expr;
+}
+
+Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
+{
+    Ast_Node *expr = ParseMultDivExpr(ctx);
+    if (!expr) return nullptr;
+
+    while (true)
+    {
+        const Token *op_token = Accept(ctx, TOK_Plus);
+        if (!op_token) op_token = Accept(ctx, TOK_Minus);
+        if (!op_token) break;
+
+        Ast_Binary_Op op;
+        switch (op_token->type)
+        {
+            case TOK_Plus:  op = AST_OP_Add; break;
+            case TOK_Minus: op = AST_OP_Subtract; break;
+        }
+
+        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+        bin_expr->expression.binary_expr.op = op;
+        bin_expr->expression.binary_expr.left = expr;
+        bin_expr->expression.binary_expr.right = ParseMultDivExpr(ctx);
+
+        expr = bin_expr;
+    }
+    return expr;
+}
+
+Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
+{
+    //Ast_Node *expr = ParseShiftExpr(ctx);
+    Ast_Node *expr = ParseAddSubExpr(ctx);
+    return expr;
+}
+
+Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
+{
+    Ast_Node *expr = ParseLogicalExpr(ctx);
+    return expr;
+}
+
+Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
+{
+    Ast_Node *expr = ParseComparisonExpr(ctx);
+    return expr;
+}
+
 Ast_Node* ParseExpression(Parser_Context *ctx)
 {
     /*
@@ -243,9 +429,8 @@ Ast_Node* ParseExpression(Parser_Context *ctx)
     //     y   *
     //        / \
     //       7   2
-    //Ast_Node *expr = ParseAssignmentExpr(ctx);
-    //return expr;
-    return nullptr;
+    Ast_Node *expr = ParseAssignmentExpr(ctx);
+    return expr;
 }
 
 Ast_Node* ParseStmtBlock(Parser_Context *ctx);
@@ -261,6 +446,11 @@ Ast_Node* ParseStatement(Parser_Context *ctx)
     if (Accept(ctx, TOK_If))
     {
         return ParseIfStatement(ctx, token);
+    }
+    Ast_Node *expression = ParseExpression(ctx);
+    if (expression)
+    {
+        Expect(ctx, TOK_Semicolon);
     }
     else
     {

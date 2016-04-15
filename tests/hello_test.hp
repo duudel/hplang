@@ -2,6 +2,8 @@
 
 main :: () : s32
 {
+    0 + 51;
+    3 * 7 / 2 + (19);
     print("Hello world!\n");
     return 0;
 }
