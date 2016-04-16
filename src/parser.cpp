@@ -83,6 +83,16 @@ static void Error(Parser_Context *ctx, const Token *token, const char *message)
     PrintSourceLineAndArrow(ctx, token->file_loc);
 }
 
+static void ErrorInvalidToken(Parser_Context *ctx, const Token *token)
+{
+    AddError(ctx->error_ctx, token->file_loc);
+    PrintFileLocation(ctx->error_ctx->file, token->file_loc);
+    fprintf(ctx->error_ctx->file, "Invalid token ");
+    PrintTokenValue(ctx->error_ctx->file, token);
+    fprintf(ctx->error_ctx->file, "\n");
+    PrintSourceLineAndArrow(ctx, token->file_loc);
+}
+
 static void ErrorExpected(Parser_Context *ctx,
         const Token *token,
         const char *expected_token)
@@ -116,6 +126,13 @@ static const Token* GetNextToken(Parser_Context *ctx)
     if (ctx->current_token < ctx->tokens.count)
         ctx->current_token++;
     return GetCurrentToken(ctx);
+}
+
+static const Token* PeekNextToken(Parser_Context *ctx)
+{
+    if (ctx->current_token + 1 < ctx->tokens.count)
+        return ctx->tokens.begin + ctx->current_token + 1;
+    return &eof_token;
 }
 
 static const Token* Accept(Parser_Context *ctx, Token_Type token_type)
@@ -255,7 +272,8 @@ static char ParseChar(Parser_Context *ctx, const char *s, const char *end)
                 }
                 else
                 {
-                    Error(ctx, GetCurrentToken(ctx), "Invalid character escape sequence");
+                    Error(ctx, GetCurrentToken(ctx),
+                            "Invalid character escape sequence");
                 }
             }
             break;
@@ -300,7 +318,8 @@ static String ParseString(Parser_Context *ctx, const char *s, const char *end)
                 }
                 else
                 {
-                    Error(ctx, GetCurrentToken(ctx), "Invalid string escape sequence");
+                    Error(ctx, GetCurrentToken(ctx),
+                            "Invalid string escape sequence");
                     continue;
                 }
             }
@@ -314,7 +333,22 @@ static String ParseString(Parser_Context *ctx, const char *s, const char *end)
 
 static Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
 {
-    const Token *token = Accept(ctx, TOK_IntegerLit);
+    // TODO(henrik): Add null literal
+    const Token *token = Accept(ctx, TOK_TrueLit);
+    if (token)
+    {
+        Ast_Node *literal = PushNode(ctx, AST_BoolLiteral, token);
+        literal->expression.bool_literal.value = true;
+        return literal;
+    }
+    token = Accept(ctx, TOK_FalseLit);
+    if (token)
+    {
+        Ast_Node *literal = PushNode(ctx, AST_BoolLiteral, token);
+        literal->expression.bool_literal.value = false;
+        return literal;
+    }
+    token = Accept(ctx, TOK_IntegerLit);
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_IntLiteral, token);
@@ -360,6 +394,8 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
     if (!op_token) op_token = Accept(ctx, TOK_Minus);
     if (!op_token) op_token = Accept(ctx, TOK_Tilde);
     if (!op_token) op_token = Accept(ctx, TOK_Bang);
+    if (!op_token) op_token = Accept(ctx, TOK_Ampersand);
+    if (!op_token) op_token = Accept(ctx, TOK_At);
 
     if (!op_token) return nullptr;
 
@@ -368,12 +404,12 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
     Ast_Unary_Op op;
     switch (op_token->type)
     {
-        case TOK_Plus:  op = AST_OP_Positive; break;
-        case TOK_Minus: op = AST_OP_Negative; break;
-        case TOK_Tilde: op = AST_OP_Complement; break;
-        case TOK_Bang:  op = AST_OP_Not; break;
-
-        // TODO(henrik): Add parsing of & (address-of) and @ (deference) operators
+        case TOK_Plus:      op = AST_OP_Positive; break;
+        case TOK_Minus:     op = AST_OP_Negative; break;
+        case TOK_Tilde:     op = AST_OP_Complement; break;
+        case TOK_Bang:      op = AST_OP_Not; break;
+        case TOK_Ampersand: op = AST_OP_Address; break;
+        case TOK_At:        op = AST_OP_Deref; break;
     }
     pre_op->expression.unary_expr.op = op;
     pre_op->expression.unary_expr.expr = nullptr;
@@ -413,8 +449,8 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
 
     if (!factor)
     {
-        const Token *identifier_tok = Accept(ctx, TOK_Identifier);
-        if (identifier_tok)
+        const Token *ident_tok = Accept(ctx, TOK_Identifier);
+        if (ident_tok)
         {
             TRACE(ParseFactor_identifier);
             // NOTE(henrik): Only accept function call for identifiers.
@@ -423,15 +459,17 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
             if (Accept(ctx, TOK_OpenParent))
             {
                 TRACE(ParseFactor_func_call);
-                factor = PushNode(ctx, AST_FunctionCall, identifier_tok);
+                factor = PushNode(ctx, AST_FunctionCall, ident_tok);
                 Ast_Node *args = ParseFunctionArgs(ctx);
+                factor->expression.function_call.name = ident_tok;
                 factor->expression.function_call.args = args;
                 Expect(ctx, TOK_CloseParent);
             }
             else
             {
                 TRACE(ParseFactor_var_ref);
-                factor = PushNode(ctx, AST_VariableRef, identifier_tok);
+                factor = PushNode(ctx, AST_VariableRef, ident_tok);
+                factor->expression.variable_ref.name = ident_tok;
             }
         }
     }
@@ -481,13 +519,15 @@ static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
     {
         const Token *op_token = Accept(ctx, TOK_Star);
         if (!op_token) op_token = Accept(ctx, TOK_Slash);
+        if (!op_token) op_token = Accept(ctx, TOK_Percent);
         if (!op_token) break;
 
         Ast_Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_Star:  op = AST_OP_Multiply; break;
-            case TOK_Slash: op = AST_OP_Divide; break;
+            case TOK_Star:      op = AST_OP_Multiply; break;
+            case TOK_Slash:     op = AST_OP_Divide; break;
+            case TOK_Percent:   op = AST_OP_Modulo; break;
         }
 
         Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
@@ -510,13 +550,19 @@ static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
     {
         const Token *op_token = Accept(ctx, TOK_Plus);
         if (!op_token) op_token = Accept(ctx, TOK_Minus);
+        if (!op_token) op_token = Accept(ctx, TOK_Ampersand);
+        if (!op_token) op_token = Accept(ctx, TOK_Pipe);
+        if (!op_token) op_token = Accept(ctx, TOK_Hat);
         if (!op_token) break;
 
         Ast_Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_Plus:  op = AST_OP_Add; break;
-            case TOK_Minus: op = AST_OP_Subtract; break;
+            case TOK_Plus:      op = AST_OP_Add; break;
+            case TOK_Minus:     op = AST_OP_Subtract; break;
+            case TOK_Ampersand: op = AST_OP_BitAnd; break;
+            case TOK_Pipe:      op = AST_OP_BitOr; break;
+            case TOK_Hat:       op = AST_OP_BitXor; break;
         }
 
         Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
@@ -567,13 +613,21 @@ static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
     {
         const Token *op_token = Accept(ctx, TOK_EqEq);
         if (!op_token) op_token = Accept(ctx, TOK_NotEq);
+        if (!op_token) op_token = Accept(ctx, TOK_Less);
+        if (!op_token) op_token = Accept(ctx, TOK_LessEq);
+        if (!op_token) op_token = Accept(ctx, TOK_Greater);
+        if (!op_token) op_token = Accept(ctx, TOK_GreaterEq);
         if (!op_token) break;
 
         Ast_Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_EqEq:  op = AST_OP_Equal; break;
-            case TOK_NotEq: op = AST_OP_NotEqual; break;
+            case TOK_EqEq:      op = AST_OP_Equal; break;
+            case TOK_NotEq:     op = AST_OP_NotEqual; break;
+            case TOK_Less:      op = AST_OP_Less; break;
+            case TOK_LessEq:    op = AST_OP_LessEq; break;
+            case TOK_Greater:   op = AST_OP_Greater; break;
+            case TOK_GreaterEq: op = AST_OP_GreaterEq; break;
         }
 
         Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
@@ -605,16 +659,6 @@ static Ast_Node* ParseExpression(Parser_Context *ctx)
      * LR: * / %                mult, div, mod
      * LR: + - ~                unary pos/neg, bit complement
      */
-    // z = x = y / 7 * 2
-    //   =
-    //  / \
-    // z   =
-    //    / \
-    //   x   /
-    //      / \
-    //     y   *
-    //        / \
-    //       7   2
     Ast_Node *expr = ParseAssignmentExpr(ctx);
     TRACE(ParseExpression_end);
     return expr;
@@ -640,7 +684,7 @@ static Ast_Node* ParseBlockStatement(Parser_Context *ctx)
         }
         else
         {
-            Error(ctx, GetCurrentToken(ctx), "Invalid token");
+            ErrorInvalidToken(ctx, GetCurrentToken(ctx));
             GetNextToken(ctx);
         }
     } while (ContinueParsing(ctx));
@@ -695,12 +739,70 @@ static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
     return return_node;
 }
 
+static Ast_Node* ParseType(Parser_Context *ctx);
+
+static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx)
+{
+    // NOTE(henrik): Needs to be parsed before expression because of ambiguous
+    // grammar.
+    const Token *ident_tok = GetCurrentToken(ctx);
+    if (ident_tok->type != TOK_Identifier)
+        return nullptr;
+
+    const Token *peek = PeekNextToken(ctx);
+    if (peek->type != TOK_Colon && peek->type != TOK_ColonEq)
+        return nullptr;
+
+    Accept(ctx, TOK_Identifier);
+
+    Ast_Node *var_decl = PushNode(ctx, AST_VariableDecl, ident_tok);
+    var_decl->variable_decl.name = ident_tok;
+
+    Ast_Node *type = nullptr;
+    Ast_Node *init = nullptr;
+    if (Accept(ctx, TOK_Colon))
+    {
+        type = ParseType(ctx);
+        if (!type)
+        {
+            Error(ctx, GetCurrentToken(ctx),
+                    "Expecting type for variable");
+        }
+
+        if (Accept(ctx, TOK_Eq))
+        {
+            init = ParseExpression(ctx);
+            if (!init)
+            {
+                Error(ctx, GetCurrentToken(ctx),
+                        "Expecting initializing expression for variable");
+            }
+        }
+    }
+    else
+    {
+        Expect(ctx, TOK_ColonEq);
+        init = ParseExpression(ctx);
+        if (!init)
+        {
+            Error(ctx, GetCurrentToken(ctx),
+                    "Expecting initializing expression for variable");
+        }
+    }
+    var_decl->variable_decl.type = type;
+    var_decl->variable_decl.init = init;
+
+    Expect(ctx, TOK_Semicolon);
+    return var_decl;
+}
+
 static Ast_Node* ParseStatement(Parser_Context *ctx)
 {
     TRACE(ParseStatement);
     Ast_Node *stmt = ParseBlockStatement(ctx);
     if (!stmt) stmt = ParseIfStatement(ctx);
     if (!stmt) stmt = ParseReturnStatement(ctx);
+    if (!stmt) stmt = ParseVarDeclStatement(ctx);
     if (!stmt)
     {
         Ast_Node *expression = ParseExpression(ctx);
