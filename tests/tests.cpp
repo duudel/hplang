@@ -21,9 +21,9 @@ struct Test
 };
 
 Test tests[] = {
-    //(Test){ "tests/crlf_test.hp", {4, 26}, { } },
-    //(Test){ "tests/token_test.hp", { }, {1, 1} },
-    //(Test){ "tests/hello_test.hp", { }, { } },
+    (Test){ "tests/crlf_test.hp", {4, 26}, { } },
+    (Test){ "tests/token_test.hp", { }, {1, 1} },
+    (Test){ "tests/hello_test.hp", { }, { } },
     (Test){ "tests/expr_test.hp", { }, { } },
 };
 
@@ -50,12 +50,12 @@ b32 CheckLexingResult(Compiler_Context *compiler_ctx,
             {
                 return true;
             }
-            fprintf(stderr, "%s:%d:%d: Unexpected lexing error\n",
+            fprintf(stderr, "%s:%d:%d: Test result: Unexpected lexing error\n",
                     test.filename,
                     error_loc.line,
                     error_loc.column);
         }
-        fprintf(stderr, "%s:%d:%d: Expecting lexing error\n",
+        fprintf(stderr, "%s:%d:%d: Test result: Expecting lexing error\n",
                 test.filename,
                 test.fail_lexing.line,
                 test.fail_lexing.column);
@@ -66,7 +66,7 @@ b32 CheckLexingResult(Compiler_Context *compiler_ctx,
         if (compiler_ctx->error_ctx.compilation_phase == COMP_Lexing)
         {
             File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-            fprintf(stderr, "%s:%d:%d: Unexpected lexing error\n",
+            fprintf(stderr, "%s:%d:%d: Test result: Unexpected lexing error\n",
                     test.filename,
                     error_loc.line,
                     error_loc.column);
@@ -99,12 +99,12 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
             {
                 return true;
             }
-            fprintf(stderr, "%s:%d:%d: Unexpected lexing error\n",
+            fprintf(stderr, "%s:%d:%d: Test result: Unexpected lexing error\n",
                     test.filename,
                     error_loc.line,
                     error_loc.column);
         }
-        fprintf(stderr, "%s:%d:%d: Expecting lexing error\n",
+        fprintf(stderr, "%s:%d:%d: Test result: Expecting lexing error\n",
                 test.filename,
                 test.fail_parsing.line,
                 test.fail_parsing.column);
@@ -115,7 +115,7 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
         if (compiler_ctx->error_ctx.compilation_phase == COMP_Parsing)
         {
             File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-            fprintf(stderr, "%s:%d:%d: Unexpected parsing error\n",
+            fprintf(stderr, "%s:%d:%d: Test result: Unexpected parsing error\n",
                     test.filename,
                     error_loc.line,
                     error_loc.column);
@@ -128,9 +128,7 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
 s64 RunTest(const Test &test)
 {
     fprintf(stderr, "Running test '%s'\n", test.filename);
-    fprintf(stderr, "----\n");
-    fflush(stderr);
-
+    fprintf(stderr, "----\n"); fflush(stderr);
 
     s64 failed = 0;
     Compiler_Context compiler_ctx = NewCompilerContext();
@@ -138,7 +136,6 @@ s64 RunTest(const Test &test)
     Open_File *file = OpenFile(&compiler_ctx, test.filename);
     if (file)
     {
-        fprintf(stderr, "file opened\n"); fflush(stderr);
         b32 should_fail_lexing =
             (test.fail_lexing.line && test.fail_lexing.column);
         b32 should_fail_parsing =
@@ -151,7 +148,6 @@ s64 RunTest(const Test &test)
 
         b32 result = Compile(&compiler_ctx, file);
 
-        fprintf(stderr, "compiled\n"); fflush(stderr);
         if (!CheckLexingResult(&compiler_ctx, test, result))
         {
             failed = 1;
@@ -168,9 +164,6 @@ s64 RunTest(const Test &test)
     }
 
     FreeCompilerContext(&compiler_ctx);
-    fprintf(stderr, "Test finished '%s'\n", test.filename);
-    fprintf(stderr, "----\n");
-
     return failed;
 }
 
@@ -195,7 +188,6 @@ int main(int argc, char **argv)
     s64 total_tests = arr_len(tests);
     for (const Test &test : tests)
     {
-        fprintf(stderr, "Test '%s'\n", test.filename);
         failed_tests += RunTest(test);
         fflush(stderr);
     }

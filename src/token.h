@@ -11,10 +11,13 @@ enum Token_Type
     TOK_Comment,
     TOK_Multiline_comment,
 
-    TOK_IntegerLit,
-    TOK_FloatLit,
-    TOK_StringLit,      // "xyz"
+    TOK_IntegerLit,     // 34123543 (w/o sign)
+    TOK_Float32Lit,     // 0.031f
+    TOK_Float64Lit,     // 43.12d or 3.21
     TOK_CharLit,        // 'x'
+    TOK_StringLit,      // "xyz"
+    TOK_TrueLit,        // true
+    TOK_FalseLit,       // false
 
     TOK_Identifier,     // identifier
 
@@ -42,9 +45,9 @@ enum Token_Type
     TOK_Type_String,    // string
 
     TOK_Hash,           // #
-    TOK_ColonColon,     // ::
     TOK_Colon,          // :
-    TOK_ColonAssign,    // :=
+    TOK_ColonColon,     // ::
+    TOK_ColonEq,        // :=
     TOK_Semicolon,      // ;
     TOK_Comma,          // ,
     TOK_Period,         // .
@@ -56,7 +59,7 @@ enum Token_Type
     TOK_OpenBracket,    // [
     TOK_CloseBracket,   // ]
 
-    TOK_Eq,             // ==
+    TOK_EqEq,           // ==
     TOK_NotEq,          // !=
     TOK_Less,           // <
     TOK_LessEq,         // <=
@@ -67,26 +70,29 @@ enum Token_Type
     TOK_Minus,          // -
     TOK_Star,           // *
     TOK_Slash,          // /
+    TOK_Percent,        // %
 
-    TOK_Assign,         // =
-    TOK_PlusAssign,     // +=
-    TOK_MinusAssign,    // -=
-    TOK_StarAssign,     // *=
-    TOK_SlashAssign,    // /=
+    TOK_Eq,             // =
+    TOK_PlusEq,         // +=
+    TOK_MinusEq,        // -=
+    TOK_StarEq,         // *=
+    TOK_SlashEq,        // /=
+    TOK_PercentEq,      // /=
 
     TOK_Ampersand,      // &
     TOK_Pipe,           // |
     TOK_Hat,            // ^
     TOK_Tilde,          // ~
+    TOK_At,             // @
 
-    TOK_AmpAssign,      // &=
-    TOK_PipeAssign,     // |=
-    TOK_HatAssign,      // ^=
-    TOK_TildeAssign,    // ~=
+    TOK_AmpEq,          // &=
+    TOK_PipeEq,         // |=
+    TOK_HatEq,          // ^=
+    TOK_TildeEq,        // ~=
 
     TOK_Bang,           // !
-    TOK_And,            // &&
-    TOK_Or,             // ||
+    TOK_AmpAmp,         // &&
+    TOK_PipePipe,       // ||
 
     // TODO: Add increment & decrement ops (++, --) ??
     // TODO: Add modulo op

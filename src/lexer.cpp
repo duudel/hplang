@@ -60,6 +60,10 @@ enum Lexer_State
     LS_STR_els,
     LS_STR_else,
     LS_STR_f,
+    LS_STR_fa,
+    LS_STR_fal,
+    LS_STR_fals,
+    LS_STR_false,
     LS_STR_fo,
     LS_STR_for,
     LS_STR_i,
@@ -95,6 +99,10 @@ enum Lexer_State
     LS_STR_s32,
     LS_STR_s6,
     LS_STR_s64,
+    LS_STR_t,
+    LS_STR_tr,
+    LS_STR_tru,
+    LS_STR_true,
     LS_STR_u,
     LS_STR_u8,
     LS_STR_u1,
@@ -112,6 +120,7 @@ enum Lexer_State
     LS_Hash,            // #
     LS_Colon,           // :
     LS_ColonColon,      // ::
+    LS_ColonEq,         // :=
     LS_Semicolon,       // ;
     LS_Comma,           // ,
     LS_Period,          // .
@@ -125,7 +134,7 @@ enum Lexer_State
 
     LS_Eq,              // =
     LS_EqEq,            // ==
-    LS_Bang,
+    LS_Bang,            // !
     LS_NotEq,           // !=
     LS_Less,            // <
     LS_LessEq,          // <=
@@ -137,10 +146,10 @@ enum Lexer_State
     LS_Star,            // *
     LS_Slash,           // /
 
-    LS_PlusAssign,      // +=
-    LS_MinusAssign,     // -=
-    LS_StarAssign,      // *=
-    LS_SlashAssign,     // /=
+    LS_PlusEq,          // +=
+    LS_MinusEq,         // -=
+    LS_StarEq,          // *=
+    LS_SlashEq,         // /=
 
     LS_Ampersand,       // &
     LS_AmpAmp,          // &&
@@ -148,11 +157,12 @@ enum Lexer_State
     LS_PipePipe,        // ||
     LS_Hat,             // ^
     LS_Tilde,           // ~
+    LS_At,              // @
 
-    LS_AmpAssign,       // &=
-    LS_PipeAssign,      // |=
-    LS_HatAssign,       // ^=
-    LS_TildeAssign,     // ~=
+    LS_AmpEq,           // &=
+    LS_PipeEq,          // |=
+    LS_HatEq,           // ^=
+    LS_TildeEq,         // ~=
 
     LS_Comment,
     LS_MultilineComment,
@@ -225,7 +235,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'q': fsm.state = LS_Ident; break;
             case 'r': fsm.state = LS_STR_r; break;
             case 's': fsm.state = LS_STR_s; break;
-            case 't': fsm.state = LS_Ident; break;
+            case 't': fsm.state = LS_STR_t; break;
             case 'u': fsm.state = LS_STR_u; break;
             case 'v': fsm.state = LS_Ident; break;
             case 'w': fsm.state = LS_Ident; break;
@@ -257,6 +267,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '|': fsm.state = LS_Pipe; break;
             case '^': fsm.state = LS_Hat; break;
             case '~': fsm.state = LS_Tilde; break;
+            case '@': fsm.state = LS_At; break;
 
             default:
                 fsm.state = LS_Invalid;
@@ -327,6 +338,9 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_STR_bool:
     case LS_STR_char:
     case LS_STR_else:
+    //case LS_STR_f32:
+    //case LS_STR_f64:
+    case LS_STR_false:
     case LS_STR_for:
     case LS_STR_if:
     case LS_STR_import:
@@ -338,6 +352,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_STR_s16:
     case LS_STR_s32:
     case LS_STR_s64:
+    case LS_STR_true:
     case LS_STR_u8:
     case LS_STR_u16:
     case LS_STR_u32:
@@ -424,8 +439,34 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_STR_f:
         switch (c)
         {
+            case 'a':
+                fsm.state = LS_STR_fa; break;
             case 'o':
                 fsm.state = LS_STR_fo; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_fa:
+        switch (c)
+        {
+            case 'l':
+                fsm.state = LS_STR_fal; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_fal:
+        switch (c)
+        {
+            case 's':
+                fsm.state = LS_STR_fals; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_fals:
+        switch (c)
+        {
+            case 'e':
+                fsm.state = LS_STR_false; break;
             default:
                 fsm.state = LS_KW_end;
         } break;
@@ -633,6 +674,30 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             default:
                 fsm.state = LS_KW_end;
         } break;
+    case LS_STR_t:
+        switch (c)
+        {
+            case 'r':
+                fsm.state = LS_STR_tr; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_tr:
+        switch (c)
+        {
+            case 'u':
+                fsm.state = LS_STR_tru; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_tru:
+        switch (c)
+        {
+            case 'e':
+                fsm.state = LS_STR_true; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
     case LS_STR_u:
         switch (c)
         {
@@ -706,6 +771,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
 
     case LS_Hash:
     case LS_ColonColon:
+    case LS_ColonEq:
     case LS_Semicolon:
     case LS_Comma:
     case LS_Period:
@@ -718,11 +784,15 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_CloseBracket:
         fsm.emit = true;
         break;
+    case LS_At:
+        fsm.emit = true;
+        break;
 
     case LS_Colon:
         switch (c)
         {
             case ':': fsm.state = LS_ColonColon; break;
+            case '=': fsm.state = LS_ColonEq; break;
             default:
                 fsm.emit = true;
         } break;
@@ -758,21 +828,21 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_Plus:
         switch (c)
         {
-            case '=': fsm.state = LS_PlusAssign; break;
+            case '=': fsm.state = LS_PlusEq; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Minus:
         switch (c)
         {
-            case '=': fsm.state = LS_MinusAssign; break;
+            case '=': fsm.state = LS_MinusEq; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Star:
         switch (c)
         {
-            case '=': fsm.state = LS_StarAssign; break;
+            case '=': fsm.state = LS_StarEq; break;
             default:
                 fsm.emit = true;
         } break;
@@ -781,14 +851,14 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         {
             case '/': fsm.state = LS_Comment; break;
             case '*': fsm.state = LS_MultilineComment; break;
-            case '=': fsm.state = LS_SlashAssign; break;
+            case '=': fsm.state = LS_SlashEq; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Ampersand:
         switch (c)
         {
-            case '=': fsm.state = LS_AmpAssign; break;
+            case '=': fsm.state = LS_AmpEq; break;
             case '&': fsm.state = LS_AmpAmp; break;
             default:
                 fsm.emit = true;
@@ -796,7 +866,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_Pipe:
         switch (c)
         {
-            case '=': fsm.state = LS_PipeAssign; break;
+            case '=': fsm.state = LS_PipeEq; break;
             case '|': fsm.state = LS_PipePipe; break;
             default:
                 fsm.emit = true;
@@ -804,14 +874,14 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_Hat:
         switch (c)
         {
-            case '=': fsm.state = LS_HatAssign; break;
+            case '=': fsm.state = LS_HatEq; break;
             default:
                 fsm.emit = true;
         } break;
     case LS_Tilde:
         switch (c)
         {
-            case '=': fsm.state = LS_TildeAssign; break;
+            case '=': fsm.state = LS_TildeEq; break;
             default:
                 fsm.emit = true;
         } break;
@@ -820,14 +890,14 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_NotEq:
     case LS_LessEq:
     case LS_GreaterEq:
-    case LS_PlusAssign:
-    case LS_MinusAssign:
-    case LS_StarAssign:
-    case LS_SlashAssign:
-    case LS_AmpAssign:
-    case LS_PipeAssign:
-    case LS_HatAssign:
-    case LS_TildeAssign:
+    case LS_PlusEq:
+    case LS_MinusEq:
+    case LS_StarEq:
+    case LS_SlashEq:
+    case LS_AmpEq:
+    case LS_PipeEq:
+    case LS_HatEq:
+    case LS_TildeEq:
     case LS_AmpAmp:
     case LS_PipePipe:
         fsm.emit = true;
@@ -863,24 +933,6 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     return fsm;
 }
 
-void Error(Error_Context *ctx, File_Location file_loc,
-            const char *message, const Token *token)
-{
-    AddError(ctx, file_loc);
-    if (!token)
-    {
-        PrintFileLocation(ctx->file, file_loc);
-        fprintf(ctx->file, "%s\n", message);
-    }
-    else
-    {
-        PrintFileLocation(ctx->file, file_loc);
-        fprintf(ctx->file, "%s '", message);
-        PrintTokenValue(ctx->file, token);
-        fprintf(ctx->file, "'\n");
-    }
-}
-
 void EmitToken(Lexer_Context *ctx, Lexer_State state)
 {
     switch (state)
@@ -891,25 +943,23 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_Int:
             ctx->current_token.type = TOK_IntegerLit; break;
         case LS_Float:
-            ctx->current_token.type = TOK_FloatLit; break;
+            ctx->current_token.type = TOK_Float64Lit; break;
         case LS_FloatF:
-            ctx->current_token.type = TOK_FloatLit; break;
+            ctx->current_token.type = TOK_Float32Lit; break;
         case LS_FloatD:
-            ctx->current_token.type = TOK_FloatLit; break;
-
-        case LS_StringLit:
-        case LS_StringLitEsc:
-            ASSERT(0); break;
-
-        case LS_StringLitEnd:
-            ctx->current_token.type = TOK_StringLit; break;
+            ctx->current_token.type = TOK_Float64Lit; break;
 
         case LS_CharLit:
         case LS_CharLitEsc:
             ASSERT(0); break;
-
         case LS_CharLitEnd:
             ctx->current_token.type = TOK_CharLit; break;
+
+        case LS_StringLit:
+        case LS_StringLitEsc:
+            ASSERT(0); break;
+        case LS_StringLitEnd:
+            ctx->current_token.type = TOK_StringLit; break;
 
         case LS_KW_end:
         case LS_Ident:
@@ -919,7 +969,6 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_bo:
         case LS_STR_boo:
             ASSERT(0); break;
-
         case LS_STR_bool:
             ctx->current_token.type = TOK_Type_Bool; break;
 
@@ -927,7 +976,6 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_ch:
         case LS_STR_cha:
             ASSERT(0); break;
-
         case LS_STR_char:
             ctx->current_token.type = TOK_Type_Char; break;
 
@@ -935,20 +983,24 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_el:
         case LS_STR_els:
             ASSERT(0); break;
-
         case LS_STR_else:
             ctx->current_token.type = TOK_Else; break;
 
         case LS_STR_f:
+        case LS_STR_fa:
+        case LS_STR_fal:
+        case LS_STR_fals:
+            ASSERT(0); break;
+        case LS_STR_false:
+            ctx->current_token.type = TOK_FalseLit; break;
+
         case LS_STR_fo:
             ASSERT(0); break;
-
         case LS_STR_for:
             ctx->current_token.type = TOK_For; break;
 
         case LS_STR_i:
             ASSERT(0); break;
-
         case LS_STR_if:
             ctx->current_token.type = TOK_If; break;
 
@@ -957,7 +1009,6 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_impo:
         case LS_STR_impor:
             ASSERT(0); break;
-
         case LS_STR_import:
             ctx->current_token.type = TOK_Import; break;
 
@@ -965,7 +1016,6 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_nu:
         case LS_STR_nul:
             ASSERT(0); break;
-
         case LS_STR_null:
             ctx->current_token.type = TOK_Null; break;
 
@@ -975,7 +1025,6 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_retu:
         case LS_STR_retur:
             ASSERT(0); break;
-
         case LS_STR_return:
             ctx->current_token.type = TOK_Return; break;
 
@@ -985,14 +1034,12 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_stri:
         case LS_STR_strin:
             ASSERT(0); break;
-
         case LS_STR_string:
             ctx->current_token.type = TOK_Type_String; break;
 
         case LS_STR_stru:
         case LS_STR_struc:
             ASSERT(0); break;
-
         case LS_STR_struct:
             ctx->current_token.type = TOK_Struct; break;
 
@@ -1001,21 +1048,25 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
 
         case LS_STR_s1:
             ASSERT(0); break;
-
         case LS_STR_s16:
             ctx->current_token.type = TOK_Type_S16; break;
 
         case LS_STR_s3:
             ASSERT(0); break;
-
         case LS_STR_s32:
             ctx->current_token.type = TOK_Type_S32; break;
 
         case LS_STR_s6:
             ASSERT(0); break;
-
         case LS_STR_s64:
             ctx->current_token.type = TOK_Type_S64; break;
+
+        case LS_STR_t:
+        case LS_STR_tr:
+        case LS_STR_tru:
+            ASSERT(0); break;
+        case LS_STR_true:
+            ctx->current_token.type = TOK_TrueLit; break;
 
         case LS_STR_u:
             ASSERT(0); break;
@@ -1046,7 +1097,6 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_whi:
         case LS_STR_whil:
             ASSERT(0); break;
-
         case LS_STR_while:
             ctx->current_token.type = TOK_While; break;
 
@@ -1056,6 +1106,8 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
             ctx->current_token.type = TOK_Colon; break;
         case LS_ColonColon:
             ctx->current_token.type = TOK_ColonColon; break;
+        case LS_ColonEq:
+            ctx->current_token.type = TOK_ColonEq; break;
         case LS_Semicolon:
             ctx->current_token.type = TOK_Semicolon; break;
         case LS_Comma:
@@ -1078,9 +1130,9 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
             ctx->current_token.type = TOK_CloseBracket; break;
 
         case LS_Eq:
-            ctx->current_token.type = TOK_Assign; break;
-        case LS_EqEq:
             ctx->current_token.type = TOK_Eq; break;
+        case LS_EqEq:
+            ctx->current_token.type = TOK_EqEq; break;
         case LS_Bang:
             ctx->current_token.type = TOK_Bang; break;
         case LS_NotEq:
@@ -1103,36 +1155,38 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_Slash:
             ctx->current_token.type = TOK_Slash; break;
 
-        case LS_PlusAssign:
-            ctx->current_token.type = TOK_PlusAssign; break;
-        case LS_MinusAssign:
-            ctx->current_token.type = TOK_MinusAssign; break;
-        case LS_StarAssign:
-            ctx->current_token.type = TOK_StarAssign; break;
-        case LS_SlashAssign:
-            ctx->current_token.type = TOK_SlashAssign; break;
+        case LS_PlusEq:
+            ctx->current_token.type = TOK_PlusEq; break;
+        case LS_MinusEq:
+            ctx->current_token.type = TOK_MinusEq; break;
+        case LS_StarEq:
+            ctx->current_token.type = TOK_StarEq; break;
+        case LS_SlashEq:
+            ctx->current_token.type = TOK_SlashEq; break;
 
         case LS_Ampersand:
             ctx->current_token.type = TOK_Ampersand; break;
         case LS_AmpAmp:
-            ctx->current_token.type = TOK_And; break;
+            ctx->current_token.type = TOK_AmpAmp; break;
         case LS_Pipe:
             ctx->current_token.type = TOK_Pipe; break;
         case LS_PipePipe:
-            ctx->current_token.type = TOK_Or; break;
+            ctx->current_token.type = TOK_PipePipe; break;
         case LS_Hat:
             ctx->current_token.type = TOK_Hat; break;
         case LS_Tilde:
             ctx->current_token.type = TOK_Tilde; break;
+        case LS_At:
+            ctx->current_token.type = TOK_At; break;
 
-        case LS_AmpAssign:
-            ctx->current_token.type = TOK_AmpAssign; break;
-        case LS_PipeAssign:
-            ctx->current_token.type = TOK_PipeAssign; break;
-        case LS_HatAssign:
-            ctx->current_token.type = TOK_HatAssign; break;
-        case LS_TildeAssign:
-            ctx->current_token.type = TOK_TildeAssign; break;
+        case LS_AmpEq:
+            ctx->current_token.type = TOK_AmpEq; break;
+        case LS_PipeEq:
+            ctx->current_token.type = TOK_PipeEq; break;
+        case LS_HatEq:
+            ctx->current_token.type = TOK_HatEq; break;
+        case LS_TildeEq:
+            ctx->current_token.type = TOK_TildeEq; break;
 
         case LS_Comment:
         case LS_MultilineComment:
@@ -1145,6 +1199,24 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
     }
     Token *token = PushTokenList(&ctx->tokens);
     *token = ctx->current_token;
+}
+
+void Error(Error_Context *ctx, File_Location file_loc,
+            const char *message, const Token *token)
+{
+    AddError(ctx, file_loc);
+    if (!token)
+    {
+        PrintFileLocation(ctx->file, file_loc);
+        fprintf(ctx->file, "%s\n", message);
+    }
+    else
+    {
+        PrintFileLocation(ctx->file, file_loc);
+        fprintf(ctx->file, "%s '", message);
+        PrintTokenValue(ctx->file, token);
+        fprintf(ctx->file, "'\n");
+    }
 }
 
 void Lex(Lexer_Context *ctx, const char *text, s64 text_length)

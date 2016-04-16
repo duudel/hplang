@@ -230,7 +230,44 @@ static f64 ParseFloat(const char *s, const char *end)
     return 0.0;
 }
 
-static String ParseString(Memory_Arena *arena, const char *s, const char *end)
+static char ParseChar(Parser_Context *ctx, const char *s, const char *end)
+{
+    char result = 0;
+    if (s != end)
+    {
+        char c = *s++;
+        switch (c)
+        {
+            case '\\':
+            {
+                if (s != end)
+                {
+                    c = *s++;
+                    switch (c)
+                    {
+                        case '\\': c = '\\'; break;
+                        case '"': c = '"'; break;
+                        case '\'': c = '\''; break;
+                        case 't': c = '\t'; break;
+                        case 'n': c = '\n'; break;
+                        case 'r': c = '\r'; break;
+                    }
+                }
+                else
+                {
+                    Error(ctx, GetCurrentToken(ctx), "Invalid character escape sequence");
+                }
+            }
+            break;
+        }
+        result = c;
+    }
+    if (s != end)
+        ; // error
+    return result;
+}
+
+static String ParseString(Parser_Context *ctx, const char *s, const char *end)
 {
     // NOTE(henrik): Assumes that the resulting string can only be as long or
     // shorter than the original string. This is due to escaping sequences
@@ -239,7 +276,7 @@ static String ParseString(Memory_Arena *arena, const char *s, const char *end)
     // the same arena, as we construct the string value, to allocate each
     // character as we advance the string to make the used memory match the
     // length of the string (so no extra memory is reserved).
-    String result = PushString(arena, s, end - s);
+    String result = PushString(&ctx->arena, s, end - s);
     s64 i = 0;
     while (s != end)
     {
@@ -255,6 +292,7 @@ static String ParseString(Memory_Arena *arena, const char *s, const char *end)
                     {
                         case '\\': c = '\\'; break;
                         case '"': c = '"'; break;
+                        case '\'': c = '\''; break;
                         case 't': c = '\t'; break;
                         case 'n': c = '\n'; break;
                         case 'r': c = '\r'; break;
@@ -262,7 +300,7 @@ static String ParseString(Memory_Arena *arena, const char *s, const char *end)
                 }
                 else
                 {
-                    // error
+                    Error(ctx, GetCurrentToken(ctx), "Invalid string escape sequence");
                     continue;
                 }
             }
@@ -283,18 +321,32 @@ static Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
         literal->expression.int_literal.value = ParseInt(token->value, token->value_end);
         return literal;
     }
-    token = Accept(ctx, TOK_FloatLit);
+    token = Accept(ctx, TOK_Float32Lit);
     if (token)
     {
-        Ast_Node *literal = PushNode(ctx, AST_FloatLiteral, token);
-        literal->expression.float_literal.value = ParseFloat(token->value, token->value_end);
+        Ast_Node *literal = PushNode(ctx, AST_Float32Literal, token);
+        literal->expression.float32_literal.value = ParseFloat(token->value, token->value_end);
+        return literal;
+    }
+    token = Accept(ctx, TOK_Float64Lit);
+    if (token)
+    {
+        Ast_Node *literal = PushNode(ctx, AST_Float64Literal, token);
+        literal->expression.float64_literal.value = ParseFloat(token->value, token->value_end);
+        return literal;
+    }
+    token = Accept(ctx, TOK_CharLit);
+    if (token)
+    {
+        Ast_Node *literal = PushNode(ctx, AST_CharLiterla, token);
+        literal->expression.char_literal.value = ParseChar(ctx, token->value, token->value_end);
         return literal;
     }
     token = Accept(ctx, TOK_StringLit);
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_StringLiteral, token);
-        literal->expression.string_literal.value = ParseString(&ctx->arena, token->value, token->value_end);
+        literal->expression.string_literal.value = ParseString(ctx, token->value, token->value_end);
         return literal;
     }
     TRACE(ParseLiteralExpr_not_literal);
@@ -485,15 +537,15 @@ static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
 
     while (ContinueParsing(ctx))
     {
-        const Token *op_token = Accept(ctx, TOK_And);
-        if (!op_token) op_token = Accept(ctx, TOK_Or);
+        const Token *op_token = Accept(ctx, TOK_AmpAmp);
+        if (!op_token) op_token = Accept(ctx, TOK_PipePipe);
         if (!op_token) break;
 
         Ast_Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_And:   op = AST_OP_And; break;
-            case TOK_Or:    op = AST_OP_Or; break;
+            case TOK_AmpAmp:    op = AST_OP_And; break;
+            case TOK_PipePipe:  op = AST_OP_Or; break;
         }
 
         Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
@@ -513,14 +565,14 @@ static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
 
     while (ContinueParsing(ctx))
     {
-        const Token *op_token = Accept(ctx, TOK_Eq);
+        const Token *op_token = Accept(ctx, TOK_EqEq);
         if (!op_token) op_token = Accept(ctx, TOK_NotEq);
         if (!op_token) break;
 
         Ast_Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_Eq:    op = AST_OP_Equal; break;
+            case TOK_EqEq:  op = AST_OP_Equal; break;
             case TOK_NotEq: op = AST_OP_NotEqual; break;
         }
 
@@ -664,8 +716,8 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
 static Ast_Node* ParseType(Parser_Context *ctx)
 {
     TRACE(ParseType);
-    const Token *token = GetCurrentToken(ctx);
     Ast_Node *type_node = nullptr;
+    const Token *token = GetCurrentToken(ctx);
     switch (token->type)
     {
         case TOK_OpenParent:

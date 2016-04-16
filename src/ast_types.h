@@ -33,7 +33,8 @@ enum Ast_Type
     AST_Expression,
 
     AST_IntLiteral,
-    AST_FloatLiteral,
+    AST_Float32Literal,
+    AST_Float64Literal,
     AST_CharLiterla,
     AST_StringLiteral,
     AST_VariableRef,
@@ -106,9 +107,14 @@ struct Ast_Int_Literal
     s64 value;
 };
 
-struct Ast_Float_Literal
+struct Ast_Float64_Literal
 {
     f64 value;
+};
+
+struct Ast_Float32_Literal
+{
+    f32 value;
 };
 
 struct Ast_Char_Literal
@@ -150,7 +156,8 @@ struct Ast_Expression
 {
     union {
         Ast_Int_Literal     int_literal;
-        Ast_Float_Literal   float_literal;
+        Ast_Float32_Literal float32_literal;
+        Ast_Float64_Literal float64_literal;
         Ast_Char_Literal    char_literal;
         Ast_String_Literal  string_literal;
         Ast_Binary_Expr     binary_expr;
