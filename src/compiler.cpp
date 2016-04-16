@@ -80,6 +80,9 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
 
     // semantic checking
 
+    FreeLexerContext(&lexer_ctx);
+    FreeParserContext(&parser_ctx);
+
     return true;
 }
 

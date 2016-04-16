@@ -23,7 +23,7 @@ enum Ast_Type
     AST_StructBody,
     // struct field and stuff
 
-    AST_StmtBlock,
+    AST_BlockStmt,
     AST_IfStmt,
     AST_ForStmt,
     AST_WhileStmt,
@@ -53,6 +53,9 @@ enum Ast_Binary_Op
     AST_OP_Divide,
     // TODO(henrik): Add modulo op (should it work for floats too?)
     //AST_OP_Modulo,
+
+    AST_OP_And,
+    AST_OP_Or,
 
     AST_OP_Equal,
     AST_OP_NotEqual,
@@ -220,6 +223,11 @@ struct Ast_If_Stmt
     Ast_Node *false_stmt;
 };
 
+struct Ast_Return_Stmt
+{
+    Ast_Node *expression;
+};
+
 struct Ast_Node
 {
     Ast_Type type;
@@ -229,6 +237,7 @@ struct Ast_Node
         Ast_Function    function;
         Ast_Parameter   parameter;
         Ast_If_Stmt     if_stmt;
+        Ast_Return_Stmt return_stmt;
         Ast_Assignment  assignment;
         Ast_Expression  expression;
         Ast_Type_Node   type_node;

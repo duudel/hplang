@@ -3,6 +3,12 @@
 #include "error.h"
 #include "assert.h"
 
+//#define TRACE(x) {fprintf(stderr, "%s\n", #x); fflush(stderr);
+//#define TRACE(x) {fprintf(stderr, "%s : %d:%d\n", #x,\
+//        GetCurrentToken(ctx)->file_loc.line,\
+//        GetCurrentToken(ctx)->file_loc.column); fflush(stderr);}
+#define TRACE(x)
+
 namespace hplang
 {
 
@@ -23,11 +29,6 @@ Parser_Context NewParserContext(
 void FreeParserContext(Parser_Context *ctx)
 {
     FreeMemoryArena(&ctx->arena);
-}
-
-static b32 ContinueParsing(Parser_Context *ctx)
-{
-    return ctx->error_ctx->error_count < ctx->options->max_error_count;
 }
 
 static void PrintFileLine(Error_Context *error_ctx,
@@ -113,8 +114,8 @@ static const Token* GetNextToken(Parser_Context *ctx)
     //PrintTokenValue(stderr, GetCurrentToken(ctx));
     //fprintf(stderr, "\n");
     if (ctx->current_token < ctx->tokens.count)
-        return ctx->tokens.begin + ++ctx->current_token;
-    return &eof_token;
+        ctx->current_token++;
+    return GetCurrentToken(ctx);
 }
 
 static const Token* Accept(Parser_Context *ctx, Token_Type token_type)
@@ -137,6 +138,13 @@ static const Token* Expect(Parser_Context *ctx, Token_Type token_type)
     ErrorExpected(ctx, token, TokenTypeToString(token_type));
     return nullptr;
 }
+
+static b32 ContinueParsing(Parser_Context *ctx)
+{
+    if (Accept(ctx, TOK_EOF)) return false;
+    return ctx->error_ctx->error_count < ctx->options->max_error_count;
+}
+
 
 static Ast_Node* PushNode(Parser_Context *ctx, Ast_Type type, const Token *token)
 {
@@ -289,10 +297,13 @@ static Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
         literal->expression.string_literal.value = ParseString(&ctx->arena, token->value, token->value_end);
         return literal;
     }
+    TRACE(ParseLiteralExpr_not_literal);
+    return nullptr;
 }
 
 static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
 {
+    TRACE(ParsePrefixOperator);
     const Token *op_token = Accept(ctx, TOK_Plus);
     if (!op_token) op_token = Accept(ctx, TOK_Minus);
     if (!op_token) op_token = Accept(ctx, TOK_Tilde);
@@ -319,13 +330,14 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
 
 static Ast_Node* ParseFunctionArgs(Parser_Context *ctx)
 {
+    TRACE(ParseFunctionArgs);
     Ast_Node *args = PushNode(ctx, AST_FunctionCallArgs, GetCurrentToken(ctx));
 
     Ast_Node *arg = ParseExpression(ctx);
     if (arg)
     {
         PushNodeList(&args->node_list, arg);
-        while (Accept(ctx, TOK_Comma))
+        while (Accept(ctx, TOK_Comma) && ContinueParsing(ctx))
         {
             Ast_Node *arg = ParseExpression(ctx);
             if (!arg)
@@ -342,6 +354,7 @@ static Ast_Node* ParseFunctionArgs(Parser_Context *ctx)
 
 static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
 {
+    TRACE(ParseFactor);
     Ast_Node *pre_op = ParsePrefixOperator(ctx);
 
     Ast_Node *factor = ParseLiteralExpr(ctx);
@@ -351,11 +364,13 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
         const Token *identifier_tok = Accept(ctx, TOK_Identifier);
         if (identifier_tok)
         {
+            TRACE(ParseFactor_identifier);
             // NOTE(henrik): Only accept function call for identifiers.
             // Is there any benefit to accept same syntax for other types of
             // factors? Maybe even for error reporting reasonsr?
             if (Accept(ctx, TOK_OpenParent))
             {
+                TRACE(ParseFactor_func_call);
                 factor = PushNode(ctx, AST_FunctionCall, identifier_tok);
                 Ast_Node *args = ParseFunctionArgs(ctx);
                 factor->expression.function_call.args = args;
@@ -363,6 +378,7 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
             }
             else
             {
+                TRACE(ParseFactor_var_ref);
                 factor = PushNode(ctx, AST_VariableRef, identifier_tok);
             }
         }
@@ -370,6 +386,7 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
 
     if (!factor && Accept(ctx, TOK_OpenParent))
     {
+        TRACE(ParseFactor_parent);
         factor = ParseExpression(ctx);
         if (!factor)
         {
@@ -393,19 +410,22 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
 
     if (pre_op)
     {
+        TRACE(ParseFactor_pre_op);
         pre_op->expression.unary_expr.expr = factor;
         factor = pre_op;
     }
 
+    TRACE(ParseFactor_end);
     return factor;
 }
 
 static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
 {
+    TRACE(ParseMultDivExpr);
     Ast_Node *expr = ParseFactorExpr(ctx);
     if (!expr) return nullptr;
 
-    while (true)
+    while (ContinueParsing(ctx))
     {
         const Token *op_token = Accept(ctx, TOK_Star);
         if (!op_token) op_token = Accept(ctx, TOK_Slash);
@@ -430,10 +450,11 @@ static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
 
 static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
 {
+    TRACE(ParseAddSubExpr);
     Ast_Node *expr = ParseMultDivExpr(ctx);
     if (!expr) return nullptr;
 
-    while (true)
+    while (ContinueParsing(ctx))
     {
         const Token *op_token = Accept(ctx, TOK_Plus);
         if (!op_token) op_token = Accept(ctx, TOK_Minus);
@@ -460,12 +481,56 @@ static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
 {
     //Ast_Node *expr = ParseShiftExpr(ctx);
     Ast_Node *expr = ParseAddSubExpr(ctx);
+    if (!expr) return nullptr;
+
+    while (ContinueParsing(ctx))
+    {
+        const Token *op_token = Accept(ctx, TOK_And);
+        if (!op_token) op_token = Accept(ctx, TOK_Or);
+        if (!op_token) break;
+
+        Ast_Binary_Op op;
+        switch (op_token->type)
+        {
+            case TOK_And:   op = AST_OP_And; break;
+            case TOK_Or:    op = AST_OP_Or; break;
+        }
+
+        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+        bin_expr->expression.binary_expr.op = op;
+        bin_expr->expression.binary_expr.left = expr;
+        bin_expr->expression.binary_expr.right = ParseAddSubExpr(ctx);
+
+        expr = bin_expr;
+    }
     return expr;
 }
 
 static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
 {
     Ast_Node *expr = ParseLogicalExpr(ctx);
+    if (!expr) return nullptr;
+
+    while (ContinueParsing(ctx))
+    {
+        const Token *op_token = Accept(ctx, TOK_Eq);
+        if (!op_token) op_token = Accept(ctx, TOK_NotEq);
+        if (!op_token) break;
+
+        Ast_Binary_Op op;
+        switch (op_token->type)
+        {
+            case TOK_Eq:    op = AST_OP_Equal; break;
+            case TOK_NotEq: op = AST_OP_NotEqual; break;
+        }
+
+        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+        bin_expr->expression.binary_expr.op = op;
+        bin_expr->expression.binary_expr.left = expr;
+        bin_expr->expression.binary_expr.right = ParseLogicalExpr(ctx);
+
+        expr = bin_expr;
+    }
     return expr;
 }
 
@@ -477,6 +542,7 @@ static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
 
 static Ast_Node* ParseExpression(Parser_Context *ctx)
 {
+    TRACE(ParseExpression);
     /*
      * operator precedence (LR: left to right, RL: right to left)
      * RL: = += -= *= /=        assignment
@@ -498,40 +564,19 @@ static Ast_Node* ParseExpression(Parser_Context *ctx)
     //        / \
     //       7   2
     Ast_Node *expr = ParseAssignmentExpr(ctx);
+    TRACE(ParseExpression_end);
     return expr;
 }
 
-static Ast_Node* ParseStmtBlock(Parser_Context *ctx);
-static Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok);
+static Ast_Node* ParseStatement(Parser_Context *ctx);
 
-static Ast_Node* ParseStatement(Parser_Context *ctx)
+static Ast_Node* ParseBlockStatement(Parser_Context *ctx)
 {
-    const Token *token = GetCurrentToken(ctx);
-    if (token->type == TOK_OpenBlock)
-    {
-        return ParseStmtBlock(ctx);
-    }
-    if (Accept(ctx, TOK_If))
-    {
-        return ParseIfStatement(ctx, token);
-    }
-    Ast_Node *expression = ParseExpression(ctx);
-    if (expression)
-    {
-        Expect(ctx, TOK_Semicolon);
-    }
-    else
-    {
-        Error(ctx, token, "Expecting statement");
-        GetNextToken(ctx);
-    }
-    return nullptr;
-}
+    TRACE(ParseBlockStatement);
+    const Token *block_tok = Accept(ctx, TOK_OpenBlock);
+    if (!block_tok) return nullptr;
 
-static Ast_Node* ParseStmtBlock(Parser_Context *ctx)
-{
-    Ast_Node *block_node = PushNode(ctx, AST_StmtBlock, GetCurrentToken(ctx));
-    Expect(ctx, TOK_OpenBlock);
+    Ast_Node *block_node = PushNode(ctx, AST_BlockStmt, block_tok);
     do
     {
         if (Accept(ctx, TOK_CloseBlock))
@@ -541,12 +586,21 @@ static Ast_Node* ParseStmtBlock(Parser_Context *ctx)
         {
             PushNodeList(&block_node->node_list, stmt_node);
         }
+        else
+        {
+            Error(ctx, GetCurrentToken(ctx), "Invalid token");
+            GetNextToken(ctx);
+        }
     } while (ContinueParsing(ctx));
     return block_node;
 }
 
-static Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok)
+static Ast_Node* ParseIfStatement(Parser_Context *ctx)
 {
+    TRACE(ParseIfStatement);
+    const Token *if_tok = Accept(ctx, TOK_If);
+    if (!if_tok) return nullptr;
+
     Ast_Node *if_node = PushNode(ctx, AST_IfStmt, if_tok);
     Ast_Node *expr = ParseExpression(ctx);
     if (!expr)
@@ -556,10 +610,19 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok)
         GetNextToken(ctx);
     }
     Ast_Node *true_stmt = ParseStatement(ctx);
+    if (!true_stmt)
+    {
+        Error(ctx, GetCurrentToken(ctx), "Expecting statement after if");
+    }
+
     Ast_Node *false_stmt = nullptr;
     if (Accept(ctx, TOK_Else))
     {
         false_stmt = ParseStatement(ctx);
+        if (!false_stmt)
+        {
+            Error(ctx, GetCurrentToken(ctx), "Expecting statement after else");
+        }
     }
     if_node->if_stmt.condition_expr = expr;
     if_node->if_stmt.true_stmt = true_stmt;
@@ -567,8 +630,40 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx, const Token *if_tok)
     return if_node;
 }
 
+static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
+{
+    TRACE(ParseReturnStatement);
+    const Token *return_tok = Accept(ctx, TOK_Return);
+    if (!return_tok) return nullptr;
+
+    Ast_Node *return_node = PushNode(ctx, AST_ReturnStmt, return_tok);
+    Ast_Node *expr = ParseExpression(ctx);
+    return_node->return_stmt.expression = expr;
+    Expect(ctx, TOK_Semicolon);
+    return return_node;
+}
+
+static Ast_Node* ParseStatement(Parser_Context *ctx)
+{
+    TRACE(ParseStatement);
+    Ast_Node *stmt = ParseBlockStatement(ctx);
+    if (!stmt) stmt = ParseIfStatement(ctx);
+    if (!stmt) stmt = ParseReturnStatement(ctx);
+    if (!stmt)
+    {
+        Ast_Node *expression = ParseExpression(ctx);
+        if (expression)
+        {
+            Expect(ctx, TOK_Semicolon);
+        }
+        stmt = expression;
+    }
+    return stmt;
+}
+
 static Ast_Node* ParseType(Parser_Context *ctx)
 {
+    TRACE(ParseType);
     const Token *token = GetCurrentToken(ctx);
     Ast_Node *type_node = nullptr;
     switch (token->type)
@@ -598,7 +693,7 @@ static Ast_Node* ParseType(Parser_Context *ctx)
     }
     if (!type_node)
         return nullptr;
-    while (true)
+    while (ContinueParsing(ctx))
     {
         const Token *token = GetCurrentToken(ctx);
         if (token->type == TOK_Star)
@@ -640,6 +735,7 @@ static Ast_Node* ParseType(Parser_Context *ctx)
 
 static void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
 {
+    TRACE(ParseParameters);
     ASSERT(func_def->type == AST_FunctionDef);
     do
     {
@@ -669,6 +765,7 @@ static void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
 
 static void ParseFunction(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
 {
+    TRACE(ParseFunction);
     Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
     ParseParameters(ctx, func_def);
     Expect(ctx, TOK_CloseParent);
@@ -678,7 +775,7 @@ static void ParseFunction(Parser_Context *ctx, const Token *ident_tok, Ast_Node 
         Ast_Node *return_type = ParseType(ctx);
         func_def->function.return_type = return_type;
     }
-    Ast_Node *block = ParseStmtBlock(ctx);
+    Ast_Node *block = ParseBlockStatement(ctx);
     if (block)
     {
         func_def->function.body = block;
@@ -687,6 +784,7 @@ static void ParseFunction(Parser_Context *ctx, const Token *ident_tok, Ast_Node 
 
 static void ParseTopLevelIdentifier(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
 {
+    TRACE(ParseTopLevelIdentifier);
     if (Accept(ctx, TOK_ColonColon))
     {
         if (Accept(ctx, TOK_Import))

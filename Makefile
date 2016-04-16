@@ -29,6 +29,9 @@ run:
 	@#-./$(EXENAME) tests/crlf_test.hp
 
 
+GDB := /usr/bin/gdb.exe
+
+
 run_debug:
 	$(GDB) ./$(EXENAME) 2> /dev/null
 
@@ -40,6 +43,5 @@ build_tests:
 
 run_tests: build_tests
 	./$(TESTEXE)
-
-GDB := /usr/bin/gdb.exe
+	@#$(GDB) ./$(TESTEXE)
 

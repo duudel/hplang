@@ -21,9 +21,10 @@ struct Test
 };
 
 Test tests[] = {
-    (Test){ "tests/crlf_test.hp", {4, 26}, { } },
-    (Test){ "tests/token_test.hp", { }, {1, 1} },
-    (Test){ "tests/hello_test.hp", { }, { } },
+    //(Test){ "tests/crlf_test.hp", {4, 26}, { } },
+    //(Test){ "tests/token_test.hp", { }, {1, 1} },
+    //(Test){ "tests/hello_test.hp", { }, { } },
+    (Test){ "tests/expr_test.hp", { }, { } },
 };
 
 b32 CheckLexingResult(Compiler_Context *compiler_ctx,
@@ -126,12 +127,18 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
 
 s64 RunTest(const Test &test)
 {
+    fprintf(stderr, "Running test '%s'\n", test.filename);
+    fprintf(stderr, "----\n");
+    fflush(stderr);
+
+
     s64 failed = 0;
     Compiler_Context compiler_ctx = NewCompilerContext();
 
     Open_File *file = OpenFile(&compiler_ctx, test.filename);
     if (file)
     {
+        fprintf(stderr, "file opened\n"); fflush(stderr);
         b32 should_fail_lexing =
             (test.fail_lexing.line && test.fail_lexing.column);
         b32 should_fail_parsing =
@@ -144,6 +151,7 @@ s64 RunTest(const Test &test)
 
         b32 result = Compile(&compiler_ctx, file);
 
+        fprintf(stderr, "compiled\n"); fflush(stderr);
         if (!CheckLexingResult(&compiler_ctx, test, result))
         {
             failed = 1;
@@ -160,11 +168,14 @@ s64 RunTest(const Test &test)
     }
 
     FreeCompilerContext(&compiler_ctx);
+    fprintf(stderr, "Test finished '%s'\n", test.filename);
+    fprintf(stderr, "----\n");
+
     return failed;
 }
 
 template <class S, s64 N>
-s64 arr_len(S (&x)[N])
+s64 arr_len(S (&)[N])
 { return N; }
 
 int main(int argc, char **argv)
@@ -183,7 +194,11 @@ int main(int argc, char **argv)
     s64 failed_tests = 0;
     s64 total_tests = arr_len(tests);
     for (const Test &test : tests)
+    {
+        fprintf(stderr, "Test '%s'\n", test.filename);
         failed_tests += RunTest(test);
+        fflush(stderr);
+    }
 
     fprintf(stderr, "----\n");
     fprintf(stderr, "%d tests run, %d failed\n", total_tests, failed_tests);
