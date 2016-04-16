@@ -33,9 +33,13 @@ enum Lexer_State
 {
     LS_Default,
     LS_Int,
-    LS_Float,
-    LS_FloatF,
-    LS_FloatD,
+    LS_FloatP,      // 1.
+    LS_Float,       // 1.0
+    LS_FloatE1,     // 1.0e
+    LS_FloatE_Sign, // 1.0e+
+    LS_FloatE,      // 1.0e+5 or 1.0e5
+    LS_FloatF,      // 1.0f or 1.0e5f
+    LS_FloatD,      // 1.0d or 1.0e5d
 
     LS_StringLit,
     LS_StringLitEsc,
@@ -280,12 +284,55 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9':
                 break;
-            case '.': fsm.state = LS_Float; break;
+            case '.': fsm.state = LS_FloatP; break;
             default:
                 fsm.emit = true;
         } break;
 
+    case LS_FloatP:
+        switch (c)
+        {
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+                fsm.state = LS_Float; break;
+            default:
+                // TODO(henrik): new state of flag for better errors?
+                fsm.state = LS_Invalid;
+        } break;
     case LS_Float:
+        switch (c)
+        {
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+                break;
+            case 'e': fsm.state = LS_FloatE1; break;
+            case 'f': fsm.state = LS_FloatF; break;
+            case 'd': fsm.state = LS_FloatD; break;
+            default:
+                fsm.emit = true;
+        } break;
+    case LS_FloatE1:
+        switch (c)
+        {
+            case '+': case '-':
+                fsm.state = LS_FloatE_Sign; break;
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+                fsm.state = LS_FloatE; break;
+            default:
+                fsm.emit = true;
+        } break;
+    case LS_FloatE_Sign:
+        switch (c)
+        {
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+                fsm.state = LS_FloatE; break;
+            default:
+                // TODO(henrik): new state of flag for better errors?
+                fsm.state = LS_Invalid;
+        } break;
+    case LS_FloatE:
         switch (c)
         {
             case '0': case '1': case '2': case '3': case '4':
@@ -943,6 +990,8 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_Int:
             ctx->current_token.type = TOK_IntegerLit; break;
         case LS_Float:
+            ctx->current_token.type = TOK_Float64Lit; break;
+        case LS_FloatE:
             ctx->current_token.type = TOK_Float64Lit; break;
         case LS_FloatF:
             ctx->current_token.type = TOK_Float32Lit; break;

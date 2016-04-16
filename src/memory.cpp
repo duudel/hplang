@@ -28,6 +28,29 @@ void Free(Pointer ptr)
     ::free(ptr.ptr);
 }
 
+// TODO(henrik): Extend memory arena implementation to somethin presented below.
+// This would remove or decrease the unused space left in the previous
+// memory blocks.
+//
+// Data structure layout
+//   _____________
+//  |Memory_Arena|
+//  |------------|
+//  | head-----, |
+//  |__________|_|
+//             |
+// Memory_Blocks
+//             |
+//    _____   _v___   _____
+//   |....|  |... |  |.   |
+//   |    |  |    |  |    |
+//   |next-->|next-->|next--o
+// o--prev|<--prev|<--prev|
+//   |____|  |____|  |____|
+//
+//   {is     {these have
+//    full}     free space}
+
 void FreeMemoryArena(Memory_Arena *arena)
 {
     Memory_Block *block = arena->head;
@@ -64,6 +87,7 @@ static b32 AllocateNewMemoryBlock(Memory_Arena *arena)
 
 static void* AllocateFromMemoryBlock(Memory_Block *block, s64 size, s64 alignment)
 {
+    // TODO(henrik): Use alignment in allocation
     if (!block)
         return nullptr;
     if (block->top_pointer + size > block->memory.size)

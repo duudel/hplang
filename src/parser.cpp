@@ -3,6 +3,9 @@
 #include "error.h"
 #include "assert.h"
 
+#include <cstdlib>
+#include <cerrno>
+
 //#define TRACE(x) {fprintf(stderr, "%s\n", #x); fflush(stderr);
 //#define TRACE(x) {fprintf(stderr, "%s : %d:%d\n", #x,\
 //        GetCurrentToken(ctx)->file_loc.line,\
@@ -241,10 +244,31 @@ static s64 ParseInt(const char *s, const char *end)
     return result;
 }
 
-static f64 ParseFloat(const char *s, const char *end)
+static f64 ParseFloat(Parser_Context *ctx, const Token *token)
 {
-    // TODO(henrik): Implement float parsing with c-standard lib
-    return 0.0;
+    // NOTE(henrik): As token->value is not null-terminated, we need to make a
+    // null-terminated copy before calling strtod.
+
+    const char *s = token->value;
+    const char *end = token->value_end;
+
+    s64 str_len = end - s + 1;
+    // make null-terminated version
+    char *s_nt = (char*)PushData(&ctx->arena, str_len, 1);
+    s64 i = 0;
+    while (s != end)
+        s_nt[i++] = *s++;
+    s_nt[str_len-1] = 0;
+
+    char *tailp = s_nt;
+    f64 result = strtod(s_nt, &tailp);
+
+    if (errno == ERANGE)
+    {
+        Error(ctx, token, "Floating point literal does not fit in f64");
+        return 0.0;
+    }
+    return result;
 }
 
 static char ParseChar(Parser_Context *ctx, const char *s, const char *end)
@@ -359,14 +383,14 @@ static Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_Float32Literal, token);
-        literal->expression.float32_literal.value = ParseFloat(token->value, token->value_end);
+        literal->expression.float32_literal.value = ParseFloat(ctx, token);
         return literal;
     }
     token = Accept(ctx, TOK_Float64Lit);
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_Float64Literal, token);
-        literal->expression.float64_literal.value = ParseFloat(token->value, token->value_end);
+        literal->expression.float64_literal.value = ParseFloat(ctx, token);
         return literal;
     }
     token = Accept(ctx, TOK_CharLit);
@@ -724,6 +748,16 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx)
     if_node->if_stmt.true_stmt = true_stmt;
     if_node->if_stmt.false_stmt = false_stmt;
     return if_node;
+}
+
+static Ast_Node* ParseForStatement(Parser_Context *ctx)
+{
+    TRACE(ParseForStatement);
+    const Token *for_tok = Accept(ctx, TOK_For);
+    if (!for_tok) return nullptr;
+
+    Ast_Node *for_node = PushNode(ctx, AST_ForStmt, for_tok);
+
 }
 
 static Ast_Node* ParseReturnStatement(Parser_Context *ctx)

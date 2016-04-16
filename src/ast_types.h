@@ -241,6 +241,14 @@ struct Ast_If_Stmt
     Ast_Node *false_stmt;
 };
 
+struct Ast_For_Stmt
+{
+    Ast_Node *init_expr;
+    Ast_Node *condition_expr;
+    Ast_Node *increment_expr;
+    Ast_Node *loop_stmt;
+};
+
 struct Ast_Return_Stmt
 {
     Ast_Node *expression;
@@ -250,7 +258,7 @@ struct Ast_Variable_Decl
 {
     const Token *name;
     Ast_Node *type; // NOTE(henrik): type can be null (type will be inferred)
-    Ast_Node *init; // NOTE(henrik): init can be null
+    Ast_Node *init; // NOTE(henrik): init_expr can be null
 };
 
 struct Ast_Node

@@ -93,7 +93,7 @@ for i := 0..10      // should the range end be inclusive?
     print("i = %d", i);
 
 for 0..10
-    print("it = %d, it); // Automatically defined iterator variable "it".
+    print("it = %d", it); // Automatically defined iterator variable "it".
 
 half := 2;
 for -half..half
