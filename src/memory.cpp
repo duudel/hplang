@@ -51,6 +51,13 @@ void Free(Pointer ptr)
 //   {is     {these have
 //    full}     free space}
 
+struct Memory_Block
+{
+    Pointer memory;
+    s64 top_pointer;
+    Memory_Block *prev;
+};
+
 void FreeMemoryArena(Memory_Arena *arena)
 {
     Memory_Block *block = arena->head;
@@ -134,6 +141,25 @@ String PushString(Memory_Arena *arena, const char *s, s64 size)
 String PushString(Memory_Arena *arena, const char *s)
 {
     return PushString(arena, s, strlen(s));
+}
+
+String PushNullTerminatedString(Memory_Arena *arena, const char *s, s64 size)
+{
+    String result = { };
+    result.data = (char*)PushData(arena, size + 1, 1);
+    if (result.data)
+    {
+        for (s64 i = 0; i < size; i++)
+            result.data[i] = s[i];
+        result.data[size] = 0;
+        result.size = size;
+    }
+    return result;
+}
+
+String PushNullTerminatedString(Memory_Arena *arena, const char *s)
+{
+    return PushNullTerminatedString(arena, s, strlen(s));
 }
 
 

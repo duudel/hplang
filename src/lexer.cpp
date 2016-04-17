@@ -128,6 +128,7 @@ enum Lexer_State
     LS_Semicolon,       // ;
     LS_Comma,           // ,
     LS_Period,          // .
+    LS_PeriodPeriod,    // ..
     LS_QuestionMark,    // ?
     LS_OpenBlock,       // {
     LS_CloseBlock,      // }
@@ -819,9 +820,9 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_Hash:
     case LS_ColonColon:
     case LS_ColonEq:
+    case LS_PeriodPeriod:
     case LS_Semicolon:
     case LS_Comma:
-    case LS_Period:
     case LS_QuestionMark:
     case LS_OpenBlock:
     case LS_CloseBlock:
@@ -840,6 +841,13 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         {
             case ':': fsm.state = LS_ColonColon; break;
             case '=': fsm.state = LS_ColonEq; break;
+            default:
+                fsm.emit = true;
+        } break;
+    case LS_Period:
+        switch (c)
+        {
+            case '.': fsm.state = LS_PeriodPeriod; break;
             default:
                 fsm.emit = true;
         } break;
@@ -1163,6 +1171,8 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
             ctx->current_token.type = TOK_Comma; break;
         case LS_Period:
             ctx->current_token.type = TOK_Period; break;
+        case LS_PeriodPeriod:
+            ctx->current_token.type = TOK_PeriodPeriod; break;
         case LS_QuestionMark:
             ctx->current_token.type = TOK_QuestionMark; break;
         case LS_OpenBlock:
@@ -1287,6 +1297,20 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
         {
             char c = text[cur];
             fsm = lex_default(fsm, c, file_loc);
+
+            // NOTE(henrik): There is lexically ambiguouss case where . 
+            // follows after n digits that could result in either a floating
+            // point literal, e.g. 1.5, or in a range 1..15. Thus we need to
+            // peek the following character to disambiguate these.
+            if (fsm.state == LS_FloatP)
+            {
+                if (cur + 1 < text_length && text[cur + 1] == '.')
+                {
+                    fsm.state = LS_Int;
+                    fsm.emit = true;
+                    continue;
+                }
+            }
 
             if (!fsm.emit && fsm.state != LS_KW_end)
             {

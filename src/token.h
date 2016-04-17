@@ -51,6 +51,7 @@ enum Token_Type
     TOK_Semicolon,      // ;
     TOK_Comma,          // ,
     TOK_Period,         // .
+    TOK_PeriodPeriod,   // ..
     TOK_QuestionMark,   // ?
     TOK_OpenBlock,      // {
     TOK_CloseBlock,     // }

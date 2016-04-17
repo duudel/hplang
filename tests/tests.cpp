@@ -25,6 +25,7 @@ Test tests[] = {
     (Test){ "tests/token_test.hp", { }, {1, 1} },
     (Test){ "tests/hello_test.hp", { }, { } },
     (Test){ "tests/expr_test.hp", { }, { } },
+    (Test){ "tests/stmt_test.hp", { }, { } },
 };
 
 b32 CheckLexingResult(Compiler_Context *compiler_ctx,

@@ -12,9 +12,11 @@ main :: ()
     2 * x - 7 / 16 + foo(x, y);
     a := 5;
     b : s64 = 2 * x;
-    y := 0.0d - 10.0e5264f;
+    y := 0.0d - 10.0e64f;
     15.5e-5f;
     a = b + 5;
     a = b = c + 5 * a;
+
+    true && !false == true;
     return 0;
 }

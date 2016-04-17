@@ -28,7 +28,6 @@ enum Ast_Type
     AST_ForStmt,
     AST_WhileStmt,
     AST_ReturnStmt,
-    AST_AssignStmt,     // <lvalue-expr> = <rvalue-expr>
     AST_ExpressionStmt,
     AST_Expression,
 
@@ -42,6 +41,7 @@ enum Ast_Type
     AST_FunctionCall,
     AST_FunctionCallArgs,
 
+    AST_AssignmentExpr,
     AST_BinaryExpr,
     AST_UnaryExpr,
     AST_TernaryExpr,      // <expr> ? <exptr> : <expr>
@@ -69,6 +69,8 @@ enum Ast_Binary_Op
     AST_OP_LessEq,
     AST_OP_Greater,
     AST_OP_GreaterEq,
+
+    AST_OP_Range,   // a .. b
 };
 
 enum Ast_Unary_Op
@@ -93,6 +95,12 @@ enum Ast_Assignment_Op
     AST_OP_MultiplyAssign,
     AST_OP_DivideAssign,
     AST_OP_ModuloAssign,
+
+    AST_OP_BitAndAssign,
+    AST_OP_BitOrAssign,
+    AST_OP_BitXorAssign,
+
+    AST_OP_ComplementAssign,
 };
 
 
@@ -161,6 +169,13 @@ struct Ast_Function_Call
     Ast_Node *args;
 };
 
+struct Ast_Assignment
+{
+    Ast_Assignment_Op op;
+    Ast_Node *left;
+    Ast_Node *right;
+};
+
 struct Ast_Expression
 {
     union {
@@ -174,14 +189,8 @@ struct Ast_Expression
         Ast_Unary_Expr      unary_expr;
         Ast_Variable_Ref    variable_ref;
         Ast_Function_Call   function_call;
+        Ast_Assignment      assignment;
     };
-};
-
-struct Ast_Assignment
-{
-    Ast_Assignment_Op op;
-    Ast_Node *target;
-    Ast_Node *expr;
 };
 
 struct Ast_Import
@@ -243,6 +252,8 @@ struct Ast_If_Stmt
 
 struct Ast_For_Stmt
 {
+    Ast_Node *range_expr;
+
     Ast_Node *init_expr;
     Ast_Node *condition_expr;
     Ast_Node *increment_expr;
@@ -271,8 +282,8 @@ struct Ast_Node
         Ast_Parameter       parameter;
         Ast_Variable_Decl   variable_decl;
         Ast_If_Stmt         if_stmt;
+        Ast_For_Stmt        for_stmt;
         Ast_Return_Stmt     return_stmt;
-        Ast_Assignment      assignment;
         Ast_Expression      expression;
         Ast_Type_Node       type_node;
     };

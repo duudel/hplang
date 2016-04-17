@@ -1,0 +1,17 @@
+// Test for statement parsing
+
+main :: ()
+{
+    x : s32[] = 5 .. 10;
+    if (x == 0)
+    {
+        for (index := 0; index < 10; index += 1)
+            index;
+    }
+    else
+    {
+        result := some_function(x, y, "arg3");
+    }
+    for i := 0 .. N
+        print("%d\n", i);
+}

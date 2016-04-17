@@ -7,7 +7,7 @@ import "io";
 // Recursive Fibonacci function
 fibo :: (x : s64) : s64
 {
-    //assert(x >= 0);
+    assert(x >= 0);
     if x == 0   return 0;
     if x == 1   return 1;
     return fibo(x - 1) + fibo(x - 2);
@@ -31,7 +31,6 @@ fibo2 :: (x : s64) // : s64
 main :: () : s64
 {
     print("This is a call to print\n");
-    '\n' '0' 'h' 'e' 'l''l''o';
     assert(fibo(0) == 0);
     assert(fibo(1) == 1);
     assert(fibo(2) == 1);

@@ -9,14 +9,7 @@ Pointer Alloc(s64 size);
 Pointer Realloc(Pointer ptr, s64 new_size);
 void Free(Pointer ptr);
 
-
-// TODO(henrik): Could make private; move to memory.cpp
-struct Memory_Block
-{
-    Pointer memory;
-    s64 top_pointer;
-    Memory_Block *prev;
-};
+struct Memory_Block;
 
 struct Memory_Arena
 {
@@ -30,6 +23,8 @@ Pointer PushDataPointer(Memory_Arena *arena, s64 size, s64 alignment);
 
 String PushString(Memory_Arena *arena, const char *s, s64 size);
 String PushString(Memory_Arena *arena, const char *s);
+String PushNullTerminatedString(Memory_Arena *arena, const char *s, s64 size);
+String PushNullTerminatedString(Memory_Arena *arena, const char *s);
 
 template <class S>
 S* PushStruct(Memory_Arena *arena)

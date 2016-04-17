@@ -6,11 +6,14 @@
 #include <cstdlib>
 #include <cerrno>
 
-//#define TRACE(x) {fprintf(stderr, "%s\n", #x); fflush(stderr);
+#if 0
+#define TRACE(x) {fprintf(stderr, "%s\n", #x); fflush(stderr);}
 //#define TRACE(x) {fprintf(stderr, "%s : %d:%d\n", #x,\
 //        GetCurrentToken(ctx)->file_loc.line,\
 //        GetCurrentToken(ctx)->file_loc.column); fflush(stderr);}
+#else
 #define TRACE(x)
+#endif
 
 namespace hplang
 {
@@ -138,6 +141,11 @@ static const Token* PeekNextToken(Parser_Context *ctx)
     return &eof_token;
 }
 
+static void Error(Parser_Context *ctx, const char *message)
+{
+    Error(ctx, GetCurrentToken(ctx), message);
+}
+
 static const Token* Accept(Parser_Context *ctx, Token_Type token_type)
 {
     const Token *token = GetCurrentToken(ctx);
@@ -174,60 +182,27 @@ static Ast_Node* PushNode(Parser_Context *ctx, Ast_Type type, const Token *token
     return node;
 }
 
-static void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node);
-static void ParseTopLevelIdentifier(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node);
+static Ast_Node* ParseTopLevelStmt(Parser_Context *ctx);
 
 b32 Parse(Parser_Context *ctx)
 {
     ctx->ast_root = PushNode(ctx, AST_TopLevel, nullptr);
+    Ast_Node *root = ctx->ast_root;
 
-    const Token *token = GetCurrentToken(ctx);
     while (ContinueParsing(ctx))
     {
-        if (token->type == TOK_EOF)
-            break;
-        switch (token->type)
+        Ast_Node *stmt = ParseTopLevelStmt(ctx);
+        if (stmt)
         {
-        case TOK_Import:
-            GetNextToken(ctx);
-            ParseImport(ctx, nullptr, ctx->ast_root);
-            break;
-        case TOK_Identifier:
-            GetNextToken(ctx);
-            ParseTopLevelIdentifier(ctx, token, ctx->ast_root);
-            break;
-        default:
-            Error(ctx, token, "Unexpected token");
+            PushNodeList(&root->node_list, stmt);
+        }
+        else if (ContinueParsing(ctx))
+        {
+            Error(ctx, "Unexpected token");
             GetNextToken(ctx);
         }
-        token = GetCurrentToken(ctx);
     }
     return ctx->error_ctx->error_count != 0;
-}
-
-static void ParseImport(Parser_Context *ctx, const Token *ident_tok, Ast_Node *root)
-{
-    const Token *token = GetCurrentToken(ctx);
-    switch (token->type)
-    {
-        case TOK_StringLit:
-            {
-                Ast_Node *import_node = PushNode(ctx, AST_Import,
-                        ident_tok ? ident_tok : token);
-                import_node->import.name = ident_tok;
-                import_node->import.module_name = token;
-                PushNodeList(&root->node_list, import_node);
-            }
-            break;
-
-        case TOK_EOF:
-            Error_UnexpectedEOF(ctx, token);
-            return;
-        default:
-            Error(ctx, token, "Expecting string literal");
-    }
-    GetNextToken(ctx);
-    Expect(ctx, TOK_Semicolon);
 }
 
 static Ast_Node* ParseExpression(Parser_Context *ctx);
@@ -248,23 +223,19 @@ static f64 ParseFloat(Parser_Context *ctx, const Token *token)
 {
     // NOTE(henrik): As token->value is not null-terminated, we need to make a
     // null-terminated copy before calling strtod.
+    // TODO(henrik): Add a temp arena for this kind of allocations (allocations
+    // that can be freed immediately after parsing is done).
 
     const char *s = token->value;
     const char *end = token->value_end;
+    String str = PushNullTerminatedString(&ctx->arena, s, end - s);
 
-    s64 str_len = end - s + 1;
-    // make null-terminated version
-    char *s_nt = (char*)PushData(&ctx->arena, str_len, 1);
-    s64 i = 0;
-    while (s != end)
-        s_nt[i++] = *s++;
-    s_nt[str_len-1] = 0;
-
-    char *tailp = s_nt;
-    f64 result = strtod(s_nt, &tailp);
+    char *tailp = nullptr;
+    f64 result = strtod(str.data, &tailp);
 
     if (errno == ERANGE)
     {
+        errno = 0;
         Error(ctx, token, "Floating point literal does not fit in f64");
         return 0.0;
     }
@@ -296,8 +267,7 @@ static char ParseChar(Parser_Context *ctx, const char *s, const char *end)
                 }
                 else
                 {
-                    Error(ctx, GetCurrentToken(ctx),
-                            "Invalid character escape sequence");
+                    Error(ctx, "Invalid character escape sequence");
                 }
             }
             break;
@@ -342,8 +312,7 @@ static String ParseString(Parser_Context *ctx, const char *s, const char *end)
                 }
                 else
                 {
-                    Error(ctx, GetCurrentToken(ctx),
-                            "Invalid string escape sequence");
+                    Error(ctx, "Invalid string escape sequence");
                     continue;
                 }
             }
@@ -454,8 +423,7 @@ static Ast_Node* ParseFunctionArgs(Parser_Context *ctx)
             Ast_Node *arg = ParseExpression(ctx);
             if (!arg)
             {
-                Error(ctx, GetCurrentToken(ctx),
-                        "Expecting function argument after comma");
+                Error(ctx, "Expecting function argument after comma");
                 break;
             }
             PushNodeList(&args->node_list, arg);
@@ -504,8 +472,7 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
         factor = ParseExpression(ctx);
         if (!factor)
         {
-            Error(ctx, GetCurrentToken(ctx),
-                    "Expecting expression after left parenthesis");
+            Error(ctx, "Expecting expression after left parenthesis");
         }
         Expect(ctx, TOK_CloseParent);
     }
@@ -514,8 +481,7 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
     {
         if (pre_op)
         {
-            Error(ctx, GetCurrentToken(ctx),
-                    "Expecting operand for unary prefix operator");
+            Error(ctx, "Expecting operand for unary prefix operator");
         }
         return nullptr;
     }
@@ -599,10 +565,31 @@ static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
     return expr;
 }
 
+static Ast_Node* ParseRangeExpr(Parser_Context *ctx)
+{
+    Ast_Node *expr = ParseAddSubExpr(ctx);
+    if (!expr) return nullptr;
+
+    if (ContinueParsing(ctx))
+    {
+        const Token *op_token = Accept(ctx, TOK_PeriodPeriod);
+        if (!op_token) return expr;
+
+        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+        bin_expr->expression.binary_expr.op = AST_OP_Range;
+        bin_expr->expression.binary_expr.left = expr;
+        bin_expr->expression.binary_expr.right = ParseAddSubExpr(ctx);
+
+        expr = bin_expr;
+    }
+    return expr;
+}
+
 static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
 {
     //Ast_Node *expr = ParseShiftExpr(ctx);
-    Ast_Node *expr = ParseAddSubExpr(ctx);
+    //Ast_Node *expr = ParseAddSubExpr(ctx);
+    Ast_Node *expr = ParseRangeExpr(ctx);
     if (!expr) return nullptr;
 
     while (ContinueParsing(ctx))
@@ -667,6 +654,44 @@ static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
 static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
 {
     Ast_Node *expr = ParseComparisonExpr(ctx);
+    if (!expr) return nullptr;
+
+    if (ContinueParsing(ctx))
+    {
+        const Token *op_token = Accept(ctx, TOK_Eq);
+        if (!op_token) op_token = Accept(ctx, TOK_PlusEq);
+        if (!op_token) op_token = Accept(ctx, TOK_MinusEq);
+        if (!op_token) op_token = Accept(ctx, TOK_StarEq);
+        if (!op_token) op_token = Accept(ctx, TOK_SlashEq);
+        if (!op_token) op_token = Accept(ctx, TOK_PercentEq);
+        if (!op_token) op_token = Accept(ctx, TOK_AmpEq);
+        if (!op_token) op_token = Accept(ctx, TOK_PipeEq);
+        if (!op_token) op_token = Accept(ctx, TOK_HatEq);
+        if (!op_token) op_token = Accept(ctx, TOK_TildeEq);
+        if (!op_token) return expr;
+
+        Ast_Assignment_Op op;
+        switch (op_token->type)
+        {
+            case TOK_Eq:        op = AST_OP_Assign; break;
+            case TOK_PlusEq:    op = AST_OP_AddAssign; break;
+            case TOK_MinusEq:   op = AST_OP_SubtractAssign; break;
+            case TOK_StarEq:    op = AST_OP_MultiplyAssign; break;
+            case TOK_SlashEq:   op = AST_OP_DivideAssign; break;
+            case TOK_PercentEq: op = AST_OP_ModuloAssign; break;
+            case TOK_AmpEq:     op = AST_OP_BitAndAssign; break;
+            case TOK_PipeEq:    op = AST_OP_BitOrAssign; break;
+            case TOK_HatEq:     op = AST_OP_BitXorAssign; break;
+            case TOK_TildeEq:   op = AST_OP_ComplementAssign; break;
+        }
+
+        Ast_Node *bin_expr = PushNode(ctx, AST_AssignmentExpr, op_token);
+        bin_expr->expression.assignment.op = op;
+        bin_expr->expression.assignment.left = expr;
+        bin_expr->expression.assignment.right = ParseAssignmentExpr(ctx);
+
+        expr = bin_expr;
+    }
     return expr;
 }
 
@@ -688,6 +713,8 @@ static Ast_Node* ParseExpression(Parser_Context *ctx)
     return expr;
 }
 
+static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx);
+static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx);
 static Ast_Node* ParseStatement(Parser_Context *ctx);
 
 static Ast_Node* ParseBlockStatement(Parser_Context *ctx)
@@ -725,14 +752,13 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx)
     Ast_Node *expr = ParseExpression(ctx);
     if (!expr)
     {
-        Error(ctx, GetCurrentToken(ctx),
-                "Expecting condition expression for if statement");
+        Error(ctx, "Expecting condition expression for if statement");
         GetNextToken(ctx);
     }
     Ast_Node *true_stmt = ParseStatement(ctx);
     if (!true_stmt)
     {
-        Error(ctx, GetCurrentToken(ctx), "Expecting statement after if");
+        Error(ctx, "Expecting statement after if");
     }
 
     Ast_Node *false_stmt = nullptr;
@@ -741,7 +767,7 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx)
         false_stmt = ParseStatement(ctx);
         if (!false_stmt)
         {
-            Error(ctx, GetCurrentToken(ctx), "Expecting statement after else");
+            Error(ctx, "Expecting statement after else");
         }
     }
     if_node->if_stmt.condition_expr = expr;
@@ -757,7 +783,48 @@ static Ast_Node* ParseForStatement(Parser_Context *ctx)
     if (!for_tok) return nullptr;
 
     Ast_Node *for_node = PushNode(ctx, AST_ForStmt, for_tok);
+    if (Accept(ctx, TOK_OpenParent))
+    {
+        TRACE(ParseForStatement_three_part);
+        Ast_Node *init = ParseVarDeclStatement(ctx);
+        if (!init)
+        {
+            init = ParseExpression(ctx);
+            Expect(ctx, TOK_Semicolon);
+        }
+        if (!init)
+        {
+            Error(ctx, "Expecting for init expression");
+            GetNextToken(ctx);
+        }
+        Ast_Node *cond = ParseExpression(ctx);
+        Expect(ctx, TOK_Semicolon);
 
+        Ast_Node *increment = ParseExpression(ctx);
+        Expect(ctx, TOK_CloseParent);
+
+        for_node->for_stmt.init_expr = init;
+        for_node->for_stmt.condition_expr = cond;
+        for_node->for_stmt.increment_expr = increment;
+    }
+    else
+    {
+        TRACE(ParseForStatement_range);
+        Ast_Node *range_expr = ParseVarDeclExpr(ctx);
+        if (!range_expr) range_expr = ParseExpression(ctx);
+        if (!range_expr)
+        {
+            Error(ctx, "Expecting range expression after for");
+        }
+        for_node->for_stmt.range_expr = range_expr;
+    }
+    Ast_Node *loop_stmt = ParseStatement(ctx);
+    if (!loop_stmt)
+    {
+        Error(ctx, "Expecting statement after for");
+    }
+    for_node->for_stmt.loop_stmt = loop_stmt;
+    return for_node;
 }
 
 static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
@@ -775,10 +842,8 @@ static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
 
 static Ast_Node* ParseType(Parser_Context *ctx);
 
-static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx)
+static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
 {
-    // NOTE(henrik): Needs to be parsed before expression because of ambiguous
-    // grammar.
     const Token *ident_tok = GetCurrentToken(ctx);
     if (ident_tok->type != TOK_Identifier)
         return nullptr;
@@ -799,8 +864,7 @@ static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx)
         type = ParseType(ctx);
         if (!type)
         {
-            Error(ctx, GetCurrentToken(ctx),
-                    "Expecting type for variable");
+            Error(ctx, "Expecting type for variable");
         }
 
         if (Accept(ctx, TOK_Eq))
@@ -808,8 +872,7 @@ static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx)
             init = ParseExpression(ctx);
             if (!init)
             {
-                Error(ctx, GetCurrentToken(ctx),
-                        "Expecting initializing expression for variable");
+                Error(ctx, "Expecting initializing expression for variable");
             }
         }
     }
@@ -819,12 +882,20 @@ static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx)
         init = ParseExpression(ctx);
         if (!init)
         {
-            Error(ctx, GetCurrentToken(ctx),
-                    "Expecting initializing expression for variable");
+            Error(ctx, "Expecting initializing expression for variable");
         }
     }
     var_decl->variable_decl.type = type;
     var_decl->variable_decl.init = init;
+    return var_decl;
+}
+
+static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx)
+{
+    // NOTE(henrik): Needs to be parsed before expression because of ambiguous
+    // grammar.
+    Ast_Node *var_decl = ParseVarDeclExpr(ctx);
+    if (!var_decl) return nullptr;
 
     Expect(ctx, TOK_Semicolon);
     return var_decl;
@@ -835,6 +906,7 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
     TRACE(ParseStatement);
     Ast_Node *stmt = ParseBlockStatement(ctx);
     if (!stmt) stmt = ParseIfStatement(ctx);
+    if (!stmt) stmt = ParseForStatement(ctx);
     if (!stmt) stmt = ParseReturnStatement(ctx);
     if (!stmt) stmt = ParseVarDeclStatement(ctx);
     if (!stmt)
@@ -951,39 +1023,105 @@ static void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
     } while (Accept(ctx, TOK_Comma) && ContinueParsing(ctx));
 }
 
-static void ParseFunction(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
+static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
 {
     TRACE(ParseFunction);
+    if (!Accept(ctx, TOK_OpenParent)) return nullptr;
+
     Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
     ParseParameters(ctx, func_def);
     Expect(ctx, TOK_CloseParent);
     if (Accept(ctx, TOK_Colon))
     {
-        // NOTE(henrik): the return type node can be nullptr
-        Ast_Node *return_type = ParseType(ctx);
-        func_def->function.return_type = return_type;
+        // NOTE(henrik): The return type node can be nullptr. This means
+        // that the type will be inferred later. But, as this leads to
+        // ambiguous syntax for inferred return type and no return type, the
+        // syntax should be changed. E.g. maybe
+        //   func_name :: (...) : *
+        // will have inferred return type.
+        func_def->function.return_type = ParseType(ctx);
     }
-    Ast_Node *block = ParseBlockStatement(ctx);
-    if (block)
+    Ast_Node *body = ParseBlockStatement(ctx);
+    if (!body)
     {
-        func_def->function.body = block;
+        Error(ctx, "Expecting function body");
     }
+    func_def->function.body = body;
+    return func_def;
 }
 
-static void ParseTopLevelIdentifier(Parser_Context *ctx, const Token *ident_tok, Ast_Node *node)
+static Ast_Node* ParseNamedImport(Parser_Context *ctx, const Token *ident_tok)
+{
+    const Token *import_tok = Accept(ctx, TOK_Import);
+    if (!import_tok) return nullptr;
+
+    const Token *module_name = Expect(ctx, TOK_StringLit);
+    if (!module_name)
+    {
+        Error(ctx, "Expecting module name as string literal");
+    }
+    Expect(ctx, TOK_Semicolon);
+
+    Ast_Node *import_node = PushNode(ctx, AST_Import, import_tok);
+    import_node->import.name = ident_tok;
+    import_node->import.module_name = module_name;
+
+    return import_node;
+}
+
+static Ast_Node* ParseGlobalImport(Parser_Context *ctx)
+{
+    const Token *import_tok = Accept(ctx, TOK_Import);
+    if (!import_tok) return nullptr;
+
+    const Token *module_name = Expect(ctx, TOK_StringLit);
+    if (!module_name)
+    {
+        Error(ctx, "Expecting module name as string literal");
+    }
+    Expect(ctx, TOK_Semicolon);
+
+    Ast_Node *import_node = PushNode(ctx, AST_Import, import_tok);
+    import_node->import.name = nullptr;
+    import_node->import.module_name = module_name;
+
+    return import_node;
+}
+
+static Ast_Node* ParseTopLevelNamedStmt(Parser_Context *ctx)
 {
     TRACE(ParseTopLevelIdentifier);
-    if (Accept(ctx, TOK_ColonColon))
-    {
-        if (Accept(ctx, TOK_Import))
-        {
-            ParseImport(ctx, ident_tok, node);
-        }
-        else if (Accept(ctx, TOK_OpenParent))
-        {
-            ParseFunction(ctx, ident_tok, node);
-        }
-    }
+
+    const Token *token = GetCurrentToken(ctx);
+    if (token->type != TOK_Identifier)
+        return nullptr;
+
+    const Token *peek = PeekNextToken(ctx);
+    if (peek->type != TOK_ColonColon)
+        return nullptr;
+
+    const Token *ident_tok = Accept(ctx, TOK_Identifier);
+    Accept(ctx, TOK_ColonColon);
+
+    Ast_Node *stmt = ParseNamedImport(ctx, ident_tok);
+    // TODO(henrik): Implement struct parsing
+    //if (!stmt) stmt = ParseStruct(ctx, ident_tok);
+    if (!stmt) stmt = ParseFunction(ctx, ident_tok);
+    return stmt;
+}
+
+// Parses the following top level statements:
+// import "module_name";
+// name :: import "module_name";
+// func_name :: (...) { ... }
+// struct_name :: struct { ... }    (not implemented yet)
+// enum_name :: enum { ... }        (not implemented yet)
+static Ast_Node* ParseTopLevelStmt(Parser_Context *ctx)
+{
+    TRACE(ParseTopLevelStmt);
+    Ast_Node *stmt = ParseGlobalImport(ctx);
+    if (!stmt) stmt = ParseTopLevelNamedStmt(ctx);
+    return stmt;
 }
 
 } // hplang
