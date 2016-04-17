@@ -63,25 +63,41 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
 {
     ctx->error_ctx.compilation_phase = COMP_Lexing;
 
-    Lexer_Context lexer_ctx = NewLexerContext(&ctx->error_ctx);
+    Token_List tokens = { };
+    Lexer_Context lexer_ctx = NewLexerContext(&tokens, &ctx->error_ctx);
     lexer_ctx.file_loc.filename = file->filename;
     Lex(&lexer_ctx, (const char*)file->contents.ptr, file->contents.size);
     if (ctx->error_ctx.error_count != 0)
+    {
+        FreeLexerContext(&lexer_ctx);
         return false;
+    }
+
+    UnlinkTokens(&lexer_ctx);
+    FreeLexerContext(&lexer_ctx);
+
 
     ctx->error_ctx.compilation_phase = COMP_Parsing;
 
+    Ast ast = { };
     Parser_Context parser_ctx = NewParserContext(
-            lexer_ctx.tokens, file, &ctx->error_ctx, &ctx->options);
+            &ast, &tokens, file, &ctx->error_ctx, &ctx->options);
 
     Parse(&parser_ctx);
     if (ctx->error_ctx.error_count != 0)
+    {
+        FreeParserContext(&parser_ctx);
         return false;
+    }
+
+    UnlinkAst(&parser_ctx);
+    FreeParserContext(&parser_ctx);
+
 
     // semantic checking
 
-    FreeLexerContext(&lexer_ctx);
-    FreeParserContext(&parser_ctx);
+    // Finally free ast (and contained token list)
+    FreeAst(&ast);
 
     return true;
 }

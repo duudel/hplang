@@ -19,12 +19,14 @@ namespace hplang
 {
 
 Parser_Context NewParserContext(
-        Token_List tokens,
+        Ast *ast,
+        Token_List *tokens,
         Open_File *open_file,
         Error_Context *error_ctx,
         Compiler_Options *options)
 {
     Parser_Context ctx = { };
+    ctx.ast = ast;
     ctx.tokens = tokens;
     ctx.open_file = open_file;
     ctx.error_ctx = error_ctx;
@@ -32,10 +34,24 @@ Parser_Context NewParserContext(
     return ctx;
 }
 
+void UnlinkAst(Parser_Context *ctx)
+{
+    ctx->ast->tokens = ctx->tokens;
+    ctx->ast = nullptr;
+    ctx->tokens = nullptr;
+}
+
 void FreeParserContext(Parser_Context *ctx)
 {
-    FreeMemoryArena(&ctx->arena);
+    FreeMemoryArena(&ctx->temp_arena);
+    if (ctx->ast)
+    {
+        FreeAst(ctx->ast);
+        ctx->ast = nullptr;
+    }
 }
+
+// TODO(henrik): Move this error printing code to error.h/cpp
 
 static void PrintFileLine(Error_Context *error_ctx,
         Open_File *open_file,
@@ -119,8 +135,8 @@ static Token eof_token = { TOK_EOF };
 
 static const Token* GetCurrentToken(Parser_Context *ctx)
 {
-    if (ctx->current_token < ctx->tokens.count)
-        return ctx->tokens.begin + ctx->current_token;
+    if (ctx->current_token < ctx->tokens->count)
+        return ctx->tokens->begin + ctx->current_token;
     return &eof_token;
 }
 
@@ -129,15 +145,15 @@ static const Token* GetNextToken(Parser_Context *ctx)
     //fprintf(stderr, "  : ");
     //PrintTokenValue(stderr, GetCurrentToken(ctx));
     //fprintf(stderr, "\n");
-    if (ctx->current_token < ctx->tokens.count)
+    if (ctx->current_token < ctx->tokens->count)
         ctx->current_token++;
     return GetCurrentToken(ctx);
 }
 
 static const Token* PeekNextToken(Parser_Context *ctx)
 {
-    if (ctx->current_token + 1 < ctx->tokens.count)
-        return ctx->tokens.begin + ctx->current_token + 1;
+    if (ctx->current_token + 1 < ctx->tokens->count)
+        return ctx->tokens->begin + ctx->current_token + 1;
     return &eof_token;
 }
 
@@ -173,21 +189,20 @@ static b32 ContinueParsing(Parser_Context *ctx)
     return ctx->error_ctx->error_count < ctx->options->max_error_count;
 }
 
-
-static Ast_Node* PushNode(Parser_Context *ctx, Ast_Type type, const Token *token)
+static Ast_Node* PushNode(Parser_Context *ctx,
+        Ast_Node_Type node_type, const Token *token)
 {
-    Ast_Node *node = PushStruct<Ast_Node>(&ctx->arena);
-    *node = { };
-    node->type = type;
-    return node;
+    return PushAstNode(ctx->ast, node_type, token);
 }
+
 
 static Ast_Node* ParseTopLevelStmt(Parser_Context *ctx);
 
 b32 Parse(Parser_Context *ctx)
 {
-    ctx->ast_root = PushNode(ctx, AST_TopLevel, nullptr);
-    Ast_Node *root = ctx->ast_root;
+    ASSERT(ctx && ctx->ast);
+    ctx->ast->root = PushNode(ctx, AST_TopLevel, nullptr);
+    Ast_Node *root = ctx->ast->root;
 
     while (ContinueParsing(ctx))
     {
@@ -228,7 +243,7 @@ static f64 ParseFloat(Parser_Context *ctx, const Token *token)
 
     const char *s = token->value;
     const char *end = token->value_end;
-    String str = PushNullTerminatedString(&ctx->arena, s, end - s);
+    String str = PushNullTerminatedString(&ctx->temp_arena, s, end - s);
 
     char *tailp = nullptr;
     f64 result = strtod(str.data, &tailp);
@@ -288,7 +303,7 @@ static String ParseString(Parser_Context *ctx, const char *s, const char *end)
     // the same arena, as we construct the string value, to allocate each
     // character as we advance the string to make the used memory match the
     // length of the string (so no extra memory is reserved).
-    String result = PushString(&ctx->arena, s, end - s);
+    String result = PushString(&ctx->ast->arena, s, end - s);
     s64 i = 0;
     while (s != end)
     {
@@ -297,6 +312,7 @@ static String ParseString(Parser_Context *ctx, const char *s, const char *end)
         {
             case '\\':
             {
+                // TODO(henrik): Implement hex and unicode escape sequences
                 if (s != end)
                 {
                     c = *s++;

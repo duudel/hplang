@@ -17,8 +17,7 @@ enum Lexer_Status
 
 struct Lexer_Context
 {
-    //Token_Arena *token_arena;
-    Token_List tokens;
+    Token_List *tokens;
 
     s64 current;
     s64 state;
@@ -31,7 +30,8 @@ struct Lexer_Context
     Error_Context *error_ctx;
 };
 
-Lexer_Context NewLexerContext(Error_Context *err_ctx);
+Lexer_Context NewLexerContext(Token_List *tokens, Error_Context *err_ctx);
+void UnlinkTokens(Lexer_Context *ctx);
 void FreeLexerContext(Lexer_Context *ctx);
 
 void Lex(Lexer_Context *ctx, const char *text, s64 text_length);

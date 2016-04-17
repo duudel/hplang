@@ -12,25 +12,25 @@ struct Error_Context;
 
 struct Parser_Context
 {
-    Memory_Arena arena;
-    Ast_Node *ast_root;
+    Memory_Arena temp_arena;
+    Ast *ast;
 
     s64 current_token;
-    Token_List tokens;
+    Token_List *tokens;
 
     Open_File *open_file;
-
     Error_Context *error_ctx;
-
     Compiler_Options *options;
 };
 
 Parser_Context NewParserContext(
-        Token_List tokens,
+        Ast *ast,
+        Token_List *tokens,
         Open_File *open_file,
         Error_Context *error_ctx,
         Compiler_Options *options);
 
+void UnlinkAst(Parser_Context *ctx);
 void FreeParserContext(Parser_Context *ctx);
 
 b32 Parse(Parser_Context *ctx);

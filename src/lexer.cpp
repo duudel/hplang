@@ -9,12 +9,10 @@
 namespace hplang
 {
 
-Lexer_Context NewLexerContext(Error_Context *error_ctx)
+Lexer_Context NewLexerContext(Token_List *tokens, Error_Context *error_ctx)
 {
-    //Token_Arena *arena = AllocateTokenArena(nullptr);
     Lexer_Context ctx = { };
-    //ctx.token_arena = arena;
-    ctx.tokens = { };
+    ctx.tokens = tokens;
     ctx.status = LEX_None;
     ctx.file_loc.line = 1;
     ctx.file_loc.column = 1;
@@ -22,10 +20,18 @@ Lexer_Context NewLexerContext(Error_Context *error_ctx)
     return ctx;
 }
 
+void UnlinkTokens(Lexer_Context *ctx)
+{
+    ctx->tokens = nullptr;
+}
+
 void FreeLexerContext(Lexer_Context *ctx)
 {
-    //FreeTokenArena(ctx->token_arena);
-    FreeTokenList(&ctx->tokens);
+    if (ctx->tokens)
+    {
+        FreeTokenList(ctx->tokens);
+        ctx->tokens = nullptr;
+    }
 }
 
 
@@ -1256,7 +1262,7 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         default:
             ASSERT(0);
     }
-    Token *token = PushTokenList(&ctx->tokens);
+    Token *token = PushTokenList(ctx->tokens);
     *token = ctx->current_token;
 }
 
@@ -1298,7 +1304,7 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
             char c = text[cur];
             fsm = lex_default(fsm, c, file_loc);
 
-            // NOTE(henrik): There is lexically ambiguouss case where . 
+            // NOTE(henrik): There is lexically ambiguouss case where .
             // follows after n digits that could result in either a floating
             // point literal, e.g. 1.5, or in a range 1..15. Thus we need to
             // peek the following character to disambiguate these.

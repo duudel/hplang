@@ -1,11 +1,12 @@
 #ifndef H_HPLANG_AST_TYPES_H
 
 #include "types.h"
+#include "memory.h"
 
 namespace hplang
 {
 
-enum Ast_Type
+enum Ast_Node_Type
 {
     AST_TopLevel,
 
@@ -274,7 +275,7 @@ struct Ast_Variable_Decl
 
 struct Ast_Node
 {
-    Ast_Type type;
+    Ast_Node_Type type;
     union {
         Ast_Node_List       node_list;
         Ast_Import          import;
@@ -287,10 +288,25 @@ struct Ast_Node
         Ast_Expression      expression;
         Ast_Type_Node       type_node;
     };
+    // NOTE(henrik): This token is used as context for the node.
+    // Some nodes can use the token as information about the node instead
+    // storing it inside a struct in the union.
     const Token *token;
 };
 
 b32 PushNodeList(Ast_Node_List *nodes, Ast_Node *node);
+
+struct Token_List;
+
+struct Ast
+{
+    Memory_Arena arena;
+    Ast_Node *root;
+    Token_List *tokens;
+};
+
+Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token);
+void FreeAst(Ast *ast);
 
 } // hplang
 

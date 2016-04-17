@@ -1,5 +1,6 @@
 
 #include "ast_types.h"
+#include "token.h"
 #include "memory.h"
 #include "assert.h"
 
@@ -44,6 +45,29 @@ b32 PushNodeList(Ast_Node_List *nodes, Ast_Node *node)
     }
     nodes->nodes[nodes->node_count++] = node;
     return true;
+}
+
+// AST
+// ---
+
+Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token)
+{
+    Ast_Node *node = PushStruct<Ast_Node>(&ast->arena);
+    *node = { };
+    node->type = node_type;
+    node->token = token;
+    return node;
+}
+
+void FreeAst(Ast *ast)
+{
+    FreeMemoryArena(&ast->arena);
+    ast->root = nullptr;
+    if (ast->tokens)
+    {
+        FreeTokenList(ast->tokens);
+        ast->tokens = nullptr;
+    }
 }
 
 } // hplang
