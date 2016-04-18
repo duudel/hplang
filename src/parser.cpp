@@ -51,48 +51,13 @@ void FreeParserContext(Parser_Context *ctx)
     }
 }
 
-// TODO(henrik): Move this error printing code to error.h/cpp
-
-static void PrintFileLine(Error_Context *error_ctx,
-        Open_File *open_file,
-        File_Location file_loc)
+void PrintSourceLineAndArrow(Parser_Context *ctx, File_Location file_loc)
 {
-    const char *file_start = (const char*)open_file->contents.ptr;
-    ASSERT(file_start != nullptr);
-    ASSERT(file_loc.line_offset < open_file->contents.size);
-
-    const char *line_start = file_start + file_loc.line_offset;
-    s64 line_len = 0;
-
-    while (line_len < open_file->contents.size)
-    {
-        char c = line_start[line_len];
-        if (c == '\n' || c == '\r' || c == '\v' || c == '\f')
-            break;
-        line_len++;
-    }
-
-    fwrite(line_start, 1, line_len, error_ctx->file);
-    fprintf(error_ctx->file, "\n");
-}
-
-static void PrintFileLocArrow(Error_Context *ctx, File_Location file_loc)
-{
-    const char dashes[81] = "--------------------------------------------------------------------------------";
-    if (file_loc.column > 0 && file_loc.column < 81 - 1)
-    {
-        fwrite(dashes, 1, file_loc.column - 1, ctx->file);
-        fprintf(ctx->file, "^\n");
-    }
-}
-
-static void PrintSourceLineAndArrow(Parser_Context *ctx, File_Location file_loc)
-{
-    if (ctx->error_ctx->error_count < 3)
+    if (ctx->error_ctx->error_count <= ctx->options->max_line_arrow_error_count)
     {
         fprintf(ctx->error_ctx->file, "\n");
-        PrintFileLine(ctx->error_ctx, ctx->open_file, file_loc);
-        PrintFileLocArrow(ctx->error_ctx, file_loc);
+        PrintFileLine(ctx->error_ctx->file, ctx->open_file, file_loc);
+        PrintFileLocArrow(ctx->error_ctx->file, file_loc);
         fprintf(ctx->error_ctx->file, "\n");
     }
 }
@@ -125,10 +90,84 @@ static void ErrorExpected(Parser_Context *ctx,
     PrintSourceLineAndArrow(ctx, token->file_loc);
 }
 
-static void Error_UnexpectedEOF(Parser_Context *ctx)
+static void ErrorExpectedAtEnd(Parser_Context *ctx,
+        const Token *token,
+        const char *expected_token)
+{
+    File_Location file_loc = token->file_loc;
+
+    // NOTE(henrik): This will fail, if the token extends multiple lines.
+    // This almost never happens though. Currently only with multiline strings
+    // A better solution might be to explicitly store the end of token
+    // as another File_Location in the token.
+    file_loc.column += (token->value_end - token->value);
+
+    AddError(ctx->error_ctx, file_loc);
+    PrintFileLocation(ctx->error_ctx->file, file_loc);
+    fprintf(ctx->error_ctx->file, "Expecting %s\n", expected_token);
+    PrintSourceLineAndArrow(ctx, file_loc);
+}
+
+static void ErrorUnexpectedEOF(Parser_Context *ctx)
 {
     const Token *last_token = ctx->tokens->begin + (ctx->tokens->count - 1);
     Error(ctx, last_token, "Unexpected end of file");
+}
+
+static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Ast_Binary_Op op)
+{
+    Error_Context *err_ctx = ctx->error_ctx;
+    AddError(err_ctx, token->file_loc);
+    PrintFileLocation(err_ctx->file, token->file_loc);
+    const char *op_str = "";
+    switch (op)
+    {
+        case AST_OP_Add:        op_str = "+"; break;
+        case AST_OP_Subtract:   op_str = "-"; break;
+        case AST_OP_Multiply:   op_str = "*"; break;
+        case AST_OP_Divide:     op_str = "/"; break;
+        case AST_OP_Modulo:     op_str = "-"; break;
+        case AST_OP_BitAnd:     op_str = "&"; break;
+        case AST_OP_BitOr:      op_str = "|"; break;
+        case AST_OP_BitXor:     op_str = "^"; break;
+
+        case AST_OP_And:        op_str = "&&"; break;
+        case AST_OP_Or:         op_str = "||"; break;
+
+        case AST_OP_Equal:      op_str = "=="; break;
+        case AST_OP_NotEqual:   op_str = "!="; break;
+        case AST_OP_Less:       op_str = "<"; break;
+        case AST_OP_LessEq:     op_str = "<="; break;
+        case AST_OP_Greater:    op_str = ">"; break;
+        case AST_OP_GreaterEq:  op_str = ">="; break;
+
+        case AST_OP_Range:      op_str = ".."; break;
+    }
+    fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
+    PrintSourceLineAndArrow(ctx, token->file_loc);
+}
+
+static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Ast_Assignment_Op op)
+{
+    Error_Context *err_ctx = ctx->error_ctx;
+    AddError(err_ctx, token->file_loc);
+    PrintFileLocation(err_ctx->file, token->file_loc);
+    const char *op_str = "";
+    switch (op)
+    {
+        case AST_OP_Assign:             op_str = "="; break;
+        case AST_OP_AddAssign:          op_str = "+="; break;
+        case AST_OP_SubtractAssign:     op_str = "-="; break;
+        case AST_OP_MultiplyAssign:     op_str = "*="; break;
+        case AST_OP_DivideAssign:       op_str = "/="; break;
+        case AST_OP_ModuloAssign:       op_str = "%="; break;
+        case AST_OP_BitAndAssign:       op_str = "&="; break;
+        case AST_OP_BitOrAssign:        op_str = "|="; break;
+        case AST_OP_BitXorAssign:       op_str = "^="; break;
+        case AST_OP_ComplementAssign:   op_str = "~="; break;
+    }
+    fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
+    PrintSourceLineAndArrow(ctx, token->file_loc);
 }
 
 
@@ -177,13 +216,28 @@ static const Token* Accept(Parser_Context *ctx, Token_Type token_type)
 static const Token* Expect(Parser_Context *ctx, Token_Type token_type)
 {
     const Token *token = Accept(ctx, token_type);
-    if (token)
-        return token;
+    if (token) return token;
+
     token = GetCurrentToken(ctx);
     if (token->type == TOK_EOF)
-        Error_UnexpectedEOF(ctx);
+        ErrorUnexpectedEOF(ctx);
     else
         ErrorExpected(ctx, token, TokenTypeToString(token_type));
+    return nullptr;
+}
+
+// TODO(henrik): Rename this function to be more descriptive.
+static const Token* ExpectAfterLast(Parser_Context *ctx, Token_Type token_type)
+{
+    const Token *token = Accept(ctx, token_type);
+    if (token) return token;
+
+    token = (ctx->current_token > 0) ?
+        ctx->tokens->begin + (ctx->current_token - 1) : GetCurrentToken(ctx);
+    if (token->type == TOK_EOF)
+        ErrorUnexpectedEOF(ctx);
+    else
+        ErrorExpectedAtEnd(ctx, token, TokenTypeToString(token_type));
     return nullptr;
 }
 
@@ -480,7 +534,7 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
                 Ast_Node *args = ParseFunctionArgs(ctx);
                 factor->expression.function_call.name = ident_tok;
                 factor->expression.function_call.args = args;
-                Expect(ctx, TOK_CloseParent);
+                ExpectAfterLast(ctx, TOK_CloseParent);
             }
             else
             {
@@ -491,15 +545,28 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
         }
     }
 
-    if (!factor && Accept(ctx, TOK_OpenParent))
+    if (!factor)
     {
-        TRACE(ParseFactor_parent);
-        factor = ParseExpression(ctx);
-        if (!factor)
+        const Token *parent_tok = Accept(ctx, TOK_OpenParent);
+        if (parent_tok)
         {
-            Error(ctx, "Expecting expression after left parenthesis");
+            TRACE(ParseFactor_parent);
+            factor = ParseExpression(ctx);
+            if (!factor)
+            {
+                Error(ctx, parent_tok,
+                        "Expecting expression after left parenthesis");
+                // Eat away the closing parenthesis, but do not generate error.
+                Accept(ctx, TOK_CloseParent);
+            }
+            else
+            {
+                // We don't want extra errors generated for this problem, so
+                // we only expect the closing parenthesis, if the expression
+                // was found.
+                ExpectAfterLast(ctx, TOK_CloseParent);
+            }
         }
-        Expect(ctx, TOK_CloseParent);
     }
 
     if (!factor)
@@ -551,6 +618,9 @@ static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
         bin_expr->expression.binary_expr.left = expr;
         bin_expr->expression.binary_expr.right = ParseFactorExpr(ctx);
 
+        if (!bin_expr->expression.binary_expr.right)
+            ErrorBinaryExprRHS(ctx, op_token, op);
+
         expr = bin_expr;
     }
     return expr;
@@ -587,6 +657,9 @@ static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
         bin_expr->expression.binary_expr.left = expr;
         bin_expr->expression.binary_expr.right = ParseMultDivExpr(ctx);
 
+        if (!bin_expr->expression.binary_expr.right)
+            ErrorBinaryExprRHS(ctx, op_token, op);
+
         expr = bin_expr;
     }
     return expr;
@@ -606,6 +679,9 @@ static Ast_Node* ParseRangeExpr(Parser_Context *ctx)
         bin_expr->expression.binary_expr.op = AST_OP_Range;
         bin_expr->expression.binary_expr.left = expr;
         bin_expr->expression.binary_expr.right = ParseAddSubExpr(ctx);
+
+        if (!bin_expr->expression.binary_expr.right)
+            ErrorBinaryExprRHS(ctx, op_token, AST_OP_Range);
 
         expr = bin_expr;
     }
@@ -637,6 +713,9 @@ static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
         bin_expr->expression.binary_expr.op = op;
         bin_expr->expression.binary_expr.left = expr;
         bin_expr->expression.binary_expr.right = ParseAddSubExpr(ctx);
+
+        if (!bin_expr->expression.binary_expr.right)
+            ErrorBinaryExprRHS(ctx, op_token, op);
 
         expr = bin_expr;
     }
@@ -674,6 +753,9 @@ static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
         bin_expr->expression.binary_expr.op = op;
         bin_expr->expression.binary_expr.left = expr;
         bin_expr->expression.binary_expr.right = ParseLogicalExpr(ctx);
+
+        if (!bin_expr->expression.binary_expr.right)
+            ErrorBinaryExprRHS(ctx, op_token, op);
 
         expr = bin_expr;
     }
@@ -719,6 +801,9 @@ static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
         bin_expr->expression.assignment.op = op;
         bin_expr->expression.assignment.left = expr;
         bin_expr->expression.assignment.right = ParseAssignmentExpr(ctx);
+
+        if (!bin_expr->expression.binary_expr.right)
+            ErrorAssignmentExprRHS(ctx, op_token, op);
 
         expr = bin_expr;
     }
@@ -831,7 +916,7 @@ static Ast_Node* ParseForStatement(Parser_Context *ctx)
         Expect(ctx, TOK_Semicolon);
 
         Ast_Node *increment = ParseExpression(ctx);
-        Expect(ctx, TOK_CloseParent);
+        ExpectAfterLast(ctx, TOK_CloseParent);
 
         for_node->for_stmt.init_expr = init;
         for_node->for_stmt.condition_expr = cond;
@@ -866,7 +951,7 @@ static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
     Ast_Node *return_node = PushNode(ctx, AST_ReturnStmt, return_tok);
     Ast_Node *expr = ParseExpression(ctx);
     return_node->return_stmt.expression = expr;
-    Expect(ctx, TOK_Semicolon);
+    ExpectAfterLast(ctx, TOK_Semicolon);
     return return_node;
 }
 
@@ -927,7 +1012,7 @@ static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx)
     Ast_Node *var_decl = ParseVarDeclExpr(ctx);
     if (!var_decl) return nullptr;
 
-    Expect(ctx, TOK_Semicolon);
+    ExpectAfterLast(ctx, TOK_Semicolon);
     return var_decl;
 }
 
@@ -944,7 +1029,8 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
         Ast_Node *expression = ParseExpression(ctx);
         if (expression)
         {
-            Expect(ctx, TOK_Semicolon);
+            ExpectAfterLast(ctx, TOK_Semicolon);
+            //Expect(ctx, TOK_Semicolon);
         }
         stmt = expression;
     }
@@ -962,7 +1048,7 @@ static Ast_Node* ParseType(Parser_Context *ctx)
             {
                 GetNextToken(ctx);
                 type_node = ParseType(ctx);
-                Expect(ctx, TOK_CloseParent);
+                ExpectAfterLast(ctx, TOK_CloseParent);
             } break;
 
         case TOK_Type_Bool:
@@ -986,42 +1072,40 @@ static Ast_Node* ParseType(Parser_Context *ctx)
     }
     if (!type_node)
         return nullptr;
+
     while (ContinueParsing(ctx))
     {
-        const Token *token = GetCurrentToken(ctx);
-        if (token->type == TOK_Star)
+        const Token *token = Accept(ctx, TOK_Star);
+        if (token)
         {
             Ast_Node *pointer_node = PushNode(ctx, AST_Type_Pointer, token);
             s64 indirection = 0;
-            while (token->type == TOK_Star)
+            while (Accept(ctx, TOK_Star))
             {
                 indirection++;
-                token = GetNextToken(ctx);
             }
             pointer_node->type_node.pointer.indirection = indirection;
             pointer_node->type_node.pointer.base_type = type_node;
             type_node = pointer_node;
+            continue;
         }
-        else if (token->type == TOK_OpenBracket)
+        token = Accept(ctx, TOK_OpenBracket);
+        if (token)
         {
             Ast_Node *array_node = PushNode(ctx, AST_Type_Array, token);
-            GetNextToken(ctx);
-            Expect(ctx, TOK_CloseBracket);
-            while (token->type == TOK_Star)
+            ExpectAfterLast(ctx, TOK_CloseBracket);
+            s64 arrays = 0;
+            while (Accept(ctx, TOK_OpenBracket))
             {
-                array_node->type_node.array.array++;
-
-                GetNextToken(ctx);
-                Expect(ctx, TOK_CloseBracket);
-                token = GetNextToken(ctx);
+                arrays++;
+                ExpectAfterLast(ctx, TOK_CloseBracket);
             }
+            array_node->type_node.array.array = arrays;
             array_node->type_node.array.base_type = type_node;
             type_node = array_node;
+            continue;
         }
-        else
-        {
-            break;
-        }
+        break;
     }
     return type_node;
 }
@@ -1063,7 +1147,7 @@ static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
 
     Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
     ParseParameters(ctx, func_def);
-    Expect(ctx, TOK_CloseParent);
+    ExpectAfterLast(ctx, TOK_CloseParent);
     if (Accept(ctx, TOK_Colon))
     {
         // NOTE(henrik): The return type node can be nullptr. This means
@@ -1088,12 +1172,12 @@ static Ast_Node* ParseNamedImport(Parser_Context *ctx, const Token *ident_tok)
     const Token *import_tok = Accept(ctx, TOK_Import);
     if (!import_tok) return nullptr;
 
-    const Token *module_name = Expect(ctx, TOK_StringLit);
+    const Token *module_name = ExpectAfterLast(ctx, TOK_StringLit);
     if (!module_name)
     {
         Error(ctx, "Expecting module name as string literal");
     }
-    Expect(ctx, TOK_Semicolon);
+    ExpectAfterLast(ctx, TOK_Semicolon);
 
     Ast_Node *import_node = PushNode(ctx, AST_Import, import_tok);
     import_node->import.name = ident_tok;
@@ -1107,12 +1191,12 @@ static Ast_Node* ParseGlobalImport(Parser_Context *ctx)
     const Token *import_tok = Accept(ctx, TOK_Import);
     if (!import_tok) return nullptr;
 
-    const Token *module_name = Expect(ctx, TOK_StringLit);
+    const Token *module_name = ExpectAfterLast(ctx, TOK_StringLit);
     if (!module_name)
     {
         Error(ctx, "Expecting module name as string literal");
     }
-    Expect(ctx, TOK_Semicolon);
+    ExpectAfterLast(ctx, TOK_Semicolon);
 
     Ast_Node *import_node = PushNode(ctx, AST_Import, import_tok);
     import_node->import.name = nullptr;

@@ -26,6 +26,8 @@ struct Error_Context
 void AddError(Error_Context *ctx, File_Location file_loc);
 
 void PrintFileLocation(FILE *file, File_Location file_loc);
+void PrintFileLine(FILE *file, Open_File *open_file, File_Location file_loc);
+void PrintFileLocArrow(FILE *file, File_Location file_loc);
 void PrintTokenValue(FILE *file, const Token *token);
 
 } // hplang

@@ -8,6 +8,7 @@ Compiler_Options DefaultCompilerOptions()
 {
     Compiler_Options result = { };
     result.max_error_count = 6;
+    result.max_line_arrow_error_count = 4;
     return result;
 }
 

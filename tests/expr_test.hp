@@ -26,5 +26,12 @@ main :: ()
     px := &x;
     (px != null) == true;
 
+    //x + 10 - ()
+
+    //call(x, y, "this
+    //breaks things"
+
+    //;
+
     return 0;
 }
