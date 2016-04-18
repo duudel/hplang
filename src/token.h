@@ -42,6 +42,8 @@ enum Token_Type
     TOK_Type_U32,       // u32
     TOK_Type_S64,       // s64
     TOK_Type_U64,       // u64
+    TOK_Type_F32,       // f32
+    TOK_Type_F64,       // f64
     TOK_Type_String,    // string
 
     TOK_Hash,           // #

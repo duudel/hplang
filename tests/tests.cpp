@@ -51,12 +51,12 @@ b32 CheckLexingResult(Compiler_Context *compiler_ctx,
             {
                 return true;
             }
-            fprintf(stderr, "%s:%d:%d: Test result: Unexpected lexing error\n",
+            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected lexing error\n",
                     test.filename,
                     error_loc.line,
                     error_loc.column);
         }
-        fprintf(stderr, "%s:%d:%d: Test result: Expecting lexing error\n",
+        fprintf(stderr, "%s:%lld:%lld: Test result: Expecting lexing error\n",
                 test.filename,
                 test.fail_lexing.line,
                 test.fail_lexing.column);
@@ -67,14 +67,14 @@ b32 CheckLexingResult(Compiler_Context *compiler_ctx,
         if (compiler_ctx->error_ctx.compilation_phase == COMP_Lexing)
         {
             File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-            fprintf(stderr, "%s:%d:%d: Test result: Unexpected lexing error\n",
+            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected lexing error\n",
                     test.filename,
                     error_loc.line,
                     error_loc.column);
             return false;
         }
-        return true;
     }
+    return true;
 }
 
 b32 CheckParsingResult(Compiler_Context *compiler_ctx,
@@ -100,12 +100,12 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
             {
                 return true;
             }
-            fprintf(stderr, "%s:%d:%d: Test result: Unexpected lexing error\n",
+            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected lexing error\n",
                     test.filename,
                     error_loc.line,
                     error_loc.column);
         }
-        fprintf(stderr, "%s:%d:%d: Test result: Expecting lexing error\n",
+        fprintf(stderr, "%s:%lld:%lld: Test result: Expecting lexing error\n",
                 test.filename,
                 test.fail_parsing.line,
                 test.fail_parsing.column);
@@ -116,14 +116,14 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
         if (compiler_ctx->error_ctx.compilation_phase == COMP_Parsing)
         {
             File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-            fprintf(stderr, "%s:%d:%d: Test result: Unexpected parsing error\n",
+            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected parsing error\n",
                     test.filename,
                     error_loc.line,
                     error_loc.column);
             return false;
         }
-        return true;
     }
+    return true;
 }
 
 s64 RunTest(const Test &test)
@@ -194,7 +194,7 @@ int main(int argc, char **argv)
     }
 
     fprintf(stderr, "----\n");
-    fprintf(stderr, "%d tests run, %d failed\n", total_tests, failed_tests);
+    fprintf(stderr, "%lld tests run, %lld failed\n", total_tests, failed_tests);
     fprintf(stderr, "----\n");
     return failed_tests;
 }

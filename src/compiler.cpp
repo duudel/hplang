@@ -37,7 +37,7 @@ Open_File* OpenFile(Compiler_Context *ctx, const char *filename)
         // NOTE(henrik): Allocate one extra byte for null termination.
         open_file->contents = PushDataPointer(&ctx->arena, file_size + 1, 1);
 
-        if (fread(open_file->contents.ptr, 1, file_size, file) != file_size)
+        if (fread(open_file->contents.ptr, 1, file_size, file) != (u64)file_size)
         {
             // NOTE(henrik): We do not free the open_file->contents here as
             // the file contents will be freed with the compiler context.

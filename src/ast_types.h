@@ -32,6 +32,7 @@ enum Ast_Node_Type
     AST_ExpressionStmt,
     AST_Expression,
 
+    AST_Null,
     AST_BoolLiteral,
     AST_IntLiteral,
     AST_Float32Literal,

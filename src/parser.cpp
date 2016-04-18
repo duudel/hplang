@@ -8,9 +8,9 @@
 
 #if 0
 #define TRACE(x) {fprintf(stderr, "%s\n", #x); fflush(stderr);}
-//#define TRACE(x) {fprintf(stderr, "%s : %d:%d\n", #x,\
-//        GetCurrentToken(ctx)->file_loc.line,\
-//        GetCurrentToken(ctx)->file_loc.column); fflush(stderr);}
+#define TRACE_x(x) {fprintf(stderr, "%s : %d:%d\n", #x,\
+        GetCurrentToken(ctx)->file_loc.line,\
+        GetCurrentToken(ctx)->file_loc.column); fflush(stderr);}
 #else
 #define TRACE(x)
 #endif
@@ -125,9 +125,10 @@ static void ErrorExpected(Parser_Context *ctx,
     PrintSourceLineAndArrow(ctx, token->file_loc);
 }
 
-static void Error_UnexpectedEOF(Parser_Context *ctx, const Token *token)
+static void Error_UnexpectedEOF(Parser_Context *ctx)
 {
-    Error(ctx, token, "Unexpected end of file");
+    const Token *last_token = ctx->tokens->begin + (ctx->tokens->count - 1);
+    Error(ctx, last_token, "Unexpected end of file");
 }
 
 
@@ -179,7 +180,10 @@ static const Token* Expect(Parser_Context *ctx, Token_Type token_type)
     if (token)
         return token;
     token = GetCurrentToken(ctx);
-    ErrorExpected(ctx, token, TokenTypeToString(token_type));
+    if (token->type == TOK_EOF)
+        Error_UnexpectedEOF(ctx);
+    else
+        ErrorExpected(ctx, token, TokenTypeToString(token_type));
     return nullptr;
 }
 
@@ -342,8 +346,12 @@ static String ParseString(Parser_Context *ctx, const char *s, const char *end)
 
 static Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
 {
-    // TODO(henrik): Add null literal
-    const Token *token = Accept(ctx, TOK_TrueLit);
+    const Token *token = Accept(ctx, TOK_Null);
+    if (token)
+    {
+        return PushNode(ctx, AST_Null, token);
+    }
+    token = Accept(ctx, TOK_TrueLit);
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_BoolLiteral, token);
@@ -419,6 +427,7 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
         case TOK_Bang:      op = AST_OP_Not; break;
         case TOK_Ampersand: op = AST_OP_Address; break;
         case TOK_At:        op = AST_OP_Deref; break;
+        default: INVALID_CODE_PATH;
     }
     pre_op->expression.unary_expr.op = op;
     pre_op->expression.unary_expr.expr = nullptr;
@@ -534,6 +543,7 @@ static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
             case TOK_Star:      op = AST_OP_Multiply; break;
             case TOK_Slash:     op = AST_OP_Divide; break;
             case TOK_Percent:   op = AST_OP_Modulo; break;
+            default: INVALID_CODE_PATH;
         }
 
         Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
@@ -569,6 +579,7 @@ static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
             case TOK_Ampersand: op = AST_OP_BitAnd; break;
             case TOK_Pipe:      op = AST_OP_BitOr; break;
             case TOK_Hat:       op = AST_OP_BitXor; break;
+            default: INVALID_CODE_PATH;
         }
 
         Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
@@ -619,6 +630,7 @@ static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
         {
             case TOK_AmpAmp:    op = AST_OP_And; break;
             case TOK_PipePipe:  op = AST_OP_Or; break;
+            default: INVALID_CODE_PATH;
         }
 
         Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
@@ -655,6 +667,7 @@ static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
             case TOK_LessEq:    op = AST_OP_LessEq; break;
             case TOK_Greater:   op = AST_OP_Greater; break;
             case TOK_GreaterEq: op = AST_OP_GreaterEq; break;
+            default: INVALID_CODE_PATH;
         }
 
         Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
@@ -699,6 +712,7 @@ static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
             case TOK_PipeEq:    op = AST_OP_BitOrAssign; break;
             case TOK_HatEq:     op = AST_OP_BitXorAssign; break;
             case TOK_TildeEq:   op = AST_OP_ComplementAssign; break;
+            default: INVALID_CODE_PATH;
         }
 
         Ast_Node *bin_expr = PushNode(ctx, AST_AssignmentExpr, op_token);
@@ -962,10 +976,13 @@ static Ast_Node* ParseType(Parser_Context *ctx)
         case TOK_Type_U16:
         case TOK_Type_U32:
         case TOK_Type_U64:
+        case TOK_Type_F32:
+        case TOK_Type_F64:
             {
                 GetNextToken(ctx);
                 type_node = PushNode(ctx, AST_Type_Plain, token);
             } break;
+        default: break;
     }
     if (!type_node)
         return nullptr;

@@ -1,6 +1,6 @@
 
 COMPILER := gcc
-COMPILER_FLAGS := -std=c++11 -g
+COMPILER_FLAGS := -std=c++11 -Wall -g
 EXENAME := hplangc.exe
 
 SOURCES := \

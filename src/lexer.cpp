@@ -70,6 +70,10 @@ enum Lexer_State
     LS_STR_els,
     LS_STR_else,
     LS_STR_f,
+    LS_STR_f3,
+    LS_STR_f32,
+    LS_STR_f6,
+    LS_STR_f64,
     LS_STR_fa,
     LS_STR_fal,
     LS_STR_fals,
@@ -94,6 +98,13 @@ enum Lexer_State
     LS_STR_retur,
     LS_STR_return,
     LS_STR_s,
+    LS_STR_s8,
+    LS_STR_s1,
+    LS_STR_s16,
+    LS_STR_s3,
+    LS_STR_s32,
+    LS_STR_s6,
+    LS_STR_s64,
     LS_STR_st,
     LS_STR_str,
     LS_STR_stri,
@@ -102,13 +113,6 @@ enum Lexer_State
     LS_STR_stru,
     LS_STR_struc,
     LS_STR_struct,
-    LS_STR_s8,
-    LS_STR_s1,
-    LS_STR_s16,
-    LS_STR_s3,
-    LS_STR_s32,
-    LS_STR_s6,
-    LS_STR_s64,
     LS_STR_t,
     LS_STR_tr,
     LS_STR_tru,
@@ -392,8 +396,8 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_STR_bool:
     case LS_STR_char:
     case LS_STR_else:
-    //case LS_STR_f32:
-    //case LS_STR_f64:
+    case LS_STR_f32:
+    case LS_STR_f64:
     case LS_STR_false:
     case LS_STR_for:
     case LS_STR_if:
@@ -493,10 +497,30 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_STR_f:
         switch (c)
         {
+            case '3':
+                fsm.state = LS_STR_f3; break;
+            case '6':
+                fsm.state = LS_STR_f6; break;
             case 'a':
                 fsm.state = LS_STR_fa; break;
             case 'o':
                 fsm.state = LS_STR_fo; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_f3:
+        switch (c)
+        {
+            case '2':
+                fsm.state = LS_STR_f32; break;
+            default:
+                fsm.state = LS_KW_end;
+        } break;
+    case LS_STR_f6:
+        switch (c)
+        {
+            case '4':
+                fsm.state = LS_STR_f64; break;
             default:
                 fsm.state = LS_KW_end;
         } break;
@@ -641,8 +665,6 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_STR_s:
         switch (c)
         {
-            case 't':
-                fsm.state = LS_STR_st; break;
             case '8':
                 fsm.state = LS_STR_s8; break;
             case '1':
@@ -651,6 +673,8 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.state = LS_STR_s3; break;
             case '6':
                 fsm.state = LS_STR_s6; break;
+            case 't':
+                fsm.state = LS_STR_st; break;
             default:
                 fsm.state = LS_KW_end;
         } break;
@@ -999,7 +1023,7 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
     switch (state)
     {
         case LS_Default:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
 
         case LS_Int:
             ctx->current_token.type = TOK_IntegerLit; break;
@@ -1014,13 +1038,13 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
 
         case LS_CharLit:
         case LS_CharLitEsc:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_CharLitEnd:
             ctx->current_token.type = TOK_CharLit; break;
 
         case LS_StringLit:
         case LS_StringLitEsc:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_StringLitEnd:
             ctx->current_token.type = TOK_StringLit; break;
 
@@ -1031,39 +1055,49 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_b:
         case LS_STR_bo:
         case LS_STR_boo:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_bool:
             ctx->current_token.type = TOK_Type_Bool; break;
 
         case LS_STR_c:
         case LS_STR_ch:
         case LS_STR_cha:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_char:
             ctx->current_token.type = TOK_Type_Char; break;
 
         case LS_STR_e:
         case LS_STR_el:
         case LS_STR_els:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_else:
             ctx->current_token.type = TOK_Else; break;
 
         case LS_STR_f:
+        case LS_STR_f3:
+            INVALID_CODE_PATH;
+        case LS_STR_f32:
+            ctx->current_token.type = TOK_Type_F32; break;
+
+        case LS_STR_f6:
+            INVALID_CODE_PATH;
+        case LS_STR_f64:
+            ctx->current_token.type = TOK_Type_F64; break;
+
         case LS_STR_fa:
         case LS_STR_fal:
         case LS_STR_fals:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_false:
             ctx->current_token.type = TOK_FalseLit; break;
 
         case LS_STR_fo:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_for:
             ctx->current_token.type = TOK_For; break;
 
         case LS_STR_i:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_if:
             ctx->current_token.type = TOK_If; break;
 
@@ -1071,14 +1105,14 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_imp:
         case LS_STR_impo:
         case LS_STR_impor:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_import:
             ctx->current_token.type = TOK_Import; break;
 
         case LS_STR_n:
         case LS_STR_nu:
         case LS_STR_nul:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_null:
             ctx->current_token.type = TOK_Null; break;
 
@@ -1087,7 +1121,7 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_ret:
         case LS_STR_retu:
         case LS_STR_retur:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_return:
             ctx->current_token.type = TOK_Return; break;
 
@@ -1096,13 +1130,13 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_str:
         case LS_STR_stri:
         case LS_STR_strin:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_string:
             ctx->current_token.type = TOK_Type_String; break;
 
         case LS_STR_stru:
         case LS_STR_struc:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_struct:
             ctx->current_token.type = TOK_Struct; break;
 
@@ -1110,48 +1144,44 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
             ctx->current_token.type = TOK_Type_S8; break;
 
         case LS_STR_s1:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_s16:
             ctx->current_token.type = TOK_Type_S16; break;
 
         case LS_STR_s3:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_s32:
             ctx->current_token.type = TOK_Type_S32; break;
 
         case LS_STR_s6:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_s64:
             ctx->current_token.type = TOK_Type_S64; break;
 
         case LS_STR_t:
         case LS_STR_tr:
         case LS_STR_tru:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_true:
             ctx->current_token.type = TOK_TrueLit; break;
 
         case LS_STR_u:
-            ASSERT(0); break;
-
+            INVALID_CODE_PATH;
         case LS_STR_u8:
             ctx->current_token.type = TOK_Type_U8; break;
 
         case LS_STR_u1:
-            ASSERT(0); break;
-
+            INVALID_CODE_PATH;
         case LS_STR_u16:
             ctx->current_token.type = TOK_Type_U16; break;
 
         case LS_STR_u3:
-            ASSERT(0); break;
-
+            INVALID_CODE_PATH;
         case LS_STR_u32:
             ctx->current_token.type = TOK_Type_U32; break;
 
         case LS_STR_u6:
-            ASSERT(0); break;
-
+            INVALID_CODE_PATH;
         case LS_STR_u64:
             ctx->current_token.type = TOK_Type_U64; break;
 
@@ -1159,7 +1189,7 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_STR_wh:
         case LS_STR_whi:
         case LS_STR_whil:
-            ASSERT(0); break;
+            INVALID_CODE_PATH;
         case LS_STR_while:
             ctx->current_token.type = TOK_While; break;
 
@@ -1260,7 +1290,7 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_Invalid:
         case LS_Junk:
         default:
-            ASSERT(0);
+            INVALID_CODE_PATH;
     }
     Token *token = PushTokenList(ctx->tokens);
     *token = ctx->current_token;

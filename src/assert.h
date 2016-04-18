@@ -2,12 +2,14 @@
 
 #include "types.h"
 
-#define ASSERT(x) if (!(x)) Assert(#x, __FILE__, __LINE__);
+#define ASSERT(x) if (!(x)) Assert(#x, __FILE__, __LINE__)
+#define INVALID_CODE_PATH InvalidCodePath(__FILE__, __LINE__)
 
 namespace hplang
 {
 
 void Assert(const char *expr, const char *file, s64 line);
+void InvalidCodePath(const char *file, s64 line);
 
 } // hplang
 

@@ -32,7 +32,7 @@ static s64 NumberLen(s64 number)
 void PrintFileLocation(FILE *file, File_Location file_loc)
 {
     fwrite(file_loc.filename.data, 1, file_loc.filename.size, file);
-    fprintf(file, ":%d:%d: ", file_loc.line, file_loc.column);
+    fprintf(file, ":%lld:%lld: ", file_loc.line, file_loc.column);
 
     s64 loc_len = NumberLen(file_loc.line) + NumberLen(file_loc.column);
     loc_len += 2;           // add colons
@@ -40,7 +40,7 @@ void PrintFileLocation(FILE *file, File_Location file_loc)
     if (loc_len > 0)
     {
         const char spaces[] = "         ";
-        if (loc_len >= sizeof(spaces))
+        if ((u64)loc_len >= sizeof(spaces))
             loc_len = sizeof(spaces) - 1;
         fwrite(spaces, 1, loc_len, file);
     }

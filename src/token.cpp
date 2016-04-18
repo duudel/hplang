@@ -46,6 +46,8 @@ static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_Type_U32,          "u32"},
     {TOK_Type_S64,          "s64"},
     {TOK_Type_U64,          "u64"},
+    {TOK_Type_F32,          "f32"},
+    {TOK_Type_F64,          "f64"},
     {TOK_Type_String,       "string"},
 
     {TOK_Hash,              "#"},
@@ -101,6 +103,23 @@ static Token_Type_And_String g_token_type_and_str[] = {
 
     {TOK_StarStar,          "**"},
 };
+
+template <class T, s64 N>
+s64 count_of_arr(T (&)[N])
+{ return N; }
+
+static bool check_token_names()
+{
+    s64 count = count_of_arr(g_token_type_and_str);
+    for (s64 i = 0; i < count; i++)
+    {
+        Token_Type type = (Token_Type)i;
+        ASSERT(g_token_type_and_str[i].type == type);
+    }
+    return true;
+}
+
+static const bool tokens_checked = check_token_names();
 
 const char* TokenTypeToString(Token_Type type)
 {
