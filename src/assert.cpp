@@ -2,28 +2,35 @@
 #include "assert.h"
 
 #include <cstdio>
+#include <csignal>
+#include <cstdlib>
 
 namespace hplang
 {
 
 void break_here()
 {
-    // NOTE(henrik): Let's stop the execution of the program.
-    // We want to break to the debugger, so exit(-1) or something similar
-    // will not work. This is the "portable" (read "lazy") way to do it.
-    *(int*)0 = 1;
+#ifdef _WIN32
+    // SIGTRAP is only available on POSIX operating systems
+    
+    __builtin_trap();
+    //exit(0);
+#else
+    raise(SIGTRAP);
+#endif
 }
 
 void Assert(const char *expr, const char *file, s64 line)
 {
-    fprintf(stderr, "\n\n!ASSERT FAILURE\n\n%s:%lld:\n\n  %s\n\n", file, line, expr);
+    fprintf(stderr, "\n%s:%lld:1:\n  !!!ASSERT FAILURE\n\n  %s\n\n", file, line, expr);
+    //fprintf(stderr, "\n\n!ASSERT FAILURE\n\n%s:%lld:\n\n  %s\n\n", file, line, expr);
     fflush(stderr);
     break_here();
 }
 
 void InvalidCodePath(const char *file, s64 line)
 {
-    fprintf(stderr, "\n\n!INVALID CODE PATH\n\n%s:%lld:\n\n", file, line);
+    fprintf(stderr, "\n%s:%lld:1:\n  !INVALID CODE PATH\n\n", file, line);
     fflush(stderr);
     break_here();
 }

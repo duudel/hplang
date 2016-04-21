@@ -67,7 +67,14 @@ int main(int argc, char **argv)
     Compiler_Context compiler_ctx = NewCompilerContext();
 
     Open_File *file = OpenFile(&compiler_ctx, source);
-    Compile(&compiler_ctx, file);
+    if (Compile(&compiler_ctx, file))
+    {
+        printf("Compilation ok\n");
+    }
+    else
+    {
+        printf("Compilation failed\n");
+    }
 
     FreeCompilerContext(&compiler_ctx);
 

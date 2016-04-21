@@ -1,6 +1,7 @@
 
 #include "parser.h"
-#include "error.h"
+#include "ast_types.h"
+#include "compiler.h"
 #include "assert.h"
 
 #include <cstdlib>
@@ -22,15 +23,13 @@ Parser_Context NewParserContext(
         Ast *ast,
         Token_List *tokens,
         Open_File *open_file,
-        Error_Context *error_ctx,
-        Compiler_Options *options)
+        Compiler_Context *comp_ctx)
 {
     Parser_Context ctx = { };
     ctx.ast = ast;
     ctx.tokens = tokens;
     ctx.open_file = open_file;
-    ctx.error_ctx = error_ctx;
-    ctx.options = options;
+    ctx.comp_ctx = comp_ctx;
     return ctx;
 }
 
@@ -51,43 +50,38 @@ void FreeParserContext(Parser_Context *ctx)
     }
 }
 
-void PrintSourceLineAndArrow(Parser_Context *ctx, File_Location file_loc)
-{
-    if (ctx->error_ctx->error_count <= ctx->options->max_line_arrow_error_count)
-    {
-        fprintf(ctx->error_ctx->file, "\n");
-        PrintFileLine(ctx->error_ctx->file, ctx->open_file, file_loc);
-        PrintFileLocArrow(ctx->error_ctx->file, file_loc);
-        fprintf(ctx->error_ctx->file, "\n");
-    }
-}
+// Parsing
+// -------
 
 static void Error(Parser_Context *ctx, const Token *token, const char *message)
 {
-    AddError(ctx->error_ctx, token->file_loc);
-    PrintFileLocation(ctx->error_ctx->file, token->file_loc);
-    fprintf(ctx->error_ctx->file, "%s\n", message);
-    PrintSourceLineAndArrow(ctx, token->file_loc);
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, token->file_loc);
+    PrintFileLocation(err_ctx->file, token->file_loc);
+    fprintf(err_ctx->file, "%s\n", message);
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
 }
 
 static void ErrorInvalidToken(Parser_Context *ctx, const Token *token)
 {
-    AddError(ctx->error_ctx, token->file_loc);
-    PrintFileLocation(ctx->error_ctx->file, token->file_loc);
-    fprintf(ctx->error_ctx->file, "Invalid token ");
-    PrintTokenValue(ctx->error_ctx->file, token);
-    fprintf(ctx->error_ctx->file, "\n");
-    PrintSourceLineAndArrow(ctx, token->file_loc);
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, token->file_loc);
+    PrintFileLocation(err_ctx->file, token->file_loc);
+    fprintf(err_ctx->file, "Invalid token ");
+    PrintTokenValue(err_ctx->file, token);
+    fprintf(err_ctx->file, "\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
 }
 
 static void ErrorExpected(Parser_Context *ctx,
         const Token *token,
         const char *expected_token)
 {
-    AddError(ctx->error_ctx, token->file_loc);
-    PrintFileLocation(ctx->error_ctx->file, token->file_loc);
-    fprintf(ctx->error_ctx->file, "Expecting %s\n", expected_token);
-    PrintSourceLineAndArrow(ctx, token->file_loc);
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, token->file_loc);
+    PrintFileLocation(err_ctx->file, token->file_loc);
+    fprintf(err_ctx->file, "Expecting %s\n", expected_token);
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
 }
 
 static void ErrorExpectedAtEnd(Parser_Context *ctx,
@@ -102,10 +96,11 @@ static void ErrorExpectedAtEnd(Parser_Context *ctx,
     // as another File_Location in the token.
     file_loc.column += (token->value_end - token->value);
 
-    AddError(ctx->error_ctx, file_loc);
-    PrintFileLocation(ctx->error_ctx->file, file_loc);
-    fprintf(ctx->error_ctx->file, "Expecting %s\n", expected_token);
-    PrintSourceLineAndArrow(ctx, file_loc);
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf(err_ctx->file, "Expecting %s\n", expected_token);
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, file_loc);
 }
 
 static void ErrorUnexpectedEOF(Parser_Context *ctx)
@@ -116,7 +111,7 @@ static void ErrorUnexpectedEOF(Parser_Context *ctx)
 
 static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Ast_Binary_Op op)
 {
-    Error_Context *err_ctx = ctx->error_ctx;
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, token->file_loc);
     PrintFileLocation(err_ctx->file, token->file_loc);
     const char *op_str = "";
@@ -142,14 +137,19 @@ static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Ast_Bina
         case AST_OP_GreaterEq:  op_str = ">="; break;
 
         case AST_OP_Range:      op_str = ".."; break;
+
+        // NOTE(henrik): These are not used here, but as they are binary ops,
+        // need to have them here to suppress warnings.
+        case AST_OP_Access:     op_str = "."; break;
+        case AST_OP_Subscript:  op_str = "[]"; break;
     }
     fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
-    PrintSourceLineAndArrow(ctx, token->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
 }
 
 static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Ast_Assignment_Op op)
 {
-    Error_Context *err_ctx = ctx->error_ctx;
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, token->file_loc);
     PrintFileLocation(err_ctx->file, token->file_loc);
     const char *op_str = "";
@@ -167,7 +167,7 @@ static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Ast_
         case AST_OP_ComplementAssign:   op_str = "~="; break;
     }
     fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
-    PrintSourceLineAndArrow(ctx, token->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
 }
 
 
@@ -244,7 +244,7 @@ static const Token* ExpectAfterLast(Parser_Context *ctx, Token_Type token_type)
 static b32 ContinueParsing(Parser_Context *ctx)
 {
     if (Accept(ctx, TOK_EOF)) return false;
-    return ctx->error_ctx->error_count < ctx->options->max_error_count;
+    return ContinueCompiling(ctx->comp_ctx);
 }
 
 static Ast_Node* PushNode(Parser_Context *ctx,
@@ -254,33 +254,7 @@ static Ast_Node* PushNode(Parser_Context *ctx,
 }
 
 
-static Ast_Node* ParseTopLevelStmt(Parser_Context *ctx);
-
-b32 Parse(Parser_Context *ctx)
-{
-    ASSERT(ctx && ctx->ast);
-    ctx->ast->root = PushNode(ctx, AST_TopLevel, nullptr);
-    Ast_Node *root = ctx->ast->root;
-
-    while (ContinueParsing(ctx))
-    {
-        Ast_Node *stmt = ParseTopLevelStmt(ctx);
-        if (stmt)
-        {
-            PushNodeList(&root->node_list, stmt);
-        }
-        else if (ContinueParsing(ctx))
-        {
-            Error(ctx, "Unexpected token");
-            GetNextToken(ctx);
-        }
-    }
-    return ctx->error_ctx->error_count != 0;
-}
-
-static Ast_Node* ParseExpression(Parser_Context *ctx);
-
-static s64 ParseInt(const char *s, const char *end)
+static s64 ConvertInt(const char *s, const char *end)
 {
     s64 result = 0;
     while (s != end)
@@ -292,7 +266,7 @@ static s64 ParseInt(const char *s, const char *end)
     return result;
 }
 
-static f64 ParseFloat(Parser_Context *ctx, const Token *token)
+static f64 ConvertFloat(Parser_Context *ctx, const Token *token)
 {
     // NOTE(henrik): As token->value is not null-terminated, we need to make a
     // null-terminated copy before calling strtod.
@@ -315,7 +289,7 @@ static f64 ParseFloat(Parser_Context *ctx, const Token *token)
     return result;
 }
 
-static char ParseChar(Parser_Context *ctx, const char *s, const char *end)
+static char ConvertChar(Parser_Context *ctx, const char *s, const char *end)
 {
     char result = 0;
     if (s != end)
@@ -352,7 +326,7 @@ static char ParseChar(Parser_Context *ctx, const char *s, const char *end)
     return result;
 }
 
-static String ParseString(Parser_Context *ctx, const char *s, const char *end)
+static String ConvertString(Parser_Context *ctx, const char *s, const char *end)
 {
     // NOTE(henrik): Assumes that the resulting string can only be as long or
     // shorter than the original string. This is due to escaping sequences
@@ -361,6 +335,13 @@ static String ParseString(Parser_Context *ctx, const char *s, const char *end)
     // the same arena, as we construct the string value, to allocate each
     // character as we advance the string to make the used memory match the
     // length of the string (so no extra memory is reserved).
+
+    ASSERT(s[0] == '"');
+    ASSERT(end[-1] == '"');
+
+    s++;
+    end--;
+
     String result = PushString(&ctx->ast->arena, s, end - s);
     s64 i = 0;
     while (s != end)
@@ -423,35 +404,35 @@ static Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_IntLiteral, token);
-        literal->expression.int_literal.value = ParseInt(token->value, token->value_end);
+        literal->expression.int_literal.value = ConvertInt(token->value, token->value_end);
         return literal;
     }
     token = Accept(ctx, TOK_Float32Lit);
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_Float32Literal, token);
-        literal->expression.float32_literal.value = ParseFloat(ctx, token);
+        literal->expression.float32_literal.value = ConvertFloat(ctx, token);
         return literal;
     }
     token = Accept(ctx, TOK_Float64Lit);
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_Float64Literal, token);
-        literal->expression.float64_literal.value = ParseFloat(ctx, token);
+        literal->expression.float64_literal.value = ConvertFloat(ctx, token);
         return literal;
     }
     token = Accept(ctx, TOK_CharLit);
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_CharLiterla, token);
-        literal->expression.char_literal.value = ParseChar(ctx, token->value, token->value_end);
+        literal->expression.char_literal.value = ConvertChar(ctx, token->value, token->value_end);
         return literal;
     }
     token = Accept(ctx, TOK_StringLit);
     if (token)
     {
         Ast_Node *literal = PushNode(ctx, AST_StringLiteral, token);
-        literal->expression.string_literal.value = ParseString(ctx, token->value, token->value_end);
+        literal->expression.string_literal.value = ConvertString(ctx, token->value, token->value_end);
         return literal;
     }
     TRACE(ParseLiteralExpr_not_literal);
@@ -467,7 +448,6 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
     if (!op_token) op_token = Accept(ctx, TOK_Bang);
     if (!op_token) op_token = Accept(ctx, TOK_Ampersand);
     if (!op_token) op_token = Accept(ctx, TOK_At);
-
     if (!op_token) return nullptr;
 
     Ast_Node *pre_op = PushNode(ctx, AST_UnaryExpr, op_token);
@@ -486,6 +466,48 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
     pre_op->expression.unary_expr.op = op;
     pre_op->expression.unary_expr.expr = nullptr;
     return pre_op;
+}
+
+static Ast_Node* ParseExpression(Parser_Context *ctx);
+
+static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
+{
+    TRACE(ParsePostfixOperator);
+    const Token *op_token = Accept(ctx, TOK_Period);
+    if (op_token)
+    {
+        Ast_Node *access_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+
+        const Token *ident_tok = Accept(ctx, TOK_Identifier);
+        if (ident_tok)
+        {
+            Ast_Node *member_ref  = PushNode(ctx, AST_VariableRef, ident_tok);
+            Name name = PushName(&ctx->ast->arena,
+                    ident_tok->value, ident_tok->value_end);
+            member_ref->expression.variable_ref.name = name;
+
+            access_expr->expression.binary_expr.op = AST_OP_Access;
+            access_expr->expression.binary_expr.left = factor;
+            access_expr->expression.binary_expr.right = member_ref;
+        }
+        else
+        {
+            Error(ctx, op_token, "Expecting identifier");
+        }
+        return access_expr;
+    }
+    op_token = Accept(ctx, TOK_OpenBracket);
+    if (op_token)
+    {
+        Ast_Node *subscript_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+        subscript_expr->expression.binary_expr.op = AST_OP_Access;
+        subscript_expr->expression.binary_expr.left = factor;
+        subscript_expr->expression.binary_expr.right = ParseExpression(ctx);
+        if (!subscript_expr->expression.binary_expr.right)
+            Error(ctx, "Expecting subscript expression");
+        Expect(ctx, TOK_CloseBracket);
+    }
+    return nullptr;
 }
 
 static Ast_Node* ParseFunctionArgs(Parser_Context *ctx)
@@ -524,15 +546,18 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
         if (ident_tok)
         {
             TRACE(ParseFactor_identifier);
+            Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
             // NOTE(henrik): Only accept function call for identifiers.
             // Is there any benefit to accept same syntax for other types of
-            // factors? Maybe even for error reporting reasonsr?
+            // factors? Maybe even for error reporting reasons?
+            // Also, if we want to store functions into structures, we would not be
+            // able to just call them like "thing.func()"
             if (Accept(ctx, TOK_OpenParent))
             {
                 TRACE(ParseFactor_func_call);
                 factor = PushNode(ctx, AST_FunctionCall, ident_tok);
                 Ast_Node *args = ParseFunctionArgs(ctx);
-                factor->expression.function_call.name = ident_tok;
+                factor->expression.function_call.name = name;
                 factor->expression.function_call.args = args;
                 ExpectAfterLast(ctx, TOK_CloseParent);
             }
@@ -540,7 +565,7 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
             {
                 TRACE(ParseFactor_var_ref);
                 factor = PushNode(ctx, AST_VariableRef, ident_tok);
-                factor->expression.variable_ref.name = ident_tok;
+                factor->expression.variable_ref.name = name;
             }
         }
     }
@@ -579,6 +604,11 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
     }
 
     // TODO(henrik): post ops
+    Ast_Node *post_op = ParsePostfixOperator(ctx, factor);
+    if (post_op)
+    {
+        factor = post_op;
+    }
 
     if (pre_op)
     {
@@ -970,7 +1000,9 @@ static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
     Accept(ctx, TOK_Identifier);
 
     Ast_Node *var_decl = PushNode(ctx, AST_VariableDecl, ident_tok);
-    var_decl->variable_decl.name = ident_tok;
+    Name name = PushName(&ctx->ast->arena,
+            ident_tok->value, ident_tok->value_end);
+    var_decl->variable_decl.name = name;
 
     Ast_Node *type = nullptr;
     Ast_Node *init = nullptr;
@@ -1064,10 +1096,15 @@ static Ast_Node* ParseType(Parser_Context *ctx)
         case TOK_Type_U64:
         case TOK_Type_F32:
         case TOK_Type_F64:
+        case TOK_Identifier:
             {
                 GetNextToken(ctx);
                 type_node = PushNode(ctx, AST_Type_Plain, token);
+                Name name = PushName(&ctx->ast->arena,
+                        token->value, token->value_end);
+                type_node->type_node.plain.name = name;
             } break;
+
         default: break;
     }
     if (!type_node)
@@ -1121,7 +1158,9 @@ static void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
         {
             GetNextToken(ctx);
             Ast_Node *param_node = PushNode(ctx, AST_Parameter, token);
-            param_node->parameter.name = token;
+            Name name = PushName(&ctx->ast->arena,
+                    token->value, token->value_end);
+            param_node->parameter.name = name;
 
             Expect(ctx, TOK_Colon);
             Ast_Node *type_node = ParseType(ctx);
@@ -1146,6 +1185,10 @@ static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
     if (!Accept(ctx, TOK_OpenParent)) return nullptr;
 
     Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
+    Name name = PushName(&ctx->ast->arena,
+            ident_tok->value, ident_tok->value_end);
+    func_def->function.name = name;
+
     ParseParameters(ctx, func_def);
     ExpectAfterLast(ctx, TOK_CloseParent);
     if (Accept(ctx, TOK_Colon))
@@ -1156,7 +1199,12 @@ static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
         // syntax should be changed. E.g. maybe
         //   func_name :: (...) : *
         // will have inferred return type.
-        func_def->function.return_type = ParseType(ctx);
+        Ast_Node *return_type = ParseType(ctx);
+        func_def->function.return_type = return_type;
+        if (!return_type)
+        {
+            Error(ctx, "Expecting function return type");
+        }
     }
     Ast_Node *body = ParseBlockStatement(ctx);
     if (!body)
@@ -1167,21 +1215,67 @@ static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
     return func_def;
 }
 
+static Ast_Node* ParseStructMember(Parser_Context *ctx)
+{
+    const Token *ident_tok = Accept(ctx, TOK_Identifier);
+    if (!ident_tok) return nullptr;
+
+    ExpectAfterLast(ctx, TOK_Colon);
+
+    Ast_Node *member = PushNode(ctx, AST_StructMember, ident_tok);
+    Ast_Node *type = ParseType(ctx);
+
+    Name name = PushName(&ctx->ast->arena,
+            ident_tok->value, ident_tok->value_end);
+    member->struct_member.name = name;
+    member->struct_member.type = type;
+
+    ExpectAfterLast(ctx, TOK_Semicolon);
+
+    return member;
+}
+
+static Ast_Node* ParseStruct(Parser_Context *ctx, const Token *ident_tok)
+{
+    const Token *struct_tok = Accept(ctx, TOK_Struct);
+    if (!struct_tok) return nullptr;
+
+    Ast_Node *struct_def = PushNode(ctx, AST_StructDef, ident_tok);
+    Name name = PushName(&ctx->ast->arena,
+            ident_tok->value, ident_tok->value_end);
+    struct_def->struct_def.name = name;
+
+    Expect(ctx, TOK_OpenBlock);
+    while (ContinueParsing(ctx))
+    {
+        Ast_Node *member = ParseStructMember(ctx);
+        if (!member) break;
+
+        PushNodeList(&struct_def->struct_def.members, member);
+    }
+    ExpectAfterLast(ctx, TOK_CloseBlock);
+    return struct_def;
+}
+
 static Ast_Node* ParseNamedImport(Parser_Context *ctx, const Token *ident_tok)
 {
     const Token *import_tok = Accept(ctx, TOK_Import);
     if (!import_tok) return nullptr;
 
-    const Token *module_name = ExpectAfterLast(ctx, TOK_StringLit);
-    if (!module_name)
+    const Token *module_name_tok = ExpectAfterLast(ctx, TOK_StringLit);
+    if (!module_name_tok)
     {
         Error(ctx, "Expecting module name as string literal");
     }
     ExpectAfterLast(ctx, TOK_Semicolon);
 
     Ast_Node *import_node = PushNode(ctx, AST_Import, import_tok);
-    import_node->import.name = ident_tok;
-    import_node->import.module_name = module_name;
+    Name name = PushName(&ctx->ast->arena,
+            ident_tok->value, ident_tok->value_end);
+    String mod_name_str = ConvertString(ctx,
+            module_name_tok->value, module_name_tok->value_end);
+    import_node->import.name = name;
+    import_node->import.module_name = mod_name_str;
 
     return import_node;
 }
@@ -1191,18 +1285,95 @@ static Ast_Node* ParseGlobalImport(Parser_Context *ctx)
     const Token *import_tok = Accept(ctx, TOK_Import);
     if (!import_tok) return nullptr;
 
-    const Token *module_name = ExpectAfterLast(ctx, TOK_StringLit);
-    if (!module_name)
+    const Token *module_name_tok = ExpectAfterLast(ctx, TOK_StringLit);
+    if (!module_name_tok)
     {
         Error(ctx, "Expecting module name as string literal");
     }
     ExpectAfterLast(ctx, TOK_Semicolon);
 
     Ast_Node *import_node = PushNode(ctx, AST_Import, import_tok);
-    import_node->import.name = nullptr;
-    import_node->import.module_name = module_name;
+    String mod_name_str = ConvertString(ctx,
+            module_name_tok->value, module_name_tok->value_end);
+    import_node->import.name = { };
+    import_node->import.module_name = mod_name_str;
 
     return import_node;
+}
+
+static Ast_Node* ParseForeignFunction(Parser_Context *ctx, const Token *ident_tok)
+{
+    TRACE(ParseForeignFunction);
+    if (!Accept(ctx, TOK_OpenParent)) return nullptr;
+
+    Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
+    Name name = PushName(&ctx->ast->arena,
+            ident_tok->value, ident_tok->value_end);
+    func_def->function.name = name;
+
+    ParseParameters(ctx, func_def);
+    ExpectAfterLast(ctx, TOK_CloseParent);
+    // TODO(henrik): Should we make the return type of a foreign function
+    // mandatory?
+    if (Accept(ctx, TOK_Colon))
+    {
+        // NOTE(henrik): The return type node can be nullptr. This means
+        // that the type will be inferred later. But, as this leads to
+        // ambiguous syntax for inferred return type and no return type, the
+        // syntax should be changed. E.g. maybe
+        //   func_name :: (...) : *
+        // will have inferred return type.
+        Ast_Node *return_type = ParseType(ctx);
+        func_def->function.return_type = return_type;
+        if (!return_type)
+        {
+            Error(ctx, "Expecting function return type");
+        }
+    }
+    Expect(ctx, TOK_Semicolon);
+    return func_def;
+}
+
+static Ast_Node* ParseForeignStmt(Parser_Context *ctx)
+{
+    TRACE(ParseForeignStmt);
+
+    const Token *token = GetCurrentToken(ctx);
+    if (token->type != TOK_Identifier)
+        return nullptr;
+
+    const Token *peek = PeekNextToken(ctx);
+    if (peek->type != TOK_ColonColon)
+        return nullptr;
+
+    const Token *ident_tok = Accept(ctx, TOK_Identifier);
+    Accept(ctx, TOK_ColonColon);
+
+    Ast_Node *stmt = ParseNamedImport(ctx, ident_tok);
+    if (!stmt) stmt = ParseStruct(ctx, ident_tok);
+    if (!stmt) stmt = ParseForeignFunction(ctx, ident_tok);
+    return stmt;
+}
+
+static Ast_Node* ParseForeignBlock(Parser_Context *ctx)
+{
+    const Token *foreign_tok = Accept(ctx, TOK_Foreign);
+    if (!foreign_tok) return nullptr;
+
+    Ast_Node *foreign_block = PushNode(ctx, AST_ForeignBlock, foreign_tok);
+
+    Expect(ctx, TOK_OpenBlock);
+    while (ContinueParsing(ctx))
+    {
+        Ast_Node *stmt = ParseForeignStmt(ctx);
+        if (!stmt)
+        break;
+
+        PushNodeList(&foreign_block->node_list, stmt);
+    }
+    Expect(ctx, TOK_CloseBlock);
+
+    return foreign_block;
 }
 
 static Ast_Node* ParseTopLevelNamedStmt(Parser_Context *ctx)
@@ -1221,8 +1392,7 @@ static Ast_Node* ParseTopLevelNamedStmt(Parser_Context *ctx)
     Accept(ctx, TOK_ColonColon);
 
     Ast_Node *stmt = ParseNamedImport(ctx, ident_tok);
-    // TODO(henrik): Implement struct parsing
-    //if (!stmt) stmt = ParseStruct(ctx, ident_tok);
+    if (!stmt) stmt = ParseStruct(ctx, ident_tok);
     if (!stmt) stmt = ParseFunction(ctx, ident_tok);
     return stmt;
 }
@@ -1237,8 +1407,33 @@ static Ast_Node* ParseTopLevelStmt(Parser_Context *ctx)
 {
     TRACE(ParseTopLevelStmt);
     Ast_Node *stmt = ParseGlobalImport(ctx);
+    if (!stmt) stmt = ParseForeignBlock(ctx);
+    if (!stmt) stmt = ParseVarDeclStatement(ctx);
     if (!stmt) stmt = ParseTopLevelNamedStmt(ctx);
     return stmt;
+}
+
+b32 Parse(Parser_Context *ctx)
+{
+    ASSERT(ctx && ctx->ast);
+    ctx->ast->root = PushNode(ctx, AST_TopLevel, nullptr);
+    Ast_Node *root = ctx->ast->root;
+
+    while (ContinueParsing(ctx))
+    {
+        Ast_Node *stmt = ParseTopLevelStmt(ctx);
+        if (stmt)
+        {
+            PushNodeList(&root->node_list, stmt);
+        }
+        else if (ContinueParsing(ctx))
+        {
+            //Error(ctx, "Unexpected token");
+            ErrorInvalidToken(ctx, GetCurrentToken(ctx));
+            GetNextToken(ctx);
+        }
+    }
+    return HasError(ctx->comp_ctx);
 }
 
 } // hplang

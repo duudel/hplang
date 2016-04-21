@@ -43,7 +43,7 @@ b32 CheckLexingResult(Compiler_Context *compiler_ctx,
     }
     else if (should_fail_lexing)
     {
-        if (compiler_ctx->error_ctx.compilation_phase == COMP_Lexing)
+        if (compiler_ctx->result == RES_FAIL_Lexing)
         {
             File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
             if (error_loc.line == test.fail_lexing.line &&
@@ -64,7 +64,7 @@ b32 CheckLexingResult(Compiler_Context *compiler_ctx,
     }
     else // compilation failed, was not expecting lexing failure
     {
-        if (compiler_ctx->error_ctx.compilation_phase == COMP_Lexing)
+        if (compiler_ctx->result == RES_FAIL_Lexing)
         {
             File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
             fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected lexing error\n",
@@ -92,7 +92,7 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
     }
     else if (should_fail_parsing)
     {
-        if (compiler_ctx->error_ctx.compilation_phase == COMP_Parsing)
+        if (compiler_ctx->result == RES_FAIL_Parsing)
         {
             File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
             if (error_loc.line == test.fail_parsing.line &&
@@ -113,7 +113,7 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
     }
     else // compilation failed, was not expecting lexing failure
     {
-        if (compiler_ctx->error_ctx.compilation_phase == COMP_Parsing)
+        if (compiler_ctx->result == RES_FAIL_Parsing)
         {
             File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
             fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected parsing error\n",

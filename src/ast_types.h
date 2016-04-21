@@ -11,6 +11,7 @@ enum Ast_Node_Type
     AST_TopLevel,
 
     AST_Import,
+    AST_ForeignBlock,
     AST_VariableDecl,
     AST_FunctionDef,    // <ident> :: (<param_list>) : <type> {<stmt_block>}
     AST_StructDef,      // <ident> :: struct {<struct_body>}
@@ -21,16 +22,13 @@ enum Ast_Node_Type
     AST_Type_Pointer,
     AST_Type_Array,
 
-    AST_StructBody,
-    // struct field and stuff
+    AST_StructMember,
 
     AST_BlockStmt,
     AST_IfStmt,
     AST_ForStmt,
     AST_WhileStmt,
     AST_ReturnStmt,
-    AST_ExpressionStmt,
-    AST_Expression,
 
     AST_Null,
     AST_BoolLiteral,
@@ -72,7 +70,10 @@ enum Ast_Binary_Op
     AST_OP_Greater,
     AST_OP_GreaterEq,
 
-    AST_OP_Range,   // a .. b
+    AST_OP_Range,       // a .. b
+
+    AST_OP_Access,      // a.member
+    AST_OP_Subscript,   // a[x]
 };
 
 enum Ast_Unary_Op
@@ -112,39 +113,27 @@ struct Ast_Node;
 struct Ast_Node_List
 {
     s64 capacity;
-    s64 node_count;
+    s64 count;
     Ast_Node **nodes;
 };
 
 struct Ast_Bool_Literal
-{
-    bool value;
-};
+{ bool value; };
 
 struct Ast_Int_Literal
-{
-    s64 value;
-};
+{ s64 value; };
 
 struct Ast_Float64_Literal
-{
-    f64 value;
-};
+{ f64 value; };
 
 struct Ast_Float32_Literal
-{
-    f32 value;
-};
+{ f32 value; };
 
 struct Ast_Char_Literal
-{
-    char value;
-};
+{ char value; };
 
 struct Ast_String_Literal
-{
-    String value;
-};
+{ String value; };
 
 struct Ast_Binary_Expr
 {
@@ -158,16 +147,21 @@ struct Ast_Unary_Expr
     Ast_Node *expr;
 };
 
+struct Ast_Ternary_Expr
+{
+    Ast_Node *condition_expr;
+    Ast_Node *expr_a;
+    Ast_Node *expr_b;
+};
+
 struct Ast_Variable_Ref
 {
-    const Token *name;
-    // A general Name type would be good (containing pre computed hash of the
-    // name for faster compares or hash map operations).
+    Name name;
 };
 
 struct Ast_Function_Call
 {
-    const Token *name;
+    Name name;
     Ast_Node *args;
 };
 
@@ -189,6 +183,7 @@ struct Ast_Expression
         Ast_String_Literal  string_literal;
         Ast_Binary_Expr     binary_expr;
         Ast_Unary_Expr      unary_expr;
+        Ast_Ternary_Expr    ternary_expr;
         Ast_Variable_Ref    variable_ref;
         Ast_Function_Call   function_call;
         Ast_Assignment      assignment;
@@ -200,27 +195,26 @@ struct Ast_Import
     // import "module_name";
     // or
     // name :: import "module_name";
-    const Token *name;  // NOTE(henrik): This is optional, so may be null.
-    const Token *module_name;
+    Name name;  // NOTE(henrik): This is optional, so may be empty.
+    String module_name;
 };
 
-struct Ast_Function
+struct Ast_Function_Def
 {
-    const Token *name;
+    Name name;
     Ast_Node_List parameters;
     Ast_Node *return_type;
-    Ast_Node *body;
+    Ast_Node *body; // TODO(henrik): should use Ast_Node_List here?
+};
+
+struct Ast_Struct_Def
+{
+    Name name;
+    Ast_Node_List members;
 };
 
 struct Ast_Type_Node
 {
-    /*enum Kind
-    {
-        Kind_Pointer,
-        Kind_Array,
-        Kind_Plain
-    };
-    Kind kind;*/
     struct Pointer {
         s64 indirection;
         Ast_Node *base_type;
@@ -230,7 +224,7 @@ struct Ast_Type_Node
         Ast_Node *base_type;
     };
     struct Plain {
-        // uses Ast_Node::token
+        Name name;
     };
     union {
         Pointer pointer;
@@ -241,7 +235,7 @@ struct Ast_Type_Node
 
 struct Ast_Parameter
 {
-    const Token *name;
+    Name name;
     Ast_Node *type;
 };
 
@@ -250,6 +244,12 @@ struct Ast_If_Stmt
     Ast_Node *condition_expr;
     Ast_Node *true_stmt;
     Ast_Node *false_stmt;
+};
+
+struct Ast_While_Stmt
+{
+    Ast_Node *condition_expr;
+    Ast_Node *loop_stmt;
 };
 
 struct Ast_For_Stmt
@@ -269,9 +269,15 @@ struct Ast_Return_Stmt
 
 struct Ast_Variable_Decl
 {
-    const Token *name;
+    Name name;
     Ast_Node *type; // NOTE(henrik): type can be null (type will be inferred)
     Ast_Node *init; // NOTE(henrik): init_expr can be null
+};
+
+struct Ast_Struct_Member
+{
+    Name name;
+    Ast_Node *type; // NOTE(henrik): type can not be null
 };
 
 struct Ast_Node
@@ -280,10 +286,13 @@ struct Ast_Node
     union {
         Ast_Node_List       node_list;
         Ast_Import          import;
-        Ast_Function        function;
+        Ast_Function_Def    function;
         Ast_Parameter       parameter;
+        Ast_Struct_Def      struct_def;
+        Ast_Struct_Member   struct_member;
         Ast_Variable_Decl   variable_decl;
         Ast_If_Stmt         if_stmt;
+        Ast_While_Stmt      while_stmt;
         Ast_For_Stmt        for_stmt;
         Ast_Return_Stmt     return_stmt;
         Ast_Expression      expression;
@@ -296,6 +305,7 @@ struct Ast_Node
 };
 
 b32 PushNodeList(Ast_Node_List *nodes, Ast_Node *node);
+void FreeNodeList(Ast_Node_List *nodes);
 
 struct Token_List;
 
@@ -304,6 +314,7 @@ struct Ast
     Memory_Arena arena;
     Ast_Node *root;
     Token_List *tokens;
+    Environment *env;
 };
 
 Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token);

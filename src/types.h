@@ -45,8 +45,42 @@ struct File_Location
 struct Open_File
 {
     String filename;
+    s64 base_end;
     Pointer contents;
 };
+
+struct Name
+{
+    String str;
+    u32 hash;
+};
+
+inline u32 Hash(String str)
+{
+    // Some prime numbers A and B
+    const u32 A = 54059;
+    const u32 B = 93563;
+    const u32 R = 13;
+    const char *s = str.data;
+    const char *end = s + str.size;
+    u32 result = 31;
+    while (s != end)
+    {
+        // Rotate left by R
+        u32 rot = (result << R) | (result >> (32 - R));
+        result = (rot * A) ^ (s[0] * B);
+        s++;
+    }
+    return result;
+}
+
+inline Name MakeName(String str)
+{
+    Name result;
+    result.str = str;
+    result.hash = Hash(str);
+    return result;
+}
 
 } // hplang
 

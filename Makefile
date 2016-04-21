@@ -12,6 +12,7 @@ SOURCES := \
 	src/memory.cpp \
 	src/compiler_options.cpp \
 	src/parser.cpp \
+	src/semantic_check.cpp \
 	src/token.cpp
 
 COMPILER_SOURCES := \

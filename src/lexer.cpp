@@ -4,7 +4,6 @@
 #include "assert.h"
 
 #include <cstdio> // TODO(henrik): remove direct dependency to stdio
-#include <cctype>
 
 namespace hplang
 {
@@ -34,6 +33,21 @@ void FreeLexerContext(Lexer_Context *ctx)
     }
 }
 
+b32 is_digit(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+b32 is_alpha(char c)
+{
+    return (c >= 'A' && c <= 'Z') ||
+        (c >= 'a' && c <= 'z');
+}
+
+b32 is_ident(char c)
+{
+    return is_alpha(c) || is_digit(c) || c == '_';
+}
 
 enum Lexer_State
 {
@@ -54,7 +68,6 @@ enum Lexer_State
     LS_CharLitEsc,
     LS_CharLitEnd,
 
-    LS_KW_end,
     LS_Ident,
 
     LS_STR_b,
@@ -80,6 +93,10 @@ enum Lexer_State
     LS_STR_false,
     LS_STR_fo,
     LS_STR_for,
+    LS_STR_fore,
+    LS_STR_forei,
+    LS_STR_foreig,
+    LS_STR_foreign,
     LS_STR_i,
     LS_STR_if,
     LS_STR_im,
@@ -391,36 +408,35 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         fsm.emit = true;
         break;
 
-    case LS_KW_end:
     case LS_Ident:
-    case LS_STR_bool:
-    case LS_STR_char:
-    case LS_STR_else:
-    case LS_STR_f32:
-    case LS_STR_f64:
-    case LS_STR_false:
-    case LS_STR_for:
-    case LS_STR_if:
-    case LS_STR_import:
-    case LS_STR_null:
-    case LS_STR_return:
-    case LS_STR_string:
-    case LS_STR_struct:
-    case LS_STR_s8:
-    case LS_STR_s16:
-    case LS_STR_s32:
-    case LS_STR_s64:
-    case LS_STR_true:
-    case LS_STR_u8:
-    case LS_STR_u16:
-    case LS_STR_u32:
-    case LS_STR_u64:
-    case LS_STR_while:
-        if (isalpha(c) || isdigit(c) || c == '_')
+        if (is_ident(c))
             fsm.state = LS_Ident;
         else
             fsm.emit = true;
         break;
+
+    #define KW_END_CASE()\
+        if (is_ident(c))\
+        {\
+            fsm.state = LS_Ident;\
+        }\
+        else\
+        {\
+            fsm.emit = true;\
+        }\
+        break
+
+    #define STR_END_CASE()\
+        if (is_ident(c))\
+        {\
+            fsm.state = LS_Ident;\
+        }\
+        else\
+        {\
+            fsm.state = LS_Ident;\
+            fsm.emit = true;\
+        }\
+        break
 
     case LS_STR_b:
         switch (c)
@@ -428,7 +444,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'o':
                 fsm.state = LS_STR_bo; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_bo:
         switch (c)
@@ -436,7 +452,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'o':
                 fsm.state = LS_STR_boo; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_boo:
         switch (c)
@@ -444,15 +460,16 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'l':
                 fsm.state = LS_STR_bool; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_bool: KW_END_CASE();
     case LS_STR_c:
         switch (c)
         {
             case 'h':
                 fsm.state = LS_STR_ch; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_ch:
         switch (c)
@@ -460,7 +477,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'a':
                 fsm.state = LS_STR_cha; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_cha:
         switch (c)
@@ -468,15 +485,16 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'r':
                 fsm.state = LS_STR_char; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_char: KW_END_CASE();
     case LS_STR_e:
         switch (c)
         {
             case 'l':
                 fsm.state = LS_STR_el; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_el:
         switch (c)
@@ -484,7 +502,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 's':
                 fsm.state = LS_STR_els; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_els:
         switch (c)
@@ -492,8 +510,9 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'e':
                 fsm.state = LS_STR_else; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_else: KW_END_CASE();
     case LS_STR_f:
         switch (c)
         {
@@ -506,7 +525,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'o':
                 fsm.state = LS_STR_fo; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_f3:
         switch (c)
@@ -514,23 +533,25 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '2':
                 fsm.state = LS_STR_f32; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_f32: KW_END_CASE();
     case LS_STR_f6:
         switch (c)
         {
             case '4':
                 fsm.state = LS_STR_f64; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_f64: KW_END_CASE();
     case LS_STR_fa:
         switch (c)
         {
             case 'l':
                 fsm.state = LS_STR_fal; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_fal:
         switch (c)
@@ -538,7 +559,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 's':
                 fsm.state = LS_STR_fals; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_fals:
         switch (c)
@@ -546,16 +567,50 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'e':
                 fsm.state = LS_STR_false; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_false: KW_END_CASE();
     case LS_STR_fo:
         switch (c)
         {
             case 'r':
                 fsm.state = LS_STR_for; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_for:
+        switch (c)
+        {
+            case 'e':
+                fsm.state = LS_STR_fore; break;
+            default:
+                KW_END_CASE();
+        } break;
+    case LS_STR_fore:
+        switch (c)
+        {
+            case 'i':
+                fsm.state = LS_STR_forei; break;
+            default:
+                STR_END_CASE();
+        } break;
+    case LS_STR_forei:
+        switch (c)
+        {
+            case 'g':
+                fsm.state = LS_STR_foreig; break;
+            default:
+                STR_END_CASE();
+        } break;
+    case LS_STR_foreig:
+        switch (c)
+        {
+            case 'n':
+                fsm.state = LS_STR_foreign; break;
+            default:
+                STR_END_CASE();
+        } break;
+    case LS_STR_foreign: KW_END_CASE();
     case LS_STR_i:
         switch (c)
         {
@@ -564,15 +619,16 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'm':
                 fsm.state = LS_STR_im; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_if: KW_END_CASE();
     case LS_STR_im:
         switch (c)
         {
             case 'p':
                 fsm.state = LS_STR_imp; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_imp:
         switch (c)
@@ -580,7 +636,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'o':
                 fsm.state = LS_STR_impo; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_impo:
         switch (c)
@@ -588,7 +644,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'r':
                 fsm.state = LS_STR_impor; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_impor:
         switch (c)
@@ -596,15 +652,16 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 't':
                 fsm.state = LS_STR_import; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_import: KW_END_CASE();
     case LS_STR_n:
         switch (c)
         {
             case 'u':
                 fsm.state = LS_STR_nu; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_nu:
         switch (c)
@@ -612,7 +669,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'l':
                 fsm.state = LS_STR_nul; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_nul:
         switch (c)
@@ -620,15 +677,16 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'l':
                 fsm.state = LS_STR_null; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_null: KW_END_CASE();
     case LS_STR_r:
         switch (c)
         {
             case 'e':
                 fsm.state = LS_STR_re; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_re:
         switch (c)
@@ -636,7 +694,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 't':
                 fsm.state = LS_STR_ret; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_ret:
         switch (c)
@@ -644,7 +702,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'u':
                 fsm.state = LS_STR_retu; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_retu:
         switch (c)
@@ -652,7 +710,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'r':
                 fsm.state = LS_STR_retur; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_retur:
         switch (c)
@@ -660,8 +718,9 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'n':
                 fsm.state = LS_STR_return; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_return: KW_END_CASE();
     case LS_STR_s:
         switch (c)
         {
@@ -676,39 +735,43 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 't':
                 fsm.state = LS_STR_st; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_s8: KW_END_CASE();
     case LS_STR_s1:
         switch (c)
         {
             case '6':
                 fsm.state = LS_STR_s16; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_s16: KW_END_CASE();
     case LS_STR_s3:
         switch (c)
         {
             case '2':
                 fsm.state = LS_STR_s32; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_s32: KW_END_CASE();
     case LS_STR_s6:
         switch (c)
         {
             case '4':
                 fsm.state = LS_STR_s64; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_s64: KW_END_CASE();
     case LS_STR_st:
         switch (c)
         {
             case 'r':
                 fsm.state = LS_STR_str; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_str:
         switch (c)
@@ -718,7 +781,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'u':
                 fsm.state = LS_STR_stru; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_stri:
         switch (c)
@@ -726,7 +789,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'n':
                 fsm.state = LS_STR_strin; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_strin:
         switch (c)
@@ -734,15 +797,16 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'g':
                 fsm.state = LS_STR_string; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_string: KW_END_CASE();
     case LS_STR_stru:
         switch (c)
         {
             case 'c':
                 fsm.state = LS_STR_struc; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_struc:
         switch (c)
@@ -750,15 +814,16 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 't':
                 fsm.state = LS_STR_struct; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_struct: KW_END_CASE();
     case LS_STR_t:
         switch (c)
         {
             case 'r':
                 fsm.state = LS_STR_tr; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_tr:
         switch (c)
@@ -766,7 +831,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'u':
                 fsm.state = LS_STR_tru; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_tru:
         switch (c)
@@ -774,8 +839,9 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'e':
                 fsm.state = LS_STR_true; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_true: KW_END_CASE();
     case LS_STR_u:
         switch (c)
         {
@@ -788,39 +854,43 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '6':
                 fsm.state = LS_STR_u6; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_u8: KW_END_CASE();
     case LS_STR_u1:
         switch (c)
         {
             case '6':
                 fsm.state = LS_STR_u16; break;
             default:
-                fsm.state = LS_KW_end;
+                KW_END_CASE();
         } break;
+    case LS_STR_u16: KW_END_CASE();
     case LS_STR_u3:
         switch (c)
         {
             case '2':
                 fsm.state = LS_STR_u32; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_u32: KW_END_CASE();
     case LS_STR_u6:
         switch (c)
         {
             case '4':
                 fsm.state = LS_STR_u64; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_u64: KW_END_CASE();
     case LS_STR_w:
         switch (c)
         {
             case 'h':
                 fsm.state = LS_STR_wh; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_wh:
         switch (c)
@@ -828,7 +898,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'i':
                 fsm.state = LS_STR_whi; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_whi:
         switch (c)
@@ -836,7 +906,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'l':
                 fsm.state = LS_STR_whil; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
     case LS_STR_whil:
         switch (c)
@@ -844,8 +914,9 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'e':
                 fsm.state = LS_STR_while; break;
             default:
-                fsm.state = LS_KW_end;
+                STR_END_CASE();
         } break;
+    case LS_STR_while: KW_END_CASE();
 
     case LS_Hash:
     case LS_ColonColon:
@@ -1010,11 +1081,17 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             fsm.state = LS_MultilineComment;
         } break;
 
-    default:
-        fsm.state = LS_Invalid;
-        fsm.emit = false;
+        // NOTE(henrik): We don't want to use default here, as we would miss
+        // warnings about unhandled enums.
+    //default:
 
+    case LS_Junk:
+    case LS_Invalid:
+    case LS_COUNT:
+        INVALID_CODE_PATH;
     }
+    //fsm.state = LS_Invalid;
+    //fsm.emit = false;
     return fsm;
 }
 
@@ -1048,7 +1125,6 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
         case LS_StringLitEnd:
             ctx->current_token.type = TOK_StringLit; break;
 
-        case LS_KW_end:
         case LS_Ident:
             ctx->current_token.type = TOK_Identifier; break;
 
@@ -1095,6 +1171,13 @@ void EmitToken(Lexer_Context *ctx, Lexer_State state)
             INVALID_CODE_PATH;
         case LS_STR_for:
             ctx->current_token.type = TOK_For; break;
+
+        case LS_STR_fore:
+        case LS_STR_forei:
+        case LS_STR_foreig:
+            INVALID_CODE_PATH;
+        case LS_STR_foreign:
+            ctx->current_token.type = TOK_Foreign; break;
 
         case LS_STR_i:
             INVALID_CODE_PATH;
@@ -1348,7 +1431,7 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
                 }
             }
 
-            if (!fsm.emit && fsm.state != LS_KW_end)
+            if (!fsm.emit)
             {
                 cur++;
                 file_loc->column++;

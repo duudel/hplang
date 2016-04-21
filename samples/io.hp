@@ -1,0 +1,20 @@
+// io module
+// 2016-04-19
+
+foreign {
+    FILE :: struct { }
+    get_stdout :: () : FILE*;
+    get_stderr :: () : FILE*;
+    get_stdin :: () : FILE*;
+
+    write :: (file : FILE*, data : u8*, size : s64) : s64;
+}
+
+stdout : FILE* = get_stdout();
+stderr : FILE* = get_stderr();
+stdin : FILE* = get_stdin();
+
+print :: (s : string)
+{
+    return write(stdout, s.data, s.size);
+}

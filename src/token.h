@@ -25,6 +25,7 @@ enum Token_Type
     TOK_If,             // if
     TOK_Else,           // else
     TOK_For,            // for
+    TOK_Foreign,        // foreign
     TOK_While,          // while
     TOK_Return,         // return
     TOK_Struct,         // struct

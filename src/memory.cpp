@@ -125,6 +125,11 @@ Pointer PushDataPointer(Memory_Arena *arena, s64 size, s64 alignment)
     return result;
 }
 
+String PushString(Memory_Arena *arena, const char *s, const char *end)
+{
+    return PushString(arena, s, end - s);
+}
+
 String PushString(Memory_Arena *arena, const char *s, s64 size)
 {
     String result = { };
@@ -141,6 +146,11 @@ String PushString(Memory_Arena *arena, const char *s, s64 size)
 String PushString(Memory_Arena *arena, const char *s)
 {
     return PushString(arena, s, strlen(s));
+}
+
+String PushNullTerminatedString(Memory_Arena *arena, const char *s, const char *end)
+{
+    return PushNullTerminatedString(arena, s, end - s);
 }
 
 String PushNullTerminatedString(Memory_Arena *arena, const char *s, s64 size)
@@ -162,5 +172,20 @@ String PushNullTerminatedString(Memory_Arena *arena, const char *s)
     return PushNullTerminatedString(arena, s, strlen(s));
 }
 
+Name PushName(Memory_Arena *arena, const char *s, const char *end)
+{
+    Name result = MakeName(PushString(arena, s, end));
+    return result;
+}
+
+Name PushName(Memory_Arena *arena, const char *s, s64 size)
+{
+    return PushName(arena, s, s + size);
+}
+
+Name PushName(Memory_Arena *arena, const char *s)
+{
+    return PushName(arena, s, strlen(s));
+}
 
 } // hplang

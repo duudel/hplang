@@ -1,14 +1,14 @@
 #ifndef H_HPLANG_PARSER_H
 
-#include "ast_types.h"
-#include "token.h"
+#include "types.h"
 #include "memory.h"
-#include "compiler_options.h"
 
 namespace hplang
 {
 
-struct Error_Context;
+struct Ast;
+struct Token_List;
+struct Compiler_Context;
 
 struct Parser_Context
 {
@@ -19,16 +19,14 @@ struct Parser_Context
     Token_List *tokens;
 
     Open_File *open_file;
-    Error_Context *error_ctx;
-    Compiler_Options *options;
+    Compiler_Context *comp_ctx;
 };
 
 Parser_Context NewParserContext(
         Ast *ast,
         Token_List *tokens,
         Open_File *open_file,
-        Error_Context *error_ctx,
-        Compiler_Options *options);
+        Compiler_Context *comp_ctx);
 
 void UnlinkAst(Parser_Context *ctx);
 void FreeParserContext(Parser_Context *ctx);
