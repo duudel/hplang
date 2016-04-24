@@ -38,8 +38,7 @@ void PrintHelp()
 
 void PrintVersion()
 {
-    printf("hplang %d.%d.%s\n",
-            HPLANG_VER_MAJOR, HPLANG_VER_MINOR, HPLANG_VER_PATCH);
+    printf("%s\n", GetVersionString());
     printf("Copyright (c) 2016 Henrik Paananen\n");
 }
 

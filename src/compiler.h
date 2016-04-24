@@ -5,6 +5,7 @@
 #include "error.h"
 #include "compiler_options.h"
 
+#include "token.h"
 #include "ast_types.h"
 
 namespace hplang

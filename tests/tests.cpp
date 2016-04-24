@@ -1,12 +1,35 @@
 
 #include "../src/hplang.h"
+#include "../src/common.h"
 #include "../src/compiler.h"
+#include "../src/token.h"
+#include "../src/ast_types.h"
 
 #include <cstdio>
 
 FILE *nulldev;
 
 using namespace hplang;
+
+struct Test_Context
+{
+    s64 errors;
+};
+
+bool report_test(Test_Context *test_ctx, bool x, const char *xs,
+        const char *file, s64 line)
+{
+    if (!x)
+    {
+        test_ctx->errors++;
+        fprintf(stderr, "%s:%lld:1: TEST FAILURE\n\n", file, line);
+        fprintf(stderr, "%s\n\n", xs);
+        return false;
+    }
+    return true;
+}
+
+#define TEST(x) report_test(test_ctx, x, #x, __FILE__, __LINE__)
 
 struct Line_Col
 {
@@ -16,8 +39,8 @@ struct Line_Col
 struct Test
 {
     const char *filename;
-    Line_Col fail_lexing;  // if line, column != 0 should fail lexing at the location
-    Line_Col fail_parsing; // if line, column != 0 should fail parsing at the location
+    Line_Col fail_lexing;  // if line, column != 0, should fail lexing at the location
+    Line_Col fail_parsing; // if line, column != 0, should fail parsing at the location
 };
 
 Test tests[] = {
@@ -168,10 +191,6 @@ s64 RunTest(const Test &test)
     return failed;
 }
 
-template <class S, s64 N>
-s64 arr_len(S (&)[N])
-{ return N; }
-
 int main(int argc, char **argv)
 {
     nulldev = fopen("/dev/null", "w");
@@ -186,12 +205,14 @@ int main(int argc, char **argv)
     fprintf(stderr, "----\n");
 
     s64 failed_tests = 0;
-    s64 total_tests = arr_len(tests);
+    s64 total_tests = array_length(tests);
     for (const Test &test : tests)
     {
         failed_tests += RunTest(test);
         fflush(stderr);
     }
+
+
 
     fprintf(stderr, "----\n");
     fprintf(stderr, "%lld tests run, %lld failed\n", total_tests, failed_tests);

@@ -1,7 +1,7 @@
 #ifndef H_HPLANG_H
 
 #define HPLANG_VER_MAJOR 0
-#define HPLANG_VER_MINOR 0
+#define HPLANG_VER_MINOR 1
 #define HPLANG_VER_PATCH "0"
 
 #define KBytes(n) (n*1024)
@@ -9,6 +9,8 @@
 
 namespace hplang
 {
+
+const char* GetVersionString();
 
 } // hplang
 
