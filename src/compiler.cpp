@@ -237,7 +237,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
 bool CompileModule(Compiler_Context *ctx,
         Open_File *open_file, String module_filename)
 {
-    fprintf(stderr, "Module compilation not implemented yet");
+    fprintf(stderr, "Module compilation not implemented yet\n");
     return false;
 }
 

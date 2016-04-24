@@ -1,6 +1,8 @@
 // Factorial sample code
 // 2016-04-25
 
+import "io";
+
 factorial :: (n : s64) : s64
 {
     if n <= 1  return 1;
@@ -13,6 +15,7 @@ print_factorial :: (n : s64)
     print(n);
     print(") = ");
     print(factorial(n));
+    println();
 }
 
 main :: ()

@@ -18,3 +18,14 @@ print :: (s : string)
 {
     return write(stdout, s.data, s.size);
 }
+
+println :: (s : string)
+{
+    s64 n = print(s);
+    return n + print("\n");
+}
+
+println :: ()
+{
+    return print("\n");
+}

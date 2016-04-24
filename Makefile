@@ -26,9 +26,10 @@ build:
 
 run:
 	@#-./$(EXENAME) samples/compiletime.hp
-	-./$(EXENAME) samples/fibo.hp
+	@#-./$(EXENAME) samples/fibo.hp
 	@#-./$(EXENAME) tests/token_test.hp
-	@#-./$(EXENAME) tests/crlf_test.hp
+	-./$(EXENAME) tests/beer.hp
+	@#-./$(EXENAME) tests/factorial.hp
 
 
 GDB := /usr/bin/gdb.exe

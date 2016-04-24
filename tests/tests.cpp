@@ -49,6 +49,7 @@ Test tests[] = {
     (Test){ "tests/hello_test.hp", { }, { } },
     (Test){ "tests/expr_test.hp", { }, { } },
     (Test){ "tests/stmt_test.hp", { }, { } },
+    (Test){ "tests/beer_test.hp", { }, { } },
 };
 
 b32 CheckLexingResult(Compiler_Context *compiler_ctx,
