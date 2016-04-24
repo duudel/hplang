@@ -1,0 +1,25 @@
+// Factorial sample code
+// 2016-04-25
+
+factorial :: (n : s64) : s64
+{
+    if n <= 1  return 1;
+    return n * factorial(n - 1);
+}
+
+print_factorial :: (n : s64)
+{
+    print("factorial(");
+    print(n);
+    print(") = ");
+    print(factorial(n));
+}
+
+main :: ()
+{
+    print_factorial(1);
+    print_factorial(2);
+    print_factorial(5);
+    print_factorial(6);
+    print_factorial(12);
+}
