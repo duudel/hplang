@@ -314,7 +314,6 @@ struct Ast
     Memory_Arena arena;
     Ast_Node *root;
     Token_List *tokens;
-    Environment *env;
 };
 
 Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token);

@@ -80,9 +80,7 @@ void CheckImport(Sem_Check_Context *ctx, Ast_Node *node)
         ErrorImport(ctx, node, module_filename);
         return;
     }
-    if (Compile(ctx->comp_ctx, open_file))
-    {
-    }
+    CompileModule(ctx->comp_ctx, open_file, module_filename);
 }
 
 void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)

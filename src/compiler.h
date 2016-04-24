@@ -5,6 +5,8 @@
 #include "error.h"
 #include "compiler_options.h"
 
+#include "ast_types.h"
+
 namespace hplang
 {
 
@@ -16,11 +18,27 @@ enum Compilation_Result
     RES_FAIL_SemanticCheck,
 };
 
+struct Module
+{
+    Ast ast;
+    Name module_name;
+    Open_File *module_file;
+};
+
+struct Module_List
+{
+    s64 count;
+    s64 capacity;
+    Module *data;
+};
+
 struct Compiler_Context
 {
     Memory_Arena arena;
     Error_Context error_ctx;
     Compiler_Options options;
+
+    Module_List modules;
 
     Compilation_Result result;
 };
@@ -36,6 +54,9 @@ Open_File* OpenModule(Compiler_Context *ctx,
         Open_File *current_file, String filename, String *filename_out);
 
 b32 Compile(Compiler_Context *ctx, Open_File *file);
+
+bool CompileModule(Compiler_Context *ctx,
+        Open_File *open_file, String module_filename);
 
 b32 ContinueCompiling(Compiler_Context *ctx);
 b32 HasError(Compiler_Context *ctx);

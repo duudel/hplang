@@ -8,11 +8,13 @@ namespace hplang
 struct Ast;
 struct Open_File;
 struct Compiler_Context;
+struct Environment;
 
 struct Sem_Check_Context
 {
     Memory_Arena temp_arena;
     Ast *ast;
+    Environment *env;
 
     Open_File *open_file;
     Compiler_Context *comp_ctx;

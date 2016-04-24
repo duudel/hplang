@@ -1,5 +1,7 @@
 #ifndef H_HPLANG_SYMBOLS_H
 
+#include "array.h"
+
 namespace // hplang
 {
 
@@ -26,7 +28,7 @@ struct Scope
     static const s64 INITIAL_SYM_TABLE_SIZE = 1021; // Prime number
 
     s64 table_size;
-    Symbol **table;
+    Array<Symbol*> table;
 
     Scope *parent;
 };
@@ -36,12 +38,19 @@ struct Environment
 {
     Memory_Arena arena;
     Scope *root; // The global scope of the root module
+    Array<Scope*> scopes;
+
+    Scope *current;
 };
 
-Scope* OpenScope(Environment *env, Scope *scope);
-Scope* CloseScope(Environment *env, Scope *scope);
+Environment NewEnvironment();
+void FreeEnvironment(Environment *env);
 
-Symbol* ScopeAddSymbol(Environment *env, Symbol_Type type, Name name);
+void OpenScope(Environment *env);
+void CloseScope(Environment *env);
+
+Symbol* AddSymbol(Environment *env, Symbol_Type type, Name name);
+Symbol* LookupSymbol(Environment *env, Name name);
 
 } // hplang
 

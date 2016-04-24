@@ -234,4 +234,11 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
     return true;
 }
 
+bool CompileModule(Compiler_Context *ctx,
+        Open_File *open_file, String module_filename)
+{
+    fprintf(stderr, "Module compilation not implemented yet");
+    return false;
+}
+
 } // hplang
