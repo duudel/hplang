@@ -1,7 +1,10 @@
 #ifndef H_HPLANG_ARRAY_H
 
+#include "types.h"
 #include "memory.h"
 #include "assert.h"
+
+#include <cstring>
 
 namespace hplang
 {
@@ -18,7 +21,10 @@ struct Array
 namespace array
 {
     template <class T>
-    bool Reserve(Array<T> &arr, s64 count);
+    bool Reserve(Array<T> &arr, s64 capacity);
+
+    template <class T>
+    bool Resize(Array<T> &arr, s64 count);
 
     template <class T>
     bool Push(Array<T> &arr, const T &x);
@@ -33,12 +39,12 @@ namespace array
 namespace array
 {
     template <class T>
-    bool Reserve(Array<T> &arr, s64 count)
+    bool Reserve(Array<T> &arr, s64 capacity)
     {
-        if (arr.capacity >= count) return true;
+        if (arr.capacity >= capacity) return true;
 
         s64 old_capacity = arr.capacity;
-        s64 new_capacity = count;
+        s64 new_capacity = capacity;
 
         Pointer data_p;
         data_p.ptr = arr.data;
@@ -52,6 +58,19 @@ namespace array
         }
         ASSERT(0 && "SHOULD NOT HAPPEN IN NORMAL USE");
         return false;
+    }
+
+    template <class T>
+    bool Resize(Array<T> &arr, s64 count)
+    {
+        if (!Reserve(arr, count)) return false;
+
+        s64 tail_count = count - arr.count;
+        if (tail_count > 0)
+        {
+            memset(arr.data + arr.count, 0, tail_count * sizeof(T));
+        }
+        return true;
     }
 
     template <class T>
@@ -78,6 +97,7 @@ namespace array
     template <class T>
     void Free(Array<T> &arr)
     {
+        if (!arr.data) return;
         Pointer data_p;
         data_p.ptr = arr.data;
         data_p.size = arr.capacity * sizeof(T);

@@ -33,21 +33,10 @@ Parser_Context NewParserContext(
     return ctx;
 }
 
-void UnlinkAst(Parser_Context *ctx)
-{
-    ctx->ast->tokens = ctx->tokens;
-    ctx->ast = nullptr;
-    ctx->tokens = nullptr;
-}
-
 void FreeParserContext(Parser_Context *ctx)
 {
     FreeMemoryArena(&ctx->temp_arena);
-    if (ctx->ast)
-    {
-        FreeAst(ctx->ast);
-        ctx->ast = nullptr;
-    }
+    ctx->ast = nullptr;
 }
 
 // Parsing

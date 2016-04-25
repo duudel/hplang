@@ -15,12 +15,23 @@ Compiler_Context NewCompilerContext()
     Compiler_Context result = { };
     result.error_ctx.file = stderr;
     result.options = DefaultCompilerOptions();
+    result.env = NewEnvironment();
     result.result = RES_OK;
     return result;
 }
 
+static void FreeModule(Module *module)
+{
+    FreeAst(&module->ast);
+}
+
 void FreeCompilerContext(Compiler_Context *ctx)
 {
+    FreeEnvironment(&ctx->env);
+    for (s64 i = 0; i < ctx->modules.count; i++)
+    {
+        FreeModule(array::At(ctx->modules, i));
+    }
     FreeMemoryArena(&ctx->arena);
 }
 
@@ -39,7 +50,7 @@ static void SetOpenFileBaseEnd(Open_File *open_file)
     open_file->base_end = i;
 }
 
-Open_File* OpenFile_(Compiler_Context *ctx, FILE *file, Open_File *open_file)
+static Open_File* OpenFile_(Compiler_Context *ctx, FILE *file, Open_File *open_file)
 {
     SetOpenFileBaseEnd(open_file);
 
@@ -87,7 +98,7 @@ Open_File* OpenFile(Compiler_Context *ctx, const char *filename)
 Open_File* OpenFile(Compiler_Context *ctx, const char *filename,
         const char *filename_end)
 {
-    String filename_str = PushNullTerminatedString(&ctx->arena, filename, filename_end - filename);
+    String filename_str = PushNullTerminatedString(&ctx->arena, filename, filename_end);
     FILE *file = fopen(filename_str.data, "rb");
     if (!file) return nullptr;
 
@@ -162,6 +173,11 @@ void PrintSourceLineAndArrow(Compiler_Context *ctx,
 
 b32 Compile(Compiler_Context *ctx, Open_File *file)
 {
+    Module *root_module = PushStruct<Module>(&ctx->arena);
+    *root_module = { };
+    root_module->module_file = file;
+    array::Push(ctx->modules, root_module);
+
     // Lexing
     Token_List tokens = { };
     Lexer_Context lexer_ctx = NewLexerContext(&tokens, &ctx->error_ctx);
@@ -169,34 +185,35 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
     Lex(&lexer_ctx, (const char*)file->contents.ptr, file->contents.size);
     if (HasError(ctx))
     {
+        FreeTokenList(&tokens);
         FreeLexerContext(&lexer_ctx);
         ctx->result = RES_FAIL_Lexing;
         return false;
     }
 
-    UnlinkTokens(&lexer_ctx);
     FreeLexerContext(&lexer_ctx);
 
 
     // Parsing
-    Ast ast = { };
+    Ast *ast = &root_module->ast;
     Parser_Context parser_ctx = NewParserContext(
-            &ast, &tokens, file, ctx);
+            ast, &tokens, file, ctx);
 
     Parse(&parser_ctx);
     if (HasError(ctx))
     {
+        FreeTokenList(&tokens);
         FreeParserContext(&parser_ctx);
         ctx->result = RES_FAIL_Parsing;
         return false;
     }
 
-    UnlinkAst(&parser_ctx);
+    FreeTokenList(&tokens);
     FreeParserContext(&parser_ctx);
 
 
     // Semantic checking
-    Sem_Check_Context sem_ctx = NewSemanticCheckContext(&ast, file, ctx);
+    Sem_Check_Context sem_ctx = NewSemanticCheckContext(ast, file, ctx);
 
     Check(&sem_ctx);
     if (HasError(ctx))
@@ -206,11 +223,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
         return false;
     }
 
-    UnlinkAst(&sem_ctx);
     FreeSemanticCheckContext(&sem_ctx);
-
-    // Finally free ast (and contained token list)
-    FreeAst(&ast);
 
     ctx->result = RES_OK;
     return true;

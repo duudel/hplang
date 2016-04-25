@@ -14,6 +14,7 @@ SOURCES := \
 	src/compiler_options.cpp \
 	src/parser.cpp \
 	src/semantic_check.cpp \
+	src/symbols.cpp \
 	src/token.cpp
 
 COMPILER_SOURCES := \

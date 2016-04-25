@@ -31,7 +31,6 @@ struct Lexer_Context
 };
 
 Lexer_Context NewLexerContext(Token_List *tokens, Error_Context *err_ctx);
-void UnlinkTokens(Lexer_Context *ctx);
 void FreeLexerContext(Lexer_Context *ctx);
 
 void Lex(Lexer_Context *ctx, const char *text, s64 text_length);

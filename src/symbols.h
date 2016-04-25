@@ -1,8 +1,9 @@
 #ifndef H_HPLANG_SYMBOLS_H
 
+#include "types.h"
 #include "array.h"
 
-namespace // hplang
+namespace hplang
 {
 
 enum Symbol_Type
@@ -19,7 +20,7 @@ enum Symbol_Type
 
 struct Symbol
 {
-    Symbol_Type type;
+    Symbol_Type sym_type;
     Name name;
 };
 
@@ -51,6 +52,7 @@ void CloseScope(Environment *env);
 
 Symbol* AddSymbol(Environment *env, Symbol_Type type, Name name);
 Symbol* LookupSymbol(Environment *env, Name name);
+Symbol* LookupSymbolInCurrentScope(Environment *env, Name name);
 
 } // hplang
 

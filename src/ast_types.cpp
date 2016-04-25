@@ -188,11 +188,6 @@ void FreeAst(Ast *ast)
     FreeAstNode(ast->root);
     FreeMemoryArena(&ast->arena);
     ast->root = nullptr;
-    if (ast->tokens)
-    {
-        FreeTokenList(ast->tokens);
-        ast->tokens = nullptr;
-    }
 }
 
 } // hplang

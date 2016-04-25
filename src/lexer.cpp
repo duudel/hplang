@@ -19,18 +19,9 @@ Lexer_Context NewLexerContext(Token_List *tokens, Error_Context *error_ctx)
     return ctx;
 }
 
-void UnlinkTokens(Lexer_Context *ctx)
-{
-    ctx->tokens = nullptr;
-}
-
 void FreeLexerContext(Lexer_Context *ctx)
 {
-    if (ctx->tokens)
-    {
-        FreeTokenList(ctx->tokens);
-        ctx->tokens = nullptr;
-    }
+    ctx->tokens = nullptr;
 }
 
 b32 is_digit(char c)

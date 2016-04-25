@@ -5,8 +5,9 @@
 #include "error.h"
 #include "compiler_options.h"
 
-#include "token.h"
+//#include "token.h"
 #include "ast_types.h"
+#include "symbols.h"
 
 namespace hplang
 {
@@ -26,12 +27,7 @@ struct Module
     Open_File *module_file;
 };
 
-struct Module_List
-{
-    s64 count;
-    s64 capacity;
-    Module *data;
-};
+typedef Array<Module*> Module_List;
 
 struct Compiler_Context
 {
@@ -40,6 +36,7 @@ struct Compiler_Context
     Compiler_Options options;
 
     Module_List modules;
+    Environment env;
 
     Compilation_Result result;
 };

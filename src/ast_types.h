@@ -304,13 +304,10 @@ struct Ast_Node
 b32 PushNodeList(Ast_Node_List *nodes, Ast_Node *node);
 void FreeNodeList(Ast_Node_List *nodes);
 
-struct Token_List;
-
 struct Ast
 {
     Memory_Arena arena;
     Ast_Node *root;
-    Token_List *tokens;
 };
 
 Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token);

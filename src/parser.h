@@ -28,7 +28,6 @@ Parser_Context NewParserContext(
         Open_File *open_file,
         Compiler_Context *comp_ctx);
 
-void UnlinkAst(Parser_Context *ctx);
 void FreeParserContext(Parser_Context *ctx);
 
 b32 Parse(Parser_Context *ctx);

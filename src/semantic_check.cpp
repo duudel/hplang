@@ -16,24 +16,16 @@ Sem_Check_Context NewSemanticCheckContext(
 {
     Sem_Check_Context ctx = { };
     ctx.ast = ast;
+    ctx.env = &comp_ctx->env;
     ctx.open_file = open_file;
     ctx.comp_ctx = comp_ctx;
     return ctx;
 }
 
-void UnlinkAst(Sem_Check_Context *ctx)
-{
-    ctx->ast = nullptr;
-}
-
 void FreeSemanticCheckContext(Sem_Check_Context *ctx)
 {
     FreeMemoryArena(&ctx->temp_arena);
-    if (ctx->ast)
-    {
-        FreeAst(ctx->ast);
-        ctx->ast = nullptr;
-    }
+    ctx->ast = nullptr;
 }
 
 // Semantic check
@@ -44,12 +36,12 @@ static b32 ContinueChecking(Sem_Check_Context *ctx)
     return ContinueCompiling(ctx->comp_ctx);
 }
 
-void PrintString(FILE *file, String str)
+static void PrintString(FILE *file, String str)
 {
     fwrite(str.data, 1, str.size, file);
 }
 
-void ErrorImport(Sem_Check_Context *ctx, Ast_Node *node, String filename)
+static void ErrorImport(Sem_Check_Context *ctx, Ast_Node *node, String filename)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, node->file_loc);
@@ -60,7 +52,7 @@ void ErrorImport(Sem_Check_Context *ctx, Ast_Node *node, String filename)
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
 }
 
-void Error(Sem_Check_Context *ctx, Ast_Node *node, const char *message)
+static void Error(Sem_Check_Context *ctx, Ast_Node *node, const char *message)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, node->file_loc);
@@ -69,7 +61,7 @@ void Error(Sem_Check_Context *ctx, Ast_Node *node, const char *message)
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
 }
 
-void CheckImport(Sem_Check_Context *ctx, Ast_Node *node)
+static void CheckImport(Sem_Check_Context *ctx, Ast_Node *node)
 {
     ASSERT(node->import.module_name.data);
     String module_filename = { };
@@ -83,15 +75,33 @@ void CheckImport(Sem_Check_Context *ctx, Ast_Node *node)
     CompileModule(ctx->comp_ctx, open_file, module_filename);
 }
 
-void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
+static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 {
     ASSERT(node->function.name.str.data);
+
+    AddSymbol(ctx->env, SYM_Function, node->function.name);
+
+    OpenScope(ctx->env);
+    for (s64 i = 0; i < node->function.parameters.count; i++)
+    {
+        Ast_Node *param = node->function.parameters.nodes[i];
+        Symbol *old_sym = LookupSymbolInCurrentScope(
+                            ctx->env,
+                            param->parameter.name);
+        if (old_sym)
+        {
+            ASSERT(old_sym->sym_type == SYM_Parameter);
+            Error(ctx, param, "Parameter already declared");
+        }
+        AddSymbol(ctx->env, SYM_Parameter, param->parameter.name);
+    }
+    CloseScope(ctx->env);
 }
 
 struct Type;
 struct StructType;
 
-Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
+static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
 {
     switch (node->type)
     {
@@ -112,7 +122,7 @@ Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
     return nullptr;
 }
 
-void CheckStructMember(Sem_Check_Context *ctx, Ast_Node *node, StructType *s)
+static void CheckStructMember(Sem_Check_Context *ctx, Ast_Node *node, StructType *s)
 {
     ASSERT(node);
     switch (node->type)
@@ -129,7 +139,7 @@ void CheckStructMember(Sem_Check_Context *ctx, Ast_Node *node, StructType *s)
     }
 }
 
-void CheckStruct(Sem_Check_Context *ctx, Ast_Node *node)
+static void CheckStruct(Sem_Check_Context *ctx, Ast_Node *node)
 {
     ASSERT(node->struct_def.name.str.data);
     for (s64 i = 0; i < node->struct_def.members.count; i++)
@@ -138,17 +148,17 @@ void CheckStruct(Sem_Check_Context *ctx, Ast_Node *node)
     }
 }
 
-void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
+static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
 {
     CheckType(ctx, node->variable_decl.type);
 }
 
-void CheckForeignFunction(Sem_Check_Context *ctx, Ast_Node *node)
+static void CheckForeignFunction(Sem_Check_Context *ctx, Ast_Node *node)
 {
 
 }
 
-void CheckForeignBlockStmt(Sem_Check_Context *ctx, Ast_Node *node)
+static void CheckForeignBlockStmt(Sem_Check_Context *ctx, Ast_Node *node)
 {
     switch (node->type)
     {
@@ -159,7 +169,7 @@ void CheckForeignBlockStmt(Sem_Check_Context *ctx, Ast_Node *node)
     }
 }
 
-void CheckForeignBlock(Sem_Check_Context *ctx, Ast_Node *node)
+static void CheckForeignBlock(Sem_Check_Context *ctx, Ast_Node *node)
 {
     for (s64 i = 0; i < node->node_list.count; i++)
     {
@@ -168,7 +178,7 @@ void CheckForeignBlock(Sem_Check_Context *ctx, Ast_Node *node)
     }
 }
 
-void CheckTopLevelStmt(Sem_Check_Context *ctx, Ast_Node *node)
+static void CheckTopLevelStmt(Sem_Check_Context *ctx, Ast_Node *node)
 {
     switch (node->type)
     {
@@ -184,6 +194,7 @@ void CheckTopLevelStmt(Sem_Check_Context *ctx, Ast_Node *node)
 
 b32 Check(Sem_Check_Context *ctx)
 {
+    OpenScope(ctx->env);
     Ast_Node *root = ctx->ast->root;
     ASSERT(root);
     for (s64 index = 0;
