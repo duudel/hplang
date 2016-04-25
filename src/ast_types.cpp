@@ -30,6 +30,7 @@ static b32 GrowNodeList(Ast_Node_List *nodes)
 
 void FreeNodeList(Ast_Node_List *nodes)
 {
+    if (!nodes->nodes) return;
     Pointer nodes_p;
     nodes_p.ptr = nodes->nodes;
     nodes_p.size = nodes->capacity * sizeof(Ast_Node*);

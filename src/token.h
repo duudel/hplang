@@ -2,6 +2,7 @@
 
 #include "types.h"
 #include "memory.h"
+#include "array.h"
 
 namespace hplang
 {
@@ -125,10 +126,7 @@ const char* TokenTypeToString(Token_Type type);
 
 struct Token_List
 {
-    Pointer memory;
-    Token *begin;
-    Token *end;
-    s64 count;
+    Array<Token> array;
 };
 
 void FreeTokenList(Token_List *tokens);

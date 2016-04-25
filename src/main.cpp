@@ -66,7 +66,11 @@ int main(int argc, char **argv)
     Compiler_Context compiler_ctx = NewCompilerContext();
 
     Open_File *file = OpenFile(&compiler_ctx, source);
-    if (Compile(&compiler_ctx, file))
+    if (!file)
+    {
+        printf("Error reading source file '%s'\n", source);
+    }
+    if (file && Compile(&compiler_ctx, file))
     {
         printf("Compilation ok\n");
     }

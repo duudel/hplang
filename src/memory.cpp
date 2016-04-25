@@ -1,9 +1,11 @@
 
 #include "hplang.h"
 #include "memory.h"
+#include "assert.h"
 
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 
 namespace hplang
 {
@@ -16,7 +18,7 @@ Pointer Alloc(s64 size)
 
 Pointer Realloc(Pointer ptr, s64 new_size)
 {
-    void *new_ptr = ::realloc(ptr.ptr, new_size);
+    void *new_ptr = realloc(ptr.ptr, new_size);
 
     ptr.ptr = new_ptr;
     ptr.size = new_ptr ? new_size : 0;
@@ -25,7 +27,8 @@ Pointer Realloc(Pointer ptr, s64 new_size)
 
 void Free(Pointer ptr)
 {
-    ::free(ptr.ptr);
+    ASSERT(ptr.ptr != nullptr);
+    free(ptr.ptr);
 }
 
 // TODO(henrik): Extend memory arena implementation to somethin presented below.

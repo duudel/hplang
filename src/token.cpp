@@ -135,9 +135,12 @@ enum {
 
 void FreeTokenList(Token_List *tokens)
 {
-    Free(tokens->memory);
+    array::Free(tokens->array);
+    //if (tokens->memory.ptr)
+    //    Free(tokens->memory);
 }
 
+/*
 b32 GrowTokenList(Token_List *tokens)
 {
     s64 new_size = tokens->memory.size + DEFAULT_ARENA_TOKEN_COUNT * sizeof(Token);
@@ -149,9 +152,15 @@ b32 GrowTokenList(Token_List *tokens)
     tokens->end = tokens->begin;
     return true;
 }
+*/
 
 Token* PushTokenList(Token_List *tokens)
 {
+    array::Push(tokens->array, Token());
+    Token *token = &tokens->array.data[tokens->array.count - 1];
+    *token = { };
+    return token;
+    /*
     Token *memory_end = (Token*)((char*)tokens->memory.ptr + tokens->memory.size);
     if (tokens->end >= memory_end)
     {
@@ -162,6 +171,7 @@ Token* PushTokenList(Token_List *tokens)
     tokens->end++;
     tokens->count = tokens->end - tokens->begin;
     return result;
+    */
 }
 
 } // hplang

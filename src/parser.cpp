@@ -105,7 +105,7 @@ static void ErrorExpectedAtEnd(Parser_Context *ctx,
 
 static void ErrorUnexpectedEOF(Parser_Context *ctx)
 {
-    const Token *last_token = ctx->tokens->begin + (ctx->tokens->count - 1);
+    const Token *last_token = &ctx->tokens->array.data[ctx->tokens->array.count - 1];
     Error(ctx, last_token, "Unexpected end of file");
 }
 
@@ -175,8 +175,8 @@ static Token eof_token = { TOK_EOF };
 
 static const Token* GetCurrentToken(Parser_Context *ctx)
 {
-    if (ctx->current_token < ctx->tokens->count)
-        return ctx->tokens->begin + ctx->current_token;
+    if (ctx->current_token < ctx->tokens->array.count)
+        return ctx->tokens->array.data + ctx->current_token;
     return &eof_token;
 }
 
@@ -185,15 +185,15 @@ static const Token* GetNextToken(Parser_Context *ctx)
     //fprintf(stderr, "  : ");
     //PrintTokenValue(stderr, GetCurrentToken(ctx));
     //fprintf(stderr, "\n");
-    if (ctx->current_token < ctx->tokens->count)
+    if (ctx->current_token < ctx->tokens->array.count)
         ctx->current_token++;
     return GetCurrentToken(ctx);
 }
 
 static const Token* PeekNextToken(Parser_Context *ctx)
 {
-    if (ctx->current_token + 1 < ctx->tokens->count)
-        return ctx->tokens->begin + ctx->current_token + 1;
+    if (ctx->current_token + 1 < ctx->tokens->array.count)
+        return ctx->tokens->array.data + ctx->current_token + 1;
     return &eof_token;
 }
 
@@ -233,7 +233,7 @@ static const Token* ExpectAfterLast(Parser_Context *ctx, Token_Type token_type)
     if (token) return token;
 
     token = (ctx->current_token > 0) ?
-        ctx->tokens->begin + (ctx->current_token - 1) : GetCurrentToken(ctx);
+        ctx->tokens->array.data + (ctx->current_token - 1) : GetCurrentToken(ctx);
     if (token->type == TOK_EOF)
         ErrorUnexpectedEOF(ctx);
     else

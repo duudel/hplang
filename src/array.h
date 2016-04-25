@@ -6,7 +6,7 @@
 namespace hplang
 {
 
-// ist for POD-types
+// Array for POD-types
 template <class T>
 struct Array
 {
@@ -18,11 +18,14 @@ struct Array
 namespace array
 {
     template <class T>
-    void Reserve(Array<T> &arr, s64 count);
+    bool Reserve(Array<T> &arr, s64 count);
+
     template <class T>
-    void Push(Array<T> &arr, const T &x);
+    bool Push(Array<T> &arr, const T &x);
+
     template <class T>
     T At(Array<T> &arr, s64 index);
+
     template <class T>
     void Free(Array<T> &arr);
 }
@@ -32,7 +35,7 @@ namespace array
     template <class T>
     bool Reserve(Array<T> &arr, s64 count)
     {
-        if (arr.capacity >= count) return;
+        if (arr.capacity >= count) return true;
 
         s64 old_capacity = arr.capacity;
         s64 new_capacity = count;
@@ -76,7 +79,7 @@ namespace array
     void Free(Array<T> &arr)
     {
         Pointer data_p;
-        data_p.ptr = arr.data
+        data_p.ptr = arr.data;
         data_p.size = arr.capacity * sizeof(T);
         Free(data_p);
     }
