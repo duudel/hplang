@@ -298,10 +298,7 @@ struct Ast_Node
         Ast_Expression      expression;
         Ast_Type_Node       type_node;
     };
-    // NOTE(henrik): This token is used as context for the node.
-    // Some nodes can use the token as information about the node instead
-    // storing it inside a struct in the union.
-    const Token *token;
+    File_Location file_loc;
 };
 
 b32 PushNodeList(Ast_Node_List *nodes, Ast_Node *node);

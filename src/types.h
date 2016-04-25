@@ -45,7 +45,7 @@ struct File_Location
 struct Open_File
 {
     String filename;
-    s64 base_end;
+    s64 base_end; // The filename base path end position (last '/')
     Pointer contents;
 };
 

@@ -1416,7 +1416,7 @@ static Ast_Node* ParseTopLevelStmt(Parser_Context *ctx)
 b32 Parse(Parser_Context *ctx)
 {
     ASSERT(ctx && ctx->ast);
-    ctx->ast->root = PushNode(ctx, AST_TopLevel, nullptr);
+    ctx->ast->root = PushNode(ctx, AST_TopLevel, GetCurrentToken(ctx));
     Ast_Node *root = ctx->ast->root;
 
     while (ContinueParsing(ctx))

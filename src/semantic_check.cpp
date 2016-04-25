@@ -52,21 +52,21 @@ void PrintString(FILE *file, String str)
 void ErrorImport(Sem_Check_Context *ctx, Ast_Node *node, String filename)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
-    AddError(err_ctx, node->token->file_loc);
-    PrintFileLocation(err_ctx->file, node->token->file_loc);
+    AddError(err_ctx, node->file_loc);
+    PrintFileLocation(err_ctx->file, node->file_loc);
     fprintf(err_ctx->file, "Could not open file '");
     PrintString(err_ctx->file, filename);
     fprintf(err_ctx->file, "'\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->token->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
 }
 
 void Error(Sem_Check_Context *ctx, Ast_Node *node, const char *message)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
-    AddError(err_ctx, node->token->file_loc);
-    PrintFileLocation(err_ctx->file, node->token->file_loc);
+    AddError(err_ctx, node->file_loc);
+    PrintFileLocation(err_ctx->file, node->file_loc);
     fprintf(err_ctx->file, "%s\n", message);
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->token->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
 }
 
 void CheckImport(Sem_Check_Context *ctx, Ast_Node *node)

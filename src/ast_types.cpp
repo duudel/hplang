@@ -56,7 +56,8 @@ Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token)
     Ast_Node *node = PushStruct<Ast_Node>(&ast->arena);
     *node = { };
     node->type = node_type;
-    node->token = token;
+    //node->token = token;
+    node->file_loc = token->file_loc;
     return node;
 }
 
