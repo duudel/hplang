@@ -9,12 +9,21 @@ namespace hplang
 enum Type_Tag
 {
     //TYP_pointer,
+    TYP_null,
+    TYP_int_lit,
+
     TYP_bool,
-    TYP_u8, TYP_s8,
-    TYP_u16, TYP_s16,
-    TYP_u32, TYP_s32,
-    TYP_u64, TYP_s64,
-    TYP_f32, TYP_f64,
+    TYP_char,
+    TYP_u8,
+    TYP_s8,
+    TYP_u16,
+    TYP_s16,
+    TYP_u32,
+    TYP_s32,
+    TYP_u64,
+    TYP_s64,
+    TYP_f32,
+    TYP_f64,
 
     TYP_Function,
     TYP_Struct,
@@ -61,15 +70,21 @@ struct Type
     };
 };
 
+Type* GetBuiltinType(Type_Tag tt);
+
 enum Symbol_Type
 {
     SYM_Module,
-    SYM_Struct,
-    //SYM_Enum,
     SYM_Function,
+    SYM_ForeignFunction,
+    SYM_Constant,
     SYM_Variable,
     SYM_Parameter,
     SYM_Member,
+
+    SYM_PrimitiveType,
+    SYM_Struct,
+    //SYM_Enum,
     //SYM_Typealias
 };
 

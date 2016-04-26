@@ -1,18 +1,83 @@
 
+#include "common.h"
 #include "symbols.h"
 #include "assert.h"
 
 namespace hplang
 {
 
+struct TypeInfo
+{
+    Symbol_Type sym_type;
+    const char *name;
+    Type *type;
+};
+
+Type builtin_types[] = {
+    //TYP_pointer,
+    {TYP_null,      0, 1},
+    {TYP_int_lit,   8, 8},
+    {TYP_bool,      1, 1},
+    {TYP_u8,        1, 1},
+    {TYP_s8,        1, 1},
+    {TYP_u16,       2, 2},
+    {TYP_s16,       2, 2},
+    {TYP_u32,       4, 4},
+    {TYP_s32,       4, 4},
+    {TYP_u64,       8, 8},
+    {TYP_s64,       8, 8},
+    {TYP_f32,       4, 4},
+    {TYP_f64,       8, 8},
+};
+
+Type* GetBuiltinType(Type_Tag tt)
+{
+    ASSERT(tt <= TYP_f64);
+    return &builtin_types[tt];
+}
+
+static TypeInfo builtin_type_infos[] = {
+    //TYP_pointer,
+    /*TYP_null,*/       (TypeInfo){SYM_PrimitiveType, "null_type"},
+    /*TYP_int_lit,*/    (TypeInfo){SYM_PrimitiveType, "int_lit_type"},
+    /*TYP_bool,*/       (TypeInfo){SYM_PrimitiveType, "bool"},
+    /*TYP_u8,*/         (TypeInfo){SYM_PrimitiveType, "u8"},
+    /*TYP_s8,*/         (TypeInfo){SYM_PrimitiveType, "s8"},
+    /*TYP_u16,*/        (TypeInfo){SYM_PrimitiveType, "u16"},
+    /*TYP_s16,*/        (TypeInfo){SYM_PrimitiveType, "s16"},
+    /*TYP_u32,*/        (TypeInfo){SYM_PrimitiveType, "u32"},
+    /*TYP_s32,*/        (TypeInfo){SYM_PrimitiveType, "s32"},
+    /*TYP_u64,*/        (TypeInfo){SYM_PrimitiveType, "u64"},
+    /*TYP_s64,*/        (TypeInfo){SYM_PrimitiveType, "s64"},
+    /*TYP_f32,*/        (TypeInfo){SYM_PrimitiveType, "f32"},
+    /*TYP_f64,*/        (TypeInfo){SYM_PrimitiveType, "f64"},
+
+    /*TYP_Function,*/
+    /*TYP_Struct,*/
+    //TYP_Enum,
+};
+
 static void FreeScope(Scope *scope)
 {
     array::Free(scope->table);
 }
 
+static void AddBuiltinTypes(Environment *env)
+{
+    for (s64 i = 0; i < array_length(builtin_types); i++)
+    {
+        Type *type = &builtin_types[i];
+        const TypeInfo &info = builtin_type_infos[i];
+        Name name = PushName(&env->arena, info.name);
+        AddSymbol(env, info.sym_type, name, type);
+    }
+}
+
 Environment NewEnvironment()
 {
     Environment result = { };
+    OpenScope(&result);
+    AddBuiltinTypes(&result);
     return result;
 }
 

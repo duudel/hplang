@@ -413,7 +413,7 @@ static Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
     token = Accept(ctx, TOK_CharLit);
     if (token)
     {
-        Ast_Node *literal = PushNode(ctx, AST_CharLiterla, token);
+        Ast_Node *literal = PushNode(ctx, AST_CharLiteral, token);
         literal->expression.char_literal.value = ConvertChar(ctx, token->value, token->value_end);
         return literal;
     }
@@ -499,15 +499,13 @@ static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
     return nullptr;
 }
 
-static Ast_Node* ParseFunctionArgs(Parser_Context *ctx)
+static void ParseFunctionArgs(Parser_Context *ctx, Ast_Function_Call *function_call)
 {
     TRACE(ParseFunctionArgs);
-    Ast_Node *args = PushNode(ctx, AST_FunctionCallArgs, GetCurrentToken(ctx));
-
     Ast_Node *arg = ParseExpression(ctx);
     if (arg)
     {
-        PushNodeList(&args->node_list, arg);
+        PushNodeList(&function_call->args, arg);
         while (Accept(ctx, TOK_Comma) && ContinueParsing(ctx))
         {
             Ast_Node *arg = ParseExpression(ctx);
@@ -516,10 +514,9 @@ static Ast_Node* ParseFunctionArgs(Parser_Context *ctx)
                 Error(ctx, "Expecting function argument after comma");
                 break;
             }
-            PushNodeList(&args->node_list, arg);
+            PushNodeList(&function_call->args, arg);
         }
     }
-    return args;
 }
 
 static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
@@ -545,9 +542,8 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
             {
                 TRACE(ParseFactor_func_call);
                 factor = PushNode(ctx, AST_FunctionCall, ident_tok);
-                Ast_Node *args = ParseFunctionArgs(ctx);
                 factor->expression.function_call.name = name;
-                factor->expression.function_call.args = args;
+                ParseFunctionArgs(ctx, &factor->expression.function_call);
                 ExpectAfterLast(ctx, TOK_CloseParent);
             }
             else
@@ -865,7 +861,7 @@ static Ast_Node* ParseBlockStatement(Parser_Context *ctx)
         Ast_Node *stmt_node = ParseStatement(ctx);
         if (stmt_node)
         {
-            PushNodeList(&block_node->node_list, stmt_node);
+            PushNodeList(&block_node->block.statements, stmt_node);
         }
         else
         {
@@ -1051,7 +1047,6 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
         if (expression)
         {
             ExpectAfterLast(ctx, TOK_Semicolon);
-            //Expect(ctx, TOK_Semicolon);
         }
         stmt = expression;
     }
@@ -1358,7 +1353,7 @@ static Ast_Node* ParseForeignBlock(Parser_Context *ctx)
         if (!stmt)
         break;
 
-        PushNodeList(&foreign_block->node_list, stmt);
+        PushNodeList(&foreign_block->foreign.statements, stmt);
     }
     Expect(ctx, TOK_CloseBlock);
 
@@ -1413,7 +1408,7 @@ b32 Parse(Parser_Context *ctx)
         Ast_Node *stmt = ParseTopLevelStmt(ctx);
         if (stmt)
         {
-            PushNodeList(&root->node_list, stmt);
+            PushNodeList(&root->top_level.statements, stmt);
         }
         else if (ContinueParsing(ctx))
         {

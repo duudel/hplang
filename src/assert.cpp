@@ -29,9 +29,15 @@ void Assert(const char *expr, const char *file, s64 line)
 
 void InvalidCodePath(const char *file, s64 line)
 {
-    fprintf(stderr, "\n%s:%" PRId64 ":1:\n  !INVALID CODE PATH\n\n", file, line);
+    fprintf(stderr, "\n%s:%" PRId64 ":1:\n  !!!INVALID CODE PATH\n\n", file, line);
     fflush(stderr);
     break_here();
+}
+
+void NotImplemented(const char *file, s64 line, const char *s)
+{
+    fprintf(stderr, "\n%s:%" PRId64 ":1:\n  !!!Not implemented:  %s\n\n", file, line, s);
+    fflush(stderr);
 }
 
 } // hplang

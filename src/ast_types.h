@@ -32,14 +32,13 @@ enum Ast_Node_Type
 
     AST_Null,
     AST_BoolLiteral,
+    AST_CharLiteral,
     AST_IntLiteral,
     AST_Float32Literal,
     AST_Float64Literal,
-    AST_CharLiterla,
     AST_StringLiteral,
     AST_VariableRef,
     AST_FunctionCall,
-    AST_FunctionCallArgs,
 
     AST_AssignmentExpr,
     AST_BinaryExpr,
@@ -162,7 +161,7 @@ struct Ast_Variable_Ref
 struct Ast_Function_Call
 {
     Name name;
-    Ast_Node *args;
+    Ast_Node_List args;
 };
 
 struct Ast_Assignment
@@ -190,29 +189,6 @@ struct Ast_Expression
     };
 };
 
-struct Ast_Import
-{
-    // import "module_name";
-    // or
-    // name :: import "module_name";
-    Name name;  // NOTE(henrik): This is optional, so may be empty.
-    String module_name;
-};
-
-struct Ast_Function_Def
-{
-    Name name;
-    Ast_Node_List parameters;
-    Ast_Node *return_type; // NOTE(henrik): This is optional, so may be null
-    Ast_Node *body; // TODO(henrik): should use Ast_Node_List here?
-};
-
-struct Ast_Struct_Def
-{
-    Name name;
-    Ast_Node_List members;
-};
-
 struct Ast_Type_Node
 {
     struct Pointer {
@@ -233,10 +209,56 @@ struct Ast_Type_Node
     };
 };
 
+struct Ast_Top_Level
+{
+    Ast_Node_List statements;
+};
+
+struct Ast_Foreign_Block
+{
+    Ast_Node_List statements;
+};
+
+struct Ast_Import
+{
+    // import "module_name";
+    // or
+    // name :: import "module_name";
+    Name name;  // NOTE(henrik): This is optional, so may be empty.
+    String module_name;
+};
+
+struct Ast_Function_Def
+{
+    Name name;
+    Ast_Node_List parameters;
+    Ast_Node *return_type; // NOTE(henrik): This is optional, so may be null
+    Ast_Node *body; // TODO(henrik): should use Ast_Node_List here?
+};
+
 struct Ast_Parameter
 {
     Name name;
     Ast_Node *type;
+};
+
+struct Ast_Struct_Def
+{
+    Name name;
+    Ast_Node_List members;
+};
+
+struct Ast_Struct_Member
+{
+    Name name;
+    Ast_Node *type; // NOTE(henrik): type can not be null
+};
+
+struct Ast_Variable_Decl
+{
+    Name name;
+    Ast_Node *type; // NOTE(henrik): type can be null (type will be inferred)
+    Ast_Node *init; // NOTE(henrik): init_expr can be null
 };
 
 struct Ast_If_Stmt
@@ -267,24 +289,17 @@ struct Ast_Return_Stmt
     Ast_Node *expression;
 };
 
-struct Ast_Variable_Decl
+struct Ast_Block_Stmt
 {
-    Name name;
-    Ast_Node *type; // NOTE(henrik): type can be null (type will be inferred)
-    Ast_Node *init; // NOTE(henrik): init_expr can be null
-};
-
-struct Ast_Struct_Member
-{
-    Name name;
-    Ast_Node *type; // NOTE(henrik): type can not be null
+    Ast_Node_List statements;
 };
 
 struct Ast_Node
 {
     Ast_Node_Type type;
     union {
-        Ast_Node_List       node_list;
+        Ast_Top_Level       top_level;
+        Ast_Foreign_Block   foreign;
         Ast_Import          import;
         Ast_Function_Def    function;
         Ast_Parameter       parameter;
@@ -295,6 +310,7 @@ struct Ast_Node
         Ast_While_Stmt      while_stmt;
         Ast_For_Stmt        for_stmt;
         Ast_Return_Stmt     return_stmt;
+        Ast_Block_Stmt      block;
         Ast_Expression      expression;
         Ast_Type_Node       type_node;
     };

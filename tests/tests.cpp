@@ -40,6 +40,7 @@ struct Line_Col
 
 struct Test
 {
+    Compilation_Phase stop_after;
     const char *filename;
     Line_Col fail_lexing;       // if line, column != 0, should fail lexing at the location
     Line_Col fail_parsing;      // if line, column != 0, should fail parsing at the location
@@ -47,15 +48,15 @@ struct Test
 };
 
 Test tests[] = {
-    (Test){ "tests/lexer_fail/crlf_test.hp", {4, 26}, { } },
-    (Test){ "tests/parser_fail/token_test.hp", { }, {1, 1} },
-    (Test){ "tests/parser_fail/if_paren_test.hp", { }, {8, 23} },
-    (Test){ "tests/sem_check_fail/dup_func_param_test.hp", { }, { }, {4, 39} },
-    (Test){ "tests/expr_test.hp" },
-    (Test){ "tests/hello_test.hp" },
-    (Test){ "tests/stmt_test.hp" },
-    (Test){ "tests/beer_test.hp" },
-    (Test){ "tests/module_test.hp" },
+    (Test){ CP_Lexing,  "tests/lexer_fail/crlf_test.hp", {4, 26} },
+    (Test){ CP_Parsing, "tests/parser_fail/token_test.hp", { }, {1, 1} },
+    (Test){ CP_Parsing, "tests/parser_fail/if_paren_test.hp", { }, {8, 23} },
+    (Test){ CP_Checking, "tests/sem_check_fail/dup_func_param_test.hp", { }, { }, {4, 39} },
+    (Test){ CP_Checking, "tests/sem_check_fail/stmt_test.hp", { }, { }, {5, 12} },
+    (Test){ CP_Parsing, "tests/expr_test.hp" },
+    (Test){ CP_CodeGen, "tests/hello_test.hp" },
+    (Test){ CP_CodeGen, "tests/beer_test.hp" },
+    (Test){ CP_CodeGen, "tests/module_test.hp" },
 };
 
 void PrintError(const char *filename, s64 line, s64 column, const char *message)
@@ -124,6 +125,7 @@ s64 RunTest(Test_Context *ctx, const Test &test)
 
     s64 failed = 0;
     Compiler_Context compiler_ctx = NewCompilerContext();
+    compiler_ctx.options.stop_after = test.stop_after;
 
     Open_File *file = OpenFile(&compiler_ctx, test.filename);
     if (file)

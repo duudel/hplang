@@ -193,6 +193,12 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
 
     FreeLexerContext(&lexer_ctx);
 
+    if (ctx->options.stop_after == CP_Lexing)
+    {
+        FreeTokenList(&tokens);
+        ctx->result = RES_OK;
+        return true;
+    }
 
     // Parsing
     Ast *ast = &root_module->ast;
@@ -211,6 +217,11 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
     FreeTokenList(&tokens);
     FreeParserContext(&parser_ctx);
 
+    if (ctx->options.stop_after == CP_Parsing)
+    {
+        ctx->result = RES_OK;
+        return true;
+    }
 
     // Semantic checking
     Sem_Check_Context sem_ctx = NewSemanticCheckContext(ast, file, ctx);
@@ -225,6 +236,12 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
 
     FreeSemanticCheckContext(&sem_ctx);
 
+    if (ctx->options.stop_after == CP_Checking)
+    {
+        ctx->result = RES_OK;
+        return true;
+    }
+
     ctx->result = RES_OK;
     return true;
 }
@@ -232,7 +249,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
 bool CompileModule(Compiler_Context *ctx,
         Open_File *open_file, String module_filename)
 {
-    fprintf(stderr, "Module compilation not implemented yet\n");
+    NOT_IMPLEMENTED("module compilation");
     return false;
 }
 

@@ -79,14 +79,14 @@ static void FreeAstNode(Ast_Node *node)
     switch (node->type)
     {
         case AST_TopLevel:
-            FreeAstNodeList(&node->node_list);
+            FreeAstNodeList(&node->top_level.statements);
             break;
 
         case AST_Import:
             break;
 
         case AST_ForeignBlock:
-            FreeAstNodeList(&node->node_list);
+            FreeAstNodeList(&node->foreign.statements);
             break;
 
         case AST_VariableDecl:
@@ -121,7 +121,7 @@ static void FreeAstNode(Ast_Node *node)
             break;
 
         case AST_BlockStmt:
-            FreeAstNodeList(&node->node_list);
+            FreeAstNodeList(&node->block.statements);
             break;
 
         case AST_IfStmt:
@@ -152,16 +152,13 @@ static void FreeAstNode(Ast_Node *node)
         case AST_IntLiteral:
         case AST_Float32Literal:
         case AST_Float64Literal:
-        case AST_CharLiterla:
+        case AST_CharLiteral:
         case AST_StringLiteral:
         case AST_VariableRef:
             break;
 
         case AST_FunctionCall:
-            FreeAstNode(node->expression.function_call.args);
-            break;
-        case AST_FunctionCallArgs:
-            FreeAstNodeList(&node->node_list);
+            FreeAstNodeList(&node->expression.function_call.args);
             break;
 
         case AST_AssignmentExpr:
