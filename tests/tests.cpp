@@ -32,6 +32,7 @@ bool report_test(Test_Context *test_ctx, bool x, const char *xs,
 
 #define TEST(x) report_test(test_ctx, x, #x, __FILE__, __LINE__)
 
+
 struct Line_Col
 {
     s64 line, column;
@@ -40,103 +41,81 @@ struct Line_Col
 struct Test
 {
     const char *filename;
-    Line_Col fail_lexing;  // if line, column != 0, should fail lexing at the location
-    Line_Col fail_parsing; // if line, column != 0, should fail parsing at the location
+    Line_Col fail_lexing;       // if line, column != 0, should fail lexing at the location
+    Line_Col fail_parsing;      // if line, column != 0, should fail parsing at the location
+    Line_Col fail_sem_check;    // if line, column != 0, should fail checking at the location
 };
 
 Test tests[] = {
     (Test){ "tests/lexer_fail/crlf_test.hp", {4, 26}, { } },
     (Test){ "tests/parser_fail/token_test.hp", { }, {1, 1} },
-    (Test){ "tests/hello_test.hp", { }, { } },
-    (Test){ "tests/expr_test.hp", { }, { } },
-    (Test){ "tests/stmt_test.hp", { }, { } },
-    (Test){ "tests/beer_test.hp", { }, { } },
-    (Test){ "tests/if_paren_test.hp", { }, {8, 23} },
-    (Test){ "tests/module_test.hp", { }, { } },
+    (Test){ "tests/parser_fail/if_paren_test.hp", { }, {8, 23} },
+    (Test){ "tests/sem_check_fail/dup_func_param_test.hp", { }, { }, {4, 39} },
+    (Test){ "tests/expr_test.hp" },
+    (Test){ "tests/hello_test.hp" },
+    (Test){ "tests/stmt_test.hp" },
+    (Test){ "tests/beer_test.hp" },
+    (Test){ "tests/module_test.hp" },
 };
 
-b32 CheckLexingResult(Compiler_Context *compiler_ctx,
-        const Test &test, b32 compiler_result)
+void PrintError(const char *filename, s64 line, s64 column, const char *message)
 {
-    b32 should_fail_lexing =
-        (test.fail_lexing.line && test.fail_lexing.column);
+    fprintf(stderr, "%s:%" PRId64 ":%" PRId64 ": TEST ERROR: %s\n",
+            filename, line, column, message);
+}
 
-    if (should_fail_lexing)
+b32 CheckPhaseResult(Compiler_Context *compiler_ctx,
+        const char *filename, Line_Col fail_line_col,
+        Compilation_Result expected_result,
+        const char *unexpected_error, const char *expecting_error)
+{
+    b32 should_fail = (fail_line_col.line && fail_line_col.column);
+    if (should_fail)
     {
-        if (compiler_ctx->result == RES_FAIL_Lexing)
+        if (compiler_ctx->result == expected_result)
         {
             File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-            if (error_loc.line == test.fail_lexing.line &&
-                error_loc.column == test.fail_lexing.column)
+            if (error_loc.line == fail_line_col.line &&
+                error_loc.column == fail_line_col.column)
             {
                 return true;
             }
-            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected lexing error\n",
-                    test.filename,
-                    error_loc.line,
-                    error_loc.column);
+            PrintError(filename, error_loc.line, error_loc.column, unexpected_error);
         }
-        fprintf(stderr, "%s:%lld:%lld: Test result: Expecting lexing error\n",
-                test.filename,
-                test.fail_lexing.line,
-                test.fail_lexing.column);
+        PrintError(filename, fail_line_col.line, fail_line_col.column, expecting_error);
         return false;
     }
-    else // compilation failed, was not expecting lexing failure
+    else if (compiler_ctx->result == expected_result)
     {
-        if (compiler_ctx->result == RES_FAIL_Lexing)
-        {
-            File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected lexing error\n",
-                    test.filename,
-                    error_loc.line,
-                    error_loc.column);
-            return false;
-        }
+        File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
+        PrintError(filename, error_loc.line, error_loc.column, unexpected_error);
+        return false;
     }
     return true;
 }
 
-b32 CheckParsingResult(Compiler_Context *compiler_ctx,
-        const Test &test, b32 compiler_result)
+b32 CheckLexingResult(Compiler_Context *compiler_ctx,
+        const Test &test)
 {
-    b32 should_fail_parsing =
-        (test.fail_parsing.line && test.fail_parsing.column);
+    return CheckPhaseResult(compiler_ctx, test.filename,
+            test.fail_lexing, RES_FAIL_Lexing,
+            "Unexpected lexer error", "Expected lexer error");
+}
 
-    if (should_fail_parsing)
-    {
-        if (compiler_ctx->result == RES_FAIL_Parsing)
-        {
-            File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-            if (error_loc.line == test.fail_parsing.line &&
-                error_loc.column == test.fail_parsing.column)
-            {
-                return true;
-            }
-            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected parsing error\n",
-                    test.filename,
-                    error_loc.line,
-                    error_loc.column);
-        }
-        fprintf(stderr, "%s:%lld:%lld: Test result: Expecting parsing error\n",
-                test.filename,
-                test.fail_parsing.line,
-                test.fail_parsing.column);
-        return false;
-    }
-    else // compilation failed, was not expecting lexing failure
-    {
-        if (compiler_ctx->result == RES_FAIL_Parsing)
-        {
-            File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected parsing error\n",
-                    test.filename,
-                    error_loc.line,
-                    error_loc.column);
-            return false;
-        }
-    }
-    return true;
+b32 CheckParsingResult(Compiler_Context *compiler_ctx,
+        const Test &test)
+{
+    return CheckPhaseResult(compiler_ctx, test.filename,
+            test.fail_parsing, RES_FAIL_Parsing,
+            "Unexpected parser error", "Expected parser error");
+}
+
+b32 CheckSemCheckResult(Compiler_Context *compiler_ctx,
+        const Test &test)
+{
+    return CheckPhaseResult(compiler_ctx, test.filename,
+            test.fail_sem_check, RES_FAIL_SemanticCheck,
+            "Unexpected semantic check error", "Expected semantic check error");
 }
 
 s64 RunTest(Test_Context *ctx, const Test &test)
@@ -153,22 +132,23 @@ s64 RunTest(Test_Context *ctx, const Test &test)
             (test.fail_lexing.line && test.fail_lexing.column);
         b32 should_fail_parsing =
             (test.fail_parsing.line && test.fail_parsing.column);
+        b32 should_fail_sem_check =
+            (test.fail_sem_check.line && test.fail_sem_check.column);
+        b32 should_fail = should_fail_lexing || should_fail_parsing || should_fail_sem_check;
 
-        if (!should_fail_lexing && !should_fail_parsing)
-            compiler_ctx.error_ctx.file = stderr;
-        else
+        if (should_fail)
             compiler_ctx.error_ctx.file = nulldev;
+        else
+            compiler_ctx.error_ctx.file = stderr;
 
-        b32 result = Compile(&compiler_ctx, file);
+        Compile(&compiler_ctx, file);
 
-        if (!CheckLexingResult(&compiler_ctx, test, result))
-        {
+        if (!CheckLexingResult(&compiler_ctx, test))
             failed = 1;
-        }
-        else if (!CheckParsingResult(&compiler_ctx, test, result))
-        {
+        else if (!CheckParsingResult(&compiler_ctx, test))
             failed = 1;
-        }
+        else if (!CheckSemCheckResult(&compiler_ctx, test))
+            failed = 1;
     }
     else
     {

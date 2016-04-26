@@ -1,0 +1,6 @@
+// Duplicate parameter in function definition
+// 2016-02-26
+
+func :: (param1 : bool, param2 : s32, param1 : s64)
+{ }
+

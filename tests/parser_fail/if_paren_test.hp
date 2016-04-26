@@ -5,7 +5,6 @@ main :: ()
 {
     if x == 5 { &y = 10; }
     // Error:
-    //if (x == 5) &y = 10;
     if x == 5  &y = 10;
     // Could be interpreted (by human) as
     //   if ((x == (5 & y)) = 10) ;
