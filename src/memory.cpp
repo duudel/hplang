@@ -78,15 +78,35 @@ void FreeMemoryArena(Memory_Arena *arena)
     arena->head = nullptr;
 }
 
-static b32 AllocateNewMemoryBlock(Memory_Arena *arena)
+static s64 Align(s64 x, s64 alignment)
 {
-    s64 MEMORY_BLOCK_SIZE = MBytes(16);
-    Pointer data = Alloc(sizeof(Memory_Block) + MEMORY_BLOCK_SIZE);
+    ASSERT(alignment > 0);
+    s64 mask = alignment - 1;
+    return (x + mask) & ~mask;
+}
+
+static void* Align(void* ptr, s64 alignment)
+{
+    return (void*)Align((s64)ptr, alignment);
+}
+
+static s64 PointerDiff(void *p1, void *p2)
+{
+    return (s64)((char*)p1 - (char*)p2);
+}
+
+static b32 AllocateNewMemoryBlock(Memory_Arena *arena, s64 min_size)
+{
+    s64 memory_block_size = MBytes(16);
+    min_size = Align(min_size, KBytes(4));
+    memory_block_size = (memory_block_size < min_size) ? min_size : memory_block_size;
+
+    Pointer data = Alloc(sizeof(Memory_Block) + memory_block_size);
     if (!data.ptr) return false;
 
     Memory_Block *block = (Memory_Block*)data.ptr;
     block->memory.ptr = (void*)(block + 1);
-    block->memory.size = MEMORY_BLOCK_SIZE;
+    block->memory.size = memory_block_size;
     block->top_pointer = 0;
 
     block->prev = arena->head;
@@ -97,11 +117,16 @@ static b32 AllocateNewMemoryBlock(Memory_Arena *arena)
 
 static void* AllocateFromMemoryBlock(Memory_Block *block, s64 size, s64 alignment)
 {
-    // TODO(henrik): Use alignment in allocation
     if (!block)
         return nullptr;
-    if (block->top_pointer + size > block->memory.size)
+
+    s64 top_offset = PointerDiff(Align(block->memory.ptr, alignment),
+                                 block->memory.ptr);
+
+    if (block->top_pointer + size + top_offset > block->memory.size)
         return nullptr;
+
+    block->top_pointer += top_offset;
     char *ptr = (char*)block->memory.ptr + block->top_pointer;
     block->top_pointer += size;
     return (void*)ptr;
@@ -113,7 +138,7 @@ void* PushData(Memory_Arena *arena, s64 size, s64 alignment)
     void *ptr = AllocateFromMemoryBlock(arena->head, size, alignment);
     if (!ptr)
     {
-        if (!AllocateNewMemoryBlock(arena))
+        if (!AllocateNewMemoryBlock(arena, size + alignment))
             return nullptr;
         ptr = AllocateFromMemoryBlock(arena->head, size, alignment);
     }
@@ -126,6 +151,11 @@ Pointer PushDataPointer(Memory_Arena *arena, s64 size, s64 alignment)
     result.ptr = PushData(arena, size, alignment);
     result.size = result.ptr ? size : 0;
     return result;
+}
+
+void* PushArray(Memory_Arena *arena, s64 count, s64 size, s64 alignment)
+{
+    return PushData(arena, count * size, alignment);
 }
 
 String PushString(Memory_Arena *arena, const char *s, const char *end)

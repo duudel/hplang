@@ -75,34 +75,9 @@ static void CheckImport(Sem_Check_Context *ctx, Ast_Node *node)
     CompileModule(ctx->comp_ctx, open_file, module_filename);
 }
 
-static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
-{
-    ASSERT(node->function.name.str.data);
-
-    AddSymbol(ctx->env, SYM_Function, node->function.name);
-
-    OpenScope(ctx->env);
-    for (s64 i = 0; i < node->function.parameters.count; i++)
-    {
-        Ast_Node *param = node->function.parameters.nodes[i];
-        Symbol *old_sym = LookupSymbolInCurrentScope(
-                            ctx->env,
-                            param->parameter.name);
-        if (old_sym)
-        {
-            ASSERT(old_sym->sym_type == SYM_Parameter);
-            Error(ctx, param, "Parameter already declared");
-        }
-        AddSymbol(ctx->env, SYM_Parameter, param->parameter.name);
-    }
-    CloseScope(ctx->env);
-}
-
-struct Type;
-struct StructType;
-
 static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
 {
+    if (!node) return nullptr;
     switch (node->type)
     {
         case AST_Type_Plain:
@@ -120,6 +95,56 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
             INVALID_CODE_PATH;
     }
     return nullptr;
+}
+
+static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
+{
+}
+
+static void CheckBlockStatement(Sem_Check_Context *ctx, Ast_Node *node)
+{
+}
+
+static void CheckParameters(Sem_Check_Context *ctx, Ast_Node *node, Type *ftype)
+{
+    for (s64 i = 0; i < node->function.parameters.count; i++)
+    {
+        Ast_Node *param = node->function.parameters.nodes[i];
+        Symbol *old_sym = LookupSymbolInCurrentScope(
+                            ctx->env,
+                            param->parameter.name);
+        if (old_sym)
+        {
+            ASSERT(old_sym->sym_type == SYM_Parameter);
+            Error(ctx, param, "Parameter already declared");
+        }
+
+        Type *param_type = CheckType(ctx, param->parameter.type);
+        AddSymbol(ctx->env, SYM_Parameter, param->parameter.name, param_type);
+
+        ftype->function_type.parameter_types[i] = param_type;
+    }
+}
+
+static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
+{
+    ASSERT(node->function.name.str.data);
+
+    Type *ftype = PushStruct<Type>(&ctx->env->arena);
+    s64 param_count = node->function.parameters.count;
+    ftype->function_type.parameter_count = param_count;
+    ftype->function_type.parameter_types = PushArray<Type*>(&ctx->env->arena, param_count);
+
+    ftype->function_type.return_type = CheckType(ctx, node->function.return_type);
+
+    AddSymbol(ctx->env, SYM_Function, node->function.name, ftype);
+
+    OpenScope(ctx->env);
+
+    CheckParameters(ctx, node, ftype);
+    CheckBlockStatement(ctx, node->function.body);
+
+    CloseScope(ctx->env);
 }
 
 static void CheckStructMember(Sem_Check_Context *ctx, Ast_Node *node, StructType *s)

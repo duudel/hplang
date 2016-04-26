@@ -21,6 +21,8 @@ void FreeMemoryArena(Memory_Arena *arena);
 void* PushData(Memory_Arena *arena, s64 size, s64 alignment);
 Pointer PushDataPointer(Memory_Arena *arena, s64 size, s64 alignment);
 
+void* PushArray(Memory_Arena *arena, s64 count, s64 size, s64 alignment);
+
 String PushString(Memory_Arena *arena, const char *s, const char *end);
 String PushString(Memory_Arena *arena, const char *s, s64 size);
 String PushString(Memory_Arena *arena, const char *s);
@@ -36,6 +38,12 @@ template <class S>
 S* PushStruct(Memory_Arena *arena)
 {
     return (S*)PushData(arena, sizeof(S), alignof(S));
+}
+
+template <class S>
+S* PushArray(Memory_Arena *arena, s64 count)
+{
+    return (S*)PushArray(arena, count, sizeof(S), alignof(S));
 }
 
 } // hplang

@@ -43,12 +43,13 @@ void CloseScope(Environment *env)
     env->current = env->current->parent;
 }
 
-Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name)
+Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
 {
     Symbol *symbol = PushStruct<Symbol>(&env->arena);
     *symbol = { };
     symbol->sym_type = sym_type;
     symbol->name = name;
+    symbol->type = type;
 
     Scope *scope = env->current;
     u32 hash = name.hash % scope->table_size;

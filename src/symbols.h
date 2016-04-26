@@ -6,6 +6,61 @@
 namespace hplang
 {
 
+enum Type_Tag
+{
+    //TYP_pointer,
+    TYP_bool,
+    TYP_u8, TYP_s8,
+    TYP_u16, TYP_s16,
+    TYP_u32, TYP_s32,
+    TYP_u64, TYP_s64,
+    TYP_f32, TYP_f64,
+
+    TYP_Function,
+    TYP_Struct,
+    //TYP_Enum,
+};
+
+struct Type;
+
+struct StructMember
+{
+    Name name;
+    Type *type;
+};
+
+//typedef Array<StructMember> Member_List;
+
+struct StructType
+{
+    Name name;
+    s64 count;
+    StructMember **members;
+    //Member_List members;
+};
+
+//typedef Array<Type*> Type_List;
+
+struct FunctionType
+{
+    Type *return_type;
+    s64 parameter_count;
+    Type **parameter_types;
+    //Type_List parameter_types;
+};
+
+struct Type
+{
+    Type_Tag tag;
+    s32 size;
+    s32 alignment;
+    s32 pointer;
+    union {
+        FunctionType    function_type;
+        StructType      struct_type;
+    };
+};
+
 enum Symbol_Type
 {
     SYM_Module,
@@ -18,10 +73,14 @@ enum Symbol_Type
     //SYM_Typealias
 };
 
+struct Scope;
+
 struct Symbol
 {
     Symbol_Type sym_type;
     Name name;
+    Type *type;
+    Scope *scope;
 };
 
 struct Scope
@@ -50,8 +109,9 @@ void FreeEnvironment(Environment *env);
 void OpenScope(Environment *env);
 void CloseScope(Environment *env);
 
-Symbol* AddSymbol(Environment *env, Symbol_Type type, Name name);
+Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type);
 Symbol* LookupSymbol(Environment *env, Name name);
+Symbol* LookupOverloadedSymbol(Environment *env, Name name, Type *type);
 Symbol* LookupSymbolInCurrentScope(Environment *env, Name name);
 
 } // hplang

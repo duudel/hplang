@@ -203,7 +203,7 @@ struct Ast_Function_Def
 {
     Name name;
     Ast_Node_List parameters;
-    Ast_Node *return_type;
+    Ast_Node *return_type; // NOTE(henrik): This is optional, so may be null
     Ast_Node *body; // TODO(henrik): should use Ast_Node_List here?
 };
 
