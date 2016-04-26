@@ -2,6 +2,8 @@
 #include "error.h"
 #include "assert.h"
 
+#include <cinttypes>
+
 namespace hplang
 {
 
@@ -33,7 +35,7 @@ static s64 NumberLen(s64 number)
 void PrintFileLocation(FILE *file, File_Location file_loc)
 {
     fwrite(file_loc.filename.data, 1, file_loc.filename.size, file);
-    fprintf(file, ":%lld:%lld: ", file_loc.line, file_loc.column);
+    fprintf(file, ":%" PRId64 ":%" PRId64 ": ", file_loc.line, file_loc.column);
 
     s64 loc_len = NumberLen(file_loc.line) + NumberLen(file_loc.column);
     loc_len += 2;           // add colons
