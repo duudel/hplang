@@ -1,0 +1,4 @@
+// Simple test module
+// 2016-04-26
+
+var_from_module := 42;

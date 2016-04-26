@@ -6,6 +6,7 @@
 #include "../src/ast_types.h"
 
 #include <cstdio>
+#include <cinttypes>
 
 FILE *nulldev;
 
@@ -22,7 +23,7 @@ bool report_test(Test_Context *test_ctx, bool x, const char *xs,
     if (!x)
     {
         test_ctx->errors++;
-        fprintf(stderr, "%s:%lld:1: TEST FAILURE\n\n", file, line);
+        fprintf(stderr, "%s:%" PRId64 ":1: TEST FAILURE\n\n", file, line);
         fprintf(stderr, "%s\n\n", xs);
         return false;
     }
@@ -44,12 +45,14 @@ struct Test
 };
 
 Test tests[] = {
-    (Test){ "tests/crlf_test.hp", {4, 26}, { } },
-    (Test){ "tests/token_test.hp", { }, {1, 1} },
+    (Test){ "tests/lexer_fail/crlf_test.hp", {4, 26}, { } },
+    (Test){ "tests/parser_fail/token_test.hp", { }, {1, 1} },
     (Test){ "tests/hello_test.hp", { }, { } },
     (Test){ "tests/expr_test.hp", { }, { } },
     (Test){ "tests/stmt_test.hp", { }, { } },
     (Test){ "tests/beer_test.hp", { }, { } },
+    (Test){ "tests/if_paren_test.hp", { }, {8, 23} },
+    (Test){ "tests/module_test.hp", { }, { } },
 };
 
 b32 CheckLexingResult(Compiler_Context *compiler_ctx,
@@ -58,14 +61,7 @@ b32 CheckLexingResult(Compiler_Context *compiler_ctx,
     b32 should_fail_lexing =
         (test.fail_lexing.line && test.fail_lexing.column);
 
-    if (compiler_result)
-    {
-        if (!should_fail_lexing)
-        {
-            return true;
-        }
-    }
-    else if (should_fail_lexing)
+    if (should_fail_lexing)
     {
         if (compiler_ctx->result == RES_FAIL_Lexing)
         {
@@ -107,14 +103,7 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
     b32 should_fail_parsing =
         (test.fail_parsing.line && test.fail_parsing.column);
 
-    if (compiler_result)
-    {
-        if (!should_fail_parsing)
-        {
-            return true;
-        }
-    }
-    else if (should_fail_parsing)
+    if (should_fail_parsing)
     {
         if (compiler_ctx->result == RES_FAIL_Parsing)
         {
@@ -124,12 +113,12 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
             {
                 return true;
             }
-            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected lexing error\n",
+            fprintf(stderr, "%s:%lld:%lld: Test result: Unexpected parsing error\n",
                     test.filename,
                     error_loc.line,
                     error_loc.column);
         }
-        fprintf(stderr, "%s:%lld:%lld: Test result: Expecting lexing error\n",
+        fprintf(stderr, "%s:%lld:%lld: Test result: Expecting parsing error\n",
                 test.filename,
                 test.fail_parsing.line,
                 test.fail_parsing.column);
@@ -150,10 +139,9 @@ b32 CheckParsingResult(Compiler_Context *compiler_ctx,
     return true;
 }
 
-s64 RunTest(const Test &test)
+s64 RunTest(Test_Context *ctx, const Test &test)
 {
     fprintf(stderr, "Running test '%s'\n", test.filename);
-    fprintf(stderr, "----\n"); fflush(stderr);
 
     s64 failed = 0;
     Compiler_Context compiler_ctx = NewCompilerContext();
@@ -189,6 +177,8 @@ s64 RunTest(const Test &test)
     }
 
     FreeCompilerContext(&compiler_ctx);
+
+    fprintf(stderr, "----\n"); fflush(stderr);
     return failed;
 }
 
@@ -205,18 +195,18 @@ int main(int argc, char **argv)
 
     fprintf(stderr, "----\n");
 
+    Test_Context test_ctx = { };
+
     s64 failed_tests = 0;
     s64 total_tests = array_length(tests);
     for (const Test &test : tests)
     {
-        failed_tests += RunTest(test);
+        failed_tests += RunTest(&test_ctx, test);
         fflush(stderr);
     }
 
-
-
     fprintf(stderr, "----\n");
-    fprintf(stderr, "%lld tests run, %lld failed\n", total_tests, failed_tests);
+    fprintf(stderr, "%" PRId64 " tests run, %" PRId64 " failed\n", total_tests, failed_tests);
     fprintf(stderr, "----\n");
     return failed_tests;
 }

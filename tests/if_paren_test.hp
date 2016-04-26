@@ -1,0 +1,22 @@
+// Testing parenthesis around if statement condition
+// 2016-04-26
+
+main :: ()
+{
+    if x == 5 { &y = 10; }
+    // Error:
+    //if (x == 5) &y = 10;
+    if x == 5  &y = 10;
+    // Could be interpreted (by human) as
+    //   if ((x == (5 & y)) = 10) ;
+    // if (assign 10 to (x equals (5 bitand y))) then empty stmt.
+    // or
+    //   if (x == 5)  &y = 10;
+    // if (x equals 5) then assign 10 to the address of y.
+
+    // The first version is what the parser sees.
+    // Both seem to be contrieved, semantically nonsensical, and the problem
+    // might not happen in real code. Thus it will not be critical, if this
+    // behaviour is allowed. In long term though, it would be better, if this
+    // problem could be addressed.
+}
