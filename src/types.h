@@ -55,6 +55,23 @@ struct Name
     u32 hash;
 };
 
+inline bool operator == (const Name &a, const Name &b)
+{
+    if (a.hash != b.hash) return false;
+    if (a.str.size != b.str.size) return false;
+    for (s64 i = 0; i < a.str.size; i++)
+    {
+        if (a.str.data[i] != b.str.data[i])
+            return false;
+    }
+    return true;
+}
+
+inline bool operator != (const Name &a, const Name &b)
+{
+    return !(a == b);
+}
+
 inline u32 Hash(String str)
 {
     // Some prime numbers A and B

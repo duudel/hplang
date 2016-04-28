@@ -249,8 +249,81 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
 bool CompileModule(Compiler_Context *ctx,
         Open_File *open_file, String module_filename)
 {
-    NOT_IMPLEMENTED("module compilation");
-    return false;
+    //NOT_IMPLEMENTED("module compilation");
+    //return false;
+
+    Module *module = PushStruct<Module>(&ctx->arena);
+    *module = { };
+    module->module_file = open_file;
+    array::Push(ctx->modules, module);
+
+    // Lexing
+    Token_List tokens = { };
+    Lexer_Context lexer_ctx = NewLexerContext(&tokens, &ctx->error_ctx);
+    lexer_ctx.file_loc.filename = open_file->filename;
+    const char *contents = (const char*)open_file->contents.ptr;
+    Lex(&lexer_ctx, contents, open_file->contents.size);
+    if (HasError(ctx))
+    {
+        FreeTokenList(&tokens);
+        FreeLexerContext(&lexer_ctx);
+        ctx->result = RES_FAIL_Lexing;
+        return false;
+    }
+
+    FreeLexerContext(&lexer_ctx);
+
+    if (ctx->options.stop_after == CP_Lexing)
+    {
+        FreeTokenList(&tokens);
+        ctx->result = RES_OK;
+        return true;
+    }
+
+    // Parsing
+    Ast *ast = &module->ast;
+    Parser_Context parser_ctx = NewParserContext(
+            ast, &tokens, open_file, ctx);
+
+    Parse(&parser_ctx);
+    if (HasError(ctx))
+    {
+        FreeTokenList(&tokens);
+        FreeParserContext(&parser_ctx);
+        ctx->result = RES_FAIL_Parsing;
+        return false;
+    }
+
+    FreeTokenList(&tokens);
+    FreeParserContext(&parser_ctx);
+
+    if (ctx->options.stop_after == CP_Parsing)
+    {
+        ctx->result = RES_OK;
+        return true;
+    }
+
+    // Semantic checking
+    Sem_Check_Context sem_ctx = NewSemanticCheckContext(ast, open_file, ctx);
+
+    Check(&sem_ctx);
+    if (HasError(ctx))
+    {
+        FreeSemanticCheckContext(&sem_ctx);
+        ctx->result = RES_FAIL_SemanticCheck;
+        return false;
+    }
+
+    FreeSemanticCheckContext(&sem_ctx);
+
+    if (ctx->options.stop_after == CP_Checking)
+    {
+        ctx->result = RES_OK;
+        return true;
+    }
+
+    ctx->result = RES_OK;
+    return true;
 }
 
 } // hplang

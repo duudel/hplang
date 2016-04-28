@@ -8,11 +8,13 @@ namespace hplang
 
 enum Type_Tag
 {
-    //TYP_pointer,
     TYP_null,
     TYP_int_lit,
+    TYP_pointer,
 
-    TYP_bool,
+    TYP_FIRST_BUILTIN_SYM,
+
+    TYP_bool = TYP_FIRST_BUILTIN_SYM,
     TYP_char,
     TYP_u8,
     TYP_s8,
@@ -24,6 +26,9 @@ enum Type_Tag
     TYP_s64,
     TYP_f32,
     TYP_f64,
+    TYP_string,
+
+    TYP_LAST_BUILTIN = TYP_string,
 
     TYP_Function,
     TYP_Struct,
@@ -32,30 +37,24 @@ enum Type_Tag
 
 struct Type;
 
-struct StructMember
+struct Struct_Member
 {
     Name name;
     Type *type;
 };
 
-//typedef Array<StructMember> Member_List;
-
-struct StructType
+struct Struct_Type
 {
     Name name;
-    s64 count;
-    StructMember **members;
-    //Member_List members;
+    s64 member_count;
+    Struct_Member *members;
 };
 
-//typedef Array<Type*> Type_List;
-
-struct FunctionType
+struct Function_Type
 {
     Type *return_type;
     s64 parameter_count;
     Type **parameter_types;
-    //Type_List parameter_types;
 };
 
 struct Type
@@ -65,8 +64,10 @@ struct Type
     s32 alignment;
     s32 pointer;
     union {
-        FunctionType    function_type;
-        StructType      struct_type;
+        Name            type_name;
+        Type            *base_type;
+        Function_Type    function_type;
+        Struct_Type      struct_type;
     };
 };
 
@@ -82,10 +83,11 @@ enum Symbol_Type
     SYM_Parameter,
     SYM_Member,
 
-    SYM_PrimitiveType,
     SYM_Struct,
     //SYM_Enum,
     //SYM_Typealias
+
+    SYM_PrimitiveType,
 };
 
 struct Scope;
@@ -96,16 +98,17 @@ struct Symbol
     Name name;
     Type *type;
     Scope *scope;
+
+    Symbol *next_overload;
 };
 
 struct Scope
 {
-    static const s64 INITIAL_SYM_TABLE_SIZE = 1021; // Prime number
-
-    s64 table_size;
+    s64 symbol_count;
     Array<Symbol*> table;
 
     Scope *parent;
+    Type *return_type;
 };
 
 // TODO(henrik): Is there better name for this?
@@ -116,6 +119,7 @@ struct Environment
     Array<Scope*> scopes;
 
     Scope *current;
+    Type *return_type;
 };
 
 Environment NewEnvironment();
@@ -124,10 +128,18 @@ void FreeEnvironment(Environment *env);
 void OpenScope(Environment *env);
 void CloseScope(Environment *env);
 
+void OpenFunctionScope(Environment *env, Type *return_type);
+void CloseFunctionScope(Environment *env);
+
+Type* PushType(Environment *env, Type_Tag tag);
+
 Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type);
+Symbol* AddFunction(Environment *env, Name name, Type *type);
 Symbol* LookupSymbol(Environment *env, Name name);
-Symbol* LookupOverloadedSymbol(Environment *env, Name name, Type *type);
+//Symbol* LookupOverloadedSymbol(Environment *env, Name name, Type *type);
 Symbol* LookupSymbolInCurrentScope(Environment *env, Name name);
+
+b32 TypesEqual(Type *a, Type *b);
 
 } // hplang
 

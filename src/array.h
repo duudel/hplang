@@ -70,6 +70,7 @@ namespace array
         {
             memset(arr.data + arr.count, 0, tail_count * sizeof(T));
         }
+        arr.count = count;
         return true;
     }
 

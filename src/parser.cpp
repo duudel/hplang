@@ -98,7 +98,7 @@ static void ErrorUnexpectedEOF(Parser_Context *ctx)
     Error(ctx, last_token, "Unexpected end of file");
 }
 
-static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Ast_Binary_Op op)
+static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Binary_Op op)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, token->file_loc);
@@ -106,37 +106,37 @@ static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Ast_Bina
     const char *op_str = "";
     switch (op)
     {
-        case AST_OP_Add:        op_str = "+"; break;
-        case AST_OP_Subtract:   op_str = "-"; break;
-        case AST_OP_Multiply:   op_str = "*"; break;
-        case AST_OP_Divide:     op_str = "/"; break;
-        case AST_OP_Modulo:     op_str = "-"; break;
-        case AST_OP_BitAnd:     op_str = "&"; break;
-        case AST_OP_BitOr:      op_str = "|"; break;
-        case AST_OP_BitXor:     op_str = "^"; break;
+        case BIN_OP_Add:        op_str = "+"; break;
+        case BIN_OP_Subtract:   op_str = "-"; break;
+        case BIN_OP_Multiply:   op_str = "*"; break;
+        case BIN_OP_Divide:     op_str = "/"; break;
+        case BIN_OP_Modulo:     op_str = "%"; break;
+        case BIN_OP_BitAnd:     op_str = "&"; break;
+        case BIN_OP_BitOr:      op_str = "|"; break;
+        case BIN_OP_BitXor:     op_str = "^"; break;
 
-        case AST_OP_And:        op_str = "&&"; break;
-        case AST_OP_Or:         op_str = "||"; break;
+        case BIN_OP_And:        op_str = "&&"; break;
+        case BIN_OP_Or:         op_str = "||"; break;
 
-        case AST_OP_Equal:      op_str = "=="; break;
-        case AST_OP_NotEqual:   op_str = "!="; break;
-        case AST_OP_Less:       op_str = "<"; break;
-        case AST_OP_LessEq:     op_str = "<="; break;
-        case AST_OP_Greater:    op_str = ">"; break;
-        case AST_OP_GreaterEq:  op_str = ">="; break;
+        case BIN_OP_Equal:      op_str = "=="; break;
+        case BIN_OP_NotEqual:   op_str = "!="; break;
+        case BIN_OP_Less:       op_str = "<"; break;
+        case BIN_OP_LessEq:     op_str = "<="; break;
+        case BIN_OP_Greater:    op_str = ">"; break;
+        case BIN_OP_GreaterEq:  op_str = ">="; break;
 
-        case AST_OP_Range:      op_str = ".."; break;
+        case BIN_OP_Range:      op_str = ".."; break;
 
         // NOTE(henrik): These are not used here, but as they are binary ops,
         // need to have them here to suppress warnings.
-        case AST_OP_Access:     op_str = "."; break;
-        case AST_OP_Subscript:  op_str = "[]"; break;
+        case BIN_OP_Access:     op_str = "."; break;
+        case BIN_OP_Subscript:  op_str = "[]"; break;
     }
     fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
 }
 
-static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Ast_Assignment_Op op)
+static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Assignment_Op op)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, token->file_loc);
@@ -144,16 +144,16 @@ static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Ast_
     const char *op_str = "";
     switch (op)
     {
-        case AST_OP_Assign:             op_str = "="; break;
-        case AST_OP_AddAssign:          op_str = "+="; break;
-        case AST_OP_SubtractAssign:     op_str = "-="; break;
-        case AST_OP_MultiplyAssign:     op_str = "*="; break;
-        case AST_OP_DivideAssign:       op_str = "/="; break;
-        case AST_OP_ModuloAssign:       op_str = "%="; break;
-        case AST_OP_BitAndAssign:       op_str = "&="; break;
-        case AST_OP_BitOrAssign:        op_str = "|="; break;
-        case AST_OP_BitXorAssign:       op_str = "^="; break;
-        case AST_OP_ComplementAssign:   op_str = "~="; break;
+        case AS_OP_Assign:             op_str = "="; break;
+        case AS_OP_AddAssign:          op_str = "+="; break;
+        case AS_OP_SubtractAssign:     op_str = "-="; break;
+        case AS_OP_MultiplyAssign:     op_str = "*="; break;
+        case AS_OP_DivideAssign:       op_str = "/="; break;
+        case AS_OP_ModuloAssign:       op_str = "%="; break;
+        case AS_OP_BitAndAssign:       op_str = "&="; break;
+        case AS_OP_BitOrAssign:        op_str = "|="; break;
+        case AS_OP_BitXorAssign:       op_str = "^="; break;
+        case AS_OP_ComplementAssign:   op_str = "~="; break;
     }
     fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
@@ -441,15 +441,15 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
 
     Ast_Node *pre_op = PushNode(ctx, AST_UnaryExpr, op_token);
 
-    Ast_Unary_Op op;
+    Unary_Op op;
     switch (op_token->type)
     {
-        case TOK_Plus:      op = AST_OP_Positive; break;
-        case TOK_Minus:     op = AST_OP_Negative; break;
-        case TOK_Tilde:     op = AST_OP_Complement; break;
-        case TOK_Bang:      op = AST_OP_Not; break;
-        case TOK_Ampersand: op = AST_OP_Address; break;
-        case TOK_At:        op = AST_OP_Deref; break;
+        case TOK_Plus:      op = UN_OP_Positive; break;
+        case TOK_Minus:     op = UN_OP_Negative; break;
+        case TOK_Tilde:     op = UN_OP_Complement; break;
+        case TOK_Bang:      op = UN_OP_Not; break;
+        case TOK_Ampersand: op = UN_OP_Address; break;
+        case TOK_At:        op = UN_OP_Deref; break;
         default: INVALID_CODE_PATH;
     }
     pre_op->expression.unary_expr.op = op;
@@ -458,46 +458,6 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
 }
 
 static Ast_Node* ParseExpression(Parser_Context *ctx);
-
-static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
-{
-    TRACE(ParsePostfixOperator);
-    const Token *op_token = Accept(ctx, TOK_Period);
-    if (op_token)
-    {
-        Ast_Node *access_expr = PushNode(ctx, AST_BinaryExpr, op_token);
-
-        const Token *ident_tok = Accept(ctx, TOK_Identifier);
-        if (ident_tok)
-        {
-            Ast_Node *member_ref  = PushNode(ctx, AST_VariableRef, ident_tok);
-            Name name = PushName(&ctx->ast->arena,
-                    ident_tok->value, ident_tok->value_end);
-            member_ref->expression.variable_ref.name = name;
-
-            access_expr->expression.binary_expr.op = AST_OP_Access;
-            access_expr->expression.binary_expr.left = factor;
-            access_expr->expression.binary_expr.right = member_ref;
-        }
-        else
-        {
-            Error(ctx, op_token, "Expecting identifier");
-        }
-        return access_expr;
-    }
-    op_token = Accept(ctx, TOK_OpenBracket);
-    if (op_token)
-    {
-        Ast_Node *subscript_expr = PushNode(ctx, AST_BinaryExpr, op_token);
-        subscript_expr->expression.binary_expr.op = AST_OP_Access;
-        subscript_expr->expression.binary_expr.left = factor;
-        subscript_expr->expression.binary_expr.right = ParseExpression(ctx);
-        if (!subscript_expr->expression.binary_expr.right)
-            Error(ctx, "Expecting subscript expression");
-        Expect(ctx, TOK_CloseBracket);
-    }
-    return nullptr;
-}
 
 static void ParseFunctionArgs(Parser_Context *ctx, Ast_Function_Call *function_call)
 {
@@ -519,6 +479,56 @@ static void ParseFunctionArgs(Parser_Context *ctx, Ast_Function_Call *function_c
     }
 }
 
+static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
+{
+    TRACE(ParsePostfixOperator);
+    const Token *op_token = Accept(ctx, TOK_Period);
+    if (op_token)
+    {
+        Ast_Node *access_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+
+        const Token *ident_tok = Accept(ctx, TOK_Identifier);
+        if (ident_tok)
+        {
+            Ast_Node *member_ref  = PushNode(ctx, AST_VariableRef, ident_tok);
+            Name name = PushName(&ctx->ast->arena,
+                    ident_tok->value, ident_tok->value_end);
+            member_ref->expression.variable_ref.name = name;
+
+            access_expr->expression.binary_expr.op = BIN_OP_Access;
+            access_expr->expression.binary_expr.left = factor;
+            access_expr->expression.binary_expr.right = member_ref;
+        }
+        else
+        {
+            Error(ctx, op_token, "Expecting identifier");
+        }
+        return access_expr;
+    }
+    op_token = Accept(ctx, TOK_OpenBracket);
+    if (op_token)
+    {
+        Ast_Node *subscript_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+        subscript_expr->expression.binary_expr.op = BIN_OP_Subscript;
+        subscript_expr->expression.binary_expr.left = factor;
+        subscript_expr->expression.binary_expr.right = ParseExpression(ctx);
+        if (!subscript_expr->expression.binary_expr.right)
+            Error(ctx, "Expecting subscript expression");
+        Expect(ctx, TOK_CloseBracket);
+        return subscript_expr;
+    }
+    op_token = Accept(ctx, TOK_OpenParent);
+    if (op_token)
+    {
+        Ast_Node *fcall_expr = PushNode(ctx, AST_FunctionCall, op_token);
+        fcall_expr->expression.function_call.fexpr = factor;
+        ParseFunctionArgs(ctx, &fcall_expr->expression.function_call);
+        ExpectAfterLast(ctx, TOK_CloseParent);
+        return fcall_expr;
+    }
+    return nullptr;
+}
+
 static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
 {
     TRACE(ParseFactor);
@@ -533,25 +543,8 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
         {
             TRACE(ParseFactor_identifier);
             Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
-            // NOTE(henrik): Only accept function call for identifiers.
-            // Is there any benefit to accept same syntax for other types of
-            // factors? Maybe even for error reporting reasons?
-            // Also, if we want to store functions into structures, we would not be
-            // able to just call them like "thing.func()"
-            if (Accept(ctx, TOK_OpenParent))
-            {
-                TRACE(ParseFactor_func_call);
-                factor = PushNode(ctx, AST_FunctionCall, ident_tok);
-                factor->expression.function_call.name = name;
-                ParseFunctionArgs(ctx, &factor->expression.function_call);
-                ExpectAfterLast(ctx, TOK_CloseParent);
-            }
-            else
-            {
-                TRACE(ParseFactor_var_ref);
-                factor = PushNode(ctx, AST_VariableRef, ident_tok);
-                factor->expression.variable_ref.name = name;
-            }
+            factor = PushNode(ctx, AST_VariableRef, ident_tok);
+            factor->expression.variable_ref.name = name;
         }
     }
 
@@ -593,6 +586,12 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
     if (post_op)
     {
         factor = post_op;
+        while (ContinueParsing(ctx))
+        {
+            post_op = ParsePostfixOperator(ctx, factor);
+            if (!post_op) break;
+            factor = post_op;
+        }
     }
 
     if (pre_op)
@@ -619,12 +618,12 @@ static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
         if (!op_token) op_token = Accept(ctx, TOK_Percent);
         if (!op_token) break;
 
-        Ast_Binary_Op op;
+        Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_Star:      op = AST_OP_Multiply; break;
-            case TOK_Slash:     op = AST_OP_Divide; break;
-            case TOK_Percent:   op = AST_OP_Modulo; break;
+            case TOK_Star:      op = BIN_OP_Multiply; break;
+            case TOK_Slash:     op = BIN_OP_Divide; break;
+            case TOK_Percent:   op = BIN_OP_Modulo; break;
             default: INVALID_CODE_PATH;
         }
 
@@ -656,14 +655,14 @@ static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
         if (!op_token) op_token = Accept(ctx, TOK_Hat);
         if (!op_token) break;
 
-        Ast_Binary_Op op;
+        Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_Plus:      op = AST_OP_Add; break;
-            case TOK_Minus:     op = AST_OP_Subtract; break;
-            case TOK_Ampersand: op = AST_OP_BitAnd; break;
-            case TOK_Pipe:      op = AST_OP_BitOr; break;
-            case TOK_Hat:       op = AST_OP_BitXor; break;
+            case TOK_Plus:      op = BIN_OP_Add; break;
+            case TOK_Minus:     op = BIN_OP_Subtract; break;
+            case TOK_Ampersand: op = BIN_OP_BitAnd; break;
+            case TOK_Pipe:      op = BIN_OP_BitOr; break;
+            case TOK_Hat:       op = BIN_OP_BitXor; break;
             default: INVALID_CODE_PATH;
         }
 
@@ -691,12 +690,12 @@ static Ast_Node* ParseRangeExpr(Parser_Context *ctx)
         if (!op_token) return expr;
 
         Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
-        bin_expr->expression.binary_expr.op = AST_OP_Range;
+        bin_expr->expression.binary_expr.op = BIN_OP_Range;
         bin_expr->expression.binary_expr.left = expr;
         bin_expr->expression.binary_expr.right = ParseAddSubExpr(ctx);
 
         if (!bin_expr->expression.binary_expr.right)
-            ErrorBinaryExprRHS(ctx, op_token, AST_OP_Range);
+            ErrorBinaryExprRHS(ctx, op_token, BIN_OP_Range);
 
         expr = bin_expr;
     }
@@ -716,11 +715,11 @@ static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
         if (!op_token) op_token = Accept(ctx, TOK_PipePipe);
         if (!op_token) break;
 
-        Ast_Binary_Op op;
+        Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_AmpAmp:    op = AST_OP_And; break;
-            case TOK_PipePipe:  op = AST_OP_Or; break;
+            case TOK_AmpAmp:    op = BIN_OP_And; break;
+            case TOK_PipePipe:  op = BIN_OP_Or; break;
             default: INVALID_CODE_PATH;
         }
 
@@ -752,15 +751,15 @@ static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
         if (!op_token) op_token = Accept(ctx, TOK_GreaterEq);
         if (!op_token) break;
 
-        Ast_Binary_Op op;
+        Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_EqEq:      op = AST_OP_Equal; break;
-            case TOK_NotEq:     op = AST_OP_NotEqual; break;
-            case TOK_Less:      op = AST_OP_Less; break;
-            case TOK_LessEq:    op = AST_OP_LessEq; break;
-            case TOK_Greater:   op = AST_OP_Greater; break;
-            case TOK_GreaterEq: op = AST_OP_GreaterEq; break;
+            case TOK_EqEq:      op = BIN_OP_Equal; break;
+            case TOK_NotEq:     op = BIN_OP_NotEqual; break;
+            case TOK_Less:      op = BIN_OP_Less; break;
+            case TOK_LessEq:    op = BIN_OP_LessEq; break;
+            case TOK_Greater:   op = BIN_OP_Greater; break;
+            case TOK_GreaterEq: op = BIN_OP_GreaterEq; break;
             default: INVALID_CODE_PATH;
         }
 
@@ -796,19 +795,19 @@ static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
         if (!op_token) op_token = Accept(ctx, TOK_TildeEq);
         if (!op_token) return expr;
 
-        Ast_Assignment_Op op;
+        Assignment_Op op;
         switch (op_token->type)
         {
-            case TOK_Eq:        op = AST_OP_Assign; break;
-            case TOK_PlusEq:    op = AST_OP_AddAssign; break;
-            case TOK_MinusEq:   op = AST_OP_SubtractAssign; break;
-            case TOK_StarEq:    op = AST_OP_MultiplyAssign; break;
-            case TOK_SlashEq:   op = AST_OP_DivideAssign; break;
-            case TOK_PercentEq: op = AST_OP_ModuloAssign; break;
-            case TOK_AmpEq:     op = AST_OP_BitAndAssign; break;
-            case TOK_PipeEq:    op = AST_OP_BitOrAssign; break;
-            case TOK_HatEq:     op = AST_OP_BitXorAssign; break;
-            case TOK_TildeEq:   op = AST_OP_ComplementAssign; break;
+            case TOK_Eq:        op = AS_OP_Assign; break;
+            case TOK_PlusEq:    op = AS_OP_AddAssign; break;
+            case TOK_MinusEq:   op = AS_OP_SubtractAssign; break;
+            case TOK_StarEq:    op = AS_OP_MultiplyAssign; break;
+            case TOK_SlashEq:   op = AS_OP_DivideAssign; break;
+            case TOK_PercentEq: op = AS_OP_ModuloAssign; break;
+            case TOK_AmpEq:     op = AS_OP_BitAndAssign; break;
+            case TOK_PipeEq:    op = AS_OP_BitOrAssign; break;
+            case TOK_HatEq:     op = AS_OP_BitXorAssign; break;
+            case TOK_TildeEq:   op = AS_OP_ComplementAssign; break;
             default: INVALID_CODE_PATH;
         }
 
@@ -1100,7 +1099,7 @@ static Ast_Node* ParseType(Parser_Context *ctx)
         if (token)
         {
             Ast_Node *pointer_node = PushNode(ctx, AST_Type_Pointer, token);
-            s64 indirection = 0;
+            s64 indirection = 1;
             while (Accept(ctx, TOK_Star))
             {
                 indirection++;
@@ -1115,7 +1114,7 @@ static Ast_Node* ParseType(Parser_Context *ctx)
         {
             Ast_Node *array_node = PushNode(ctx, AST_Type_Array, token);
             ExpectAfterLast(ctx, TOK_CloseBracket);
-            s64 arrays = 0;
+            s64 arrays = 1;
             while (Accept(ctx, TOK_OpenBracket))
             {
                 arrays++;

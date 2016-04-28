@@ -46,63 +46,62 @@ enum Ast_Node_Type
     AST_TernaryExpr,      // <expr> ? <exptr> : <expr>
 };
 
-enum Ast_Binary_Op
+enum Binary_Op
 {
-    AST_OP_Add,
-    AST_OP_Subtract,
-    AST_OP_Multiply,
-    AST_OP_Divide,
-    // TODO(henrik): Should modulo work for floats too?
-    AST_OP_Modulo,
+    BIN_OP_Add,
+    BIN_OP_Subtract,
+    BIN_OP_Multiply,
+    BIN_OP_Divide,
+    BIN_OP_Modulo,
 
-    AST_OP_BitAnd,
-    AST_OP_BitOr,
-    AST_OP_BitXor,
+    BIN_OP_BitAnd,
+    BIN_OP_BitOr,
+    BIN_OP_BitXor,
 
-    AST_OP_And,
-    AST_OP_Or,
+    BIN_OP_And,
+    BIN_OP_Or,
 
-    AST_OP_Equal,
-    AST_OP_NotEqual,
-    AST_OP_Less,
-    AST_OP_LessEq,
-    AST_OP_Greater,
-    AST_OP_GreaterEq,
+    BIN_OP_Equal,
+    BIN_OP_NotEqual,
+    BIN_OP_Less,
+    BIN_OP_LessEq,
+    BIN_OP_Greater,
+    BIN_OP_GreaterEq,
 
-    AST_OP_Range,       // a .. b
+    BIN_OP_Range,       // a .. b
 
-    AST_OP_Access,      // a.member
-    AST_OP_Subscript,   // a[x]
+    BIN_OP_Access,      // a.member
+    BIN_OP_Subscript,   // a[x]
 };
 
-enum Ast_Unary_Op
+enum Unary_Op
 {
-    AST_OP_Positive,
-    AST_OP_Negative,
-    AST_OP_Complement,
+    UN_OP_Positive,
+    UN_OP_Negative,
+    UN_OP_Complement,
 
-    AST_OP_Not,
+    UN_OP_Not,
 
-    AST_OP_Address,      // &: Take address of a variable
-    AST_OP_Deref,        // @: Dereference pointer
+    UN_OP_Address,      // &: Take address of a variable
+    UN_OP_Deref,        // @: Dereference pointer
 };
 
-enum Ast_Assignment_Op
+enum Assignment_Op
 {
-    AST_OP_Assign,
+    AS_OP_Assign,
 
     // Shorthand assigment operators
-    AST_OP_AddAssign,
-    AST_OP_SubtractAssign,
-    AST_OP_MultiplyAssign,
-    AST_OP_DivideAssign,
-    AST_OP_ModuloAssign,
+    AS_OP_AddAssign,
+    AS_OP_SubtractAssign,
+    AS_OP_MultiplyAssign,
+    AS_OP_DivideAssign,
+    AS_OP_ModuloAssign,
 
-    AST_OP_BitAndAssign,
-    AST_OP_BitOrAssign,
-    AST_OP_BitXorAssign,
+    AS_OP_BitAndAssign,
+    AS_OP_BitOrAssign,
+    AS_OP_BitXorAssign,
 
-    AST_OP_ComplementAssign,
+    AS_OP_ComplementAssign,
 };
 
 
@@ -136,13 +135,13 @@ struct Ast_String_Literal
 
 struct Ast_Binary_Expr
 {
-    Ast_Binary_Op op;
+    Binary_Op op;
     Ast_Node *left, *right;
 };
 
 struct Ast_Unary_Expr
 {
-    Ast_Unary_Op op;
+    Unary_Op op;
     Ast_Node *expr;
 };
 
@@ -160,13 +159,13 @@ struct Ast_Variable_Ref
 
 struct Ast_Function_Call
 {
-    Name name;
+    Ast_Node *fexpr;
     Ast_Node_List args;
 };
 
 struct Ast_Assignment
 {
-    Ast_Assignment_Op op;
+    Assignment_Op op;
     Ast_Node *left;
     Ast_Node *right;
 };

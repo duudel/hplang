@@ -149,15 +149,16 @@ static void FreeAstNode(Ast_Node *node)
 
         case AST_Null:
         case AST_BoolLiteral:
+        case AST_CharLiteral:
         case AST_IntLiteral:
         case AST_Float32Literal:
         case AST_Float64Literal:
-        case AST_CharLiteral:
         case AST_StringLiteral:
         case AST_VariableRef:
             break;
 
         case AST_FunctionCall:
+            FreeAstNode(node->expression.function_call.fexpr);
             FreeAstNodeList(&node->expression.function_call.args);
             break;
 
