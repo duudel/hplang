@@ -189,7 +189,6 @@ enum Lexer_State
     LS_AmpEq,           // &=
     LS_PipeEq,          // |=
     LS_HatEq,           // ^=
-    LS_TildeEq,         // ~=
 
     LS_Comment,
     LS_MultilineComment,
@@ -204,6 +203,7 @@ enum Lexer_State
 struct FSM
 {
     Lexer_State state;
+    Token_Type token_type;
     b32 emit;
     b32 done;
     b32 carriage_return;
@@ -309,6 +309,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 break;
             case '.': fsm.state = LS_FloatP; break;
             default:
+                fsm.token_type = TOK_IntegerLit;
                 fsm.emit = true;
         } break;
 
@@ -332,6 +333,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'f': fsm.state = LS_FloatF; break;
             case 'd': fsm.state = LS_FloatD; break;
             default:
+                fsm.token_type = TOK_Float64Lit;
                 fsm.emit = true;
         } break;
     case LS_FloatE1:
@@ -343,6 +345,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '5': case '6': case '7': case '8': case '9':
                 fsm.state = LS_FloatE; break;
             default:
+                fsm.token_type = TOK_Float64Lit;
                 fsm.emit = true;
         } break;
     case LS_FloatE_Sign:
@@ -364,10 +367,15 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'f': fsm.state = LS_FloatF; break;
             case 'd': fsm.state = LS_FloatD; break;
             default:
+                fsm.token_type = TOK_Float64Lit;
                 fsm.emit = true;
         } break;
     case LS_FloatF:
+        fsm.token_type = TOK_Float32Lit;
+        fsm.emit = true;
+        break;
     case LS_FloatD:
+        fsm.token_type = TOK_Float64Lit;
         fsm.emit = true;
         break;
 
@@ -384,6 +392,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         fsm.state = LS_StringLit;
         break;
     case LS_StringLitEnd:
+        fsm.token_type = TOK_StringLit;
         fsm.emit = true;
         break;
 
@@ -400,23 +409,30 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         fsm.state = LS_CharLit;
         break;
     case LS_CharLitEnd:
+        fsm.token_type = TOK_CharLit;
         fsm.emit = true;
         break;
 
     case LS_Ident:
         if (is_ident(c))
+        {
             fsm.state = LS_Ident;
+        }
         else
+        {
+            fsm.token_type = TOK_Identifier;
             fsm.emit = true;
+        }
         break;
 
-    #define KW_END_CASE()\
+    #define KW_END_CASE(tt)\
         if (is_ident(c))\
         {\
             fsm.state = LS_Ident;\
         }\
         else\
         {\
+            fsm.token_type = tt;\
             fsm.emit = true;\
         }\
         break
@@ -429,6 +445,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         else\
         {\
             fsm.state = LS_Ident;\
+            fsm.token_type = TOK_Identifier;\
             fsm.emit = true;\
         }\
         break
@@ -446,17 +463,17 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     SINGLE_CASE(LS_STR_b, 'o', LS_STR_bo);
     SINGLE_CASE(LS_STR_bo, 'o', LS_STR_boo);
     SINGLE_CASE(LS_STR_boo, 'l', LS_STR_bool);
-    case LS_STR_bool: KW_END_CASE();
+    case LS_STR_bool: KW_END_CASE(TOK_Type_Bool);
 
     SINGLE_CASE(LS_STR_c, 'h', LS_STR_ch);
     SINGLE_CASE(LS_STR_ch, 'a', LS_STR_cha);
     SINGLE_CASE(LS_STR_cha, 'r', LS_STR_char);
-    case LS_STR_char: KW_END_CASE();
+    case LS_STR_char: KW_END_CASE(TOK_Type_Char);
 
     SINGLE_CASE(LS_STR_e, 'l', LS_STR_el);
     SINGLE_CASE(LS_STR_el, 's', LS_STR_els);
     SINGLE_CASE(LS_STR_els, 'e', LS_STR_else);
-    case LS_STR_else: KW_END_CASE();
+    case LS_STR_else: KW_END_CASE(TOK_Else);
 
     case LS_STR_f:
         switch (c)
@@ -473,14 +490,14 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 STR_END_CASE();
         } break;
     SINGLE_CASE(LS_STR_f3, '2', LS_STR_f32);
-    case LS_STR_f32: KW_END_CASE();
+    case LS_STR_f32: KW_END_CASE(TOK_Type_F32);
     SINGLE_CASE(LS_STR_f6, '4', LS_STR_f64);
-    case LS_STR_f64: KW_END_CASE();
+    case LS_STR_f64: KW_END_CASE(TOK_Type_F64);
 
     SINGLE_CASE(LS_STR_fa, 'l', LS_STR_fal);
     SINGLE_CASE(LS_STR_fal, 's', LS_STR_fals);
     SINGLE_CASE(LS_STR_fals, 'e', LS_STR_false);
-    case LS_STR_false: KW_END_CASE();
+    case LS_STR_false: KW_END_CASE(TOK_FalseLit);
 
     SINGLE_CASE(LS_STR_fo, 'r', LS_STR_for);
     case LS_STR_for:
@@ -489,12 +506,12 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 'e':
                 fsm.state = LS_STR_fore; break;
             default:
-                KW_END_CASE(); // NOTE(henrik): this must be KW_END_CASE
+                KW_END_CASE(TOK_For);
         } break;
     SINGLE_CASE(LS_STR_fore, 'i', LS_STR_forei);
     SINGLE_CASE(LS_STR_forei, 'g', LS_STR_foreig);
     SINGLE_CASE(LS_STR_foreig, 'n', LS_STR_foreign);
-    case LS_STR_foreign: KW_END_CASE();
+    case LS_STR_foreign: KW_END_CASE(TOK_Foreign);
 
     case LS_STR_i:
         switch (c)
@@ -506,25 +523,25 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             default:
                 STR_END_CASE();
         } break;
-    case LS_STR_if: KW_END_CASE();
+    case LS_STR_if: KW_END_CASE(TOK_If);
 
     SINGLE_CASE(LS_STR_im, 'p', LS_STR_imp);
     SINGLE_CASE(LS_STR_imp, 'o', LS_STR_impo);
     SINGLE_CASE(LS_STR_impo, 'r', LS_STR_impor);
     SINGLE_CASE(LS_STR_impor, 't', LS_STR_import);
-    case LS_STR_import: KW_END_CASE();
+    case LS_STR_import: KW_END_CASE(TOK_Import);
 
     SINGLE_CASE(LS_STR_n, 'u', LS_STR_nu);
     SINGLE_CASE(LS_STR_nu, 'l', LS_STR_nul);
     SINGLE_CASE(LS_STR_nul, 'l', LS_STR_null);
-    case LS_STR_null: KW_END_CASE();
+    case LS_STR_null: KW_END_CASE(TOK_Null);
 
     SINGLE_CASE(LS_STR_r, 'e', LS_STR_re);
     SINGLE_CASE(LS_STR_re, 't', LS_STR_ret);
     SINGLE_CASE(LS_STR_ret, 'u', LS_STR_retu);
     SINGLE_CASE(LS_STR_retu, 'r', LS_STR_retur);
     SINGLE_CASE(LS_STR_retur, 'n', LS_STR_return);
-    case LS_STR_return: KW_END_CASE();
+    case LS_STR_return: KW_END_CASE(TOK_Return);
 
     case LS_STR_s:
         switch (c)
@@ -542,13 +559,13 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             default:
                 STR_END_CASE();
         } break;
-    case LS_STR_s8: KW_END_CASE();
+    case LS_STR_s8: KW_END_CASE(TOK_Type_S8);
     SINGLE_CASE(LS_STR_s1, '6', LS_STR_s16);
-    case LS_STR_s16: KW_END_CASE();
+    case LS_STR_s16: KW_END_CASE(TOK_Type_S16);
     SINGLE_CASE(LS_STR_s3, '2', LS_STR_s32);
-    case LS_STR_s32: KW_END_CASE();
+    case LS_STR_s32: KW_END_CASE(TOK_Type_S32);
     SINGLE_CASE(LS_STR_s6, '4', LS_STR_s64);
-    case LS_STR_s64: KW_END_CASE();
+    case LS_STR_s64: KW_END_CASE(TOK_Type_S64);
 
     SINGLE_CASE(LS_STR_st, 'r', LS_STR_str);
     case LS_STR_str:
@@ -563,16 +580,16 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         } break;
     SINGLE_CASE(LS_STR_stri, 'n', LS_STR_strin);
     SINGLE_CASE(LS_STR_strin, 'g', LS_STR_string);
-    case LS_STR_string: KW_END_CASE();
+    case LS_STR_string: KW_END_CASE(TOK_Type_String);
 
     SINGLE_CASE(LS_STR_stru, 'c', LS_STR_struc);
     SINGLE_CASE(LS_STR_struc, 't', LS_STR_struct);
-    case LS_STR_struct: KW_END_CASE();
+    case LS_STR_struct: KW_END_CASE(TOK_Struct);
 
     SINGLE_CASE(LS_STR_t, 'r', LS_STR_tr);
     SINGLE_CASE(LS_STR_tr, 'u', LS_STR_tru);
     SINGLE_CASE(LS_STR_tru, 'e', LS_STR_true);
-    case LS_STR_true: KW_END_CASE();
+    case LS_STR_true: KW_END_CASE(TOK_TrueLit);
 
     case LS_STR_u:
         switch (c)
@@ -588,41 +605,27 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             default:
                 STR_END_CASE();
         } break;
-    case LS_STR_u8: KW_END_CASE();
+    case LS_STR_u8: KW_END_CASE(TOK_Type_U8);
     SINGLE_CASE(LS_STR_u1, '6', LS_STR_u16);
-    case LS_STR_u16: KW_END_CASE();
+    case LS_STR_u16: KW_END_CASE(TOK_Type_U16);
     SINGLE_CASE(LS_STR_u3, '2', LS_STR_u32);
-    case LS_STR_u32: KW_END_CASE();
+    case LS_STR_u32: KW_END_CASE(TOK_Type_U32);
     SINGLE_CASE(LS_STR_u6, '4', LS_STR_u64);
-    case LS_STR_u64: KW_END_CASE();
+    case LS_STR_u64: KW_END_CASE(TOK_Type_U64);
 
     SINGLE_CASE(LS_STR_v, 'o', LS_STR_vo);
     SINGLE_CASE(LS_STR_vo, 'i', LS_STR_voi);
     SINGLE_CASE(LS_STR_voi, 'd', LS_STR_void);
-    case LS_STR_void: KW_END_CASE();
+    case LS_STR_void: KW_END_CASE(TOK_Type_Void);
 
     SINGLE_CASE(LS_STR_w, 'h', LS_STR_wh);
     SINGLE_CASE(LS_STR_wh, 'i', LS_STR_whi);
     SINGLE_CASE(LS_STR_whi, 'l', LS_STR_whil);
     SINGLE_CASE(LS_STR_whil, 'e', LS_STR_while);
-    case LS_STR_while: KW_END_CASE();
+    case LS_STR_while: KW_END_CASE(TOK_While);
 
     case LS_Hash:
-    case LS_ColonColon:
-    case LS_ColonEq:
-    case LS_PeriodPeriod:
-    case LS_Semicolon:
-    case LS_Comma:
-    case LS_QuestionMark:
-    case LS_OpenBlock:
-    case LS_CloseBlock:
-    case LS_OpenParent:
-    case LS_CloseParent:
-    case LS_OpenBracket:
-    case LS_CloseBracket:
-        fsm.emit = true;
-        break;
-    case LS_At:
+        fsm.token_type = TOK_Hash;
         fsm.emit = true;
         break;
 
@@ -632,65 +635,160 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case ':': fsm.state = LS_ColonColon; break;
             case '=': fsm.state = LS_ColonEq; break;
             default:
+                fsm.token_type = TOK_Colon;
                 fsm.emit = true;
         } break;
+    case LS_ColonColon:
+        fsm.token_type = TOK_ColonColon;
+        fsm.emit = true;
+        break;
+    case LS_ColonEq:
+        fsm.token_type = TOK_ColonEq;
+        fsm.emit = true;
+        break;
+
+    case LS_Semicolon:
+        fsm.token_type = TOK_Semicolon;
+        fsm.emit = true;
+        break;
+    case LS_Comma:
+        fsm.token_type = TOK_Comma;
+        fsm.emit = true;
+        break;
+
     case LS_Period:
         switch (c)
         {
             case '.': fsm.state = LS_PeriodPeriod; break;
             default:
+                fsm.token_type = TOK_Period;
                 fsm.emit = true;
         } break;
+    case LS_PeriodPeriod:
+        fsm.token_type = TOK_PeriodPeriod;
+        fsm.emit = true;
+        break;
+
+    case LS_QuestionMark:
+        fsm.token_type = TOK_QuestionMark;
+        fsm.emit = true;
+        break;
+    case LS_OpenBlock:
+        fsm.token_type = TOK_OpenBlock;
+        fsm.emit = true;
+        break;
+    case LS_CloseBlock:
+        fsm.token_type = TOK_CloseBlock;
+        fsm.emit = true;
+        break;
+    case LS_OpenParent:
+        fsm.token_type = TOK_OpenParent;
+        fsm.emit = true;
+        break;
+    case LS_CloseParent:
+        fsm.token_type = TOK_CloseParent;
+        fsm.emit = true;
+        break;
+    case LS_OpenBracket:
+        fsm.token_type = TOK_OpenBracket;
+        fsm.emit = true;
+        break;
+    case LS_CloseBracket:
+        fsm.token_type = TOK_CloseBracket;
+        fsm.emit = true;
+        break;
 
     case LS_Eq:
         switch (c)
         {
             case '=': fsm.state = LS_EqEq; break;
             default:
+                fsm.token_type = TOK_Eq;
                 fsm.emit = true;
         } break;
+    case LS_EqEq:
+        fsm.token_type = TOK_EqEq;
+        fsm.emit = true;
+        break;
+
     case LS_Bang:
         switch (c)
         {
             case '=': fsm.state = LS_NotEq; break;
             default:
+                fsm.token_type = TOK_Bang;
                 fsm.emit = true;
         } break;
+    case LS_NotEq:
+        fsm.token_type = TOK_NotEq;
+        fsm.emit = true;
+        break;
+
     case LS_Less:
         switch (c)
         {
             case '=': fsm.state = LS_LessEq; break;
             default:
+                fsm.token_type = TOK_Less;
                 fsm.emit = true;
         } break;
+    case LS_LessEq:
+        fsm.token_type = TOK_LessEq;
+        fsm.emit = true;
+        break;
+
     case LS_Greater:
         switch (c)
         {
             case '=': fsm.state = LS_GreaterEq; break;
             default:
+                fsm.token_type = TOK_Greater;
                 fsm.emit = true;
         } break;
+    case LS_GreaterEq:
+        fsm.token_type = TOK_GreaterEq;
+        fsm.emit = true;
+        break;
+
     case LS_Plus:
         switch (c)
         {
             case '=': fsm.state = LS_PlusEq; break;
             default:
+                fsm.token_type = TOK_Plus;
                 fsm.emit = true;
         } break;
+    case LS_PlusEq:
+        fsm.token_type = TOK_PlusEq;
+        fsm.emit = true;
+        break;
+
     case LS_Minus:
         switch (c)
         {
             case '=': fsm.state = LS_MinusEq; break;
             default:
+                fsm.token_type = TOK_Minus;
                 fsm.emit = true;
         } break;
+    case LS_MinusEq:
+        fsm.token_type = TOK_MinusEq;
+        fsm.emit = true;
+        break;
+
     case LS_Star:
         switch (c)
         {
             case '=': fsm.state = LS_StarEq; break;
             default:
+                fsm.token_type = TOK_Star;
                 fsm.emit = true;
         } break;
+    case LS_StarEq:
+        fsm.token_type = TOK_StarEq;
+        fsm.emit = true;
+        break;
+
     case LS_Slash:
         switch (c)
         {
@@ -698,53 +796,69 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case '*': fsm.state = LS_MultilineComment; break;
             case '=': fsm.state = LS_SlashEq; break;
             default:
+                fsm.token_type = TOK_Slash;
                 fsm.emit = true;
         } break;
+    case LS_SlashEq:
+        fsm.token_type = TOK_SlashEq;
+        fsm.emit = true;
+        break;
+
     case LS_Ampersand:
         switch (c)
         {
             case '=': fsm.state = LS_AmpEq; break;
             case '&': fsm.state = LS_AmpAmp; break;
             default:
+                fsm.token_type = TOK_Ampersand;
                 fsm.emit = true;
         } break;
+    case LS_AmpEq:
+        fsm.token_type = TOK_AmpEq;
+        fsm.emit = true;
+        break;
+    case LS_AmpAmp:
+        fsm.token_type = TOK_AmpAmp;
+        fsm.emit = true;
+        break;
+
     case LS_Pipe:
         switch (c)
         {
             case '=': fsm.state = LS_PipeEq; break;
             case '|': fsm.state = LS_PipePipe; break;
             default:
+                fsm.token_type = TOK_Pipe;
                 fsm.emit = true;
         } break;
+    case LS_PipeEq:
+        fsm.token_type = TOK_PipeEq;
+        fsm.emit = true;
+        break;
+    case LS_PipePipe:
+        fsm.token_type = TOK_PipePipe;
+        fsm.emit = true;
+        break;
+
     case LS_Hat:
         switch (c)
         {
             case '=': fsm.state = LS_HatEq; break;
             default:
+                fsm.token_type = TOK_Hat;
                 fsm.emit = true;
         } break;
-    case LS_Tilde:
-        switch (c)
-        {
-            case '=': fsm.state = LS_TildeEq; break;
-            default:
-                fsm.emit = true;
-        } break;
-
-    case LS_EqEq:
-    case LS_NotEq:
-    case LS_LessEq:
-    case LS_GreaterEq:
-    case LS_PlusEq:
-    case LS_MinusEq:
-    case LS_StarEq:
-    case LS_SlashEq:
-    case LS_AmpEq:
-    case LS_PipeEq:
     case LS_HatEq:
-    case LS_TildeEq:
-    case LS_AmpAmp:
-    case LS_PipePipe:
+        fsm.token_type = TOK_HatEq;
+        fsm.emit = true;
+        break;
+
+    case LS_Tilde:
+        fsm.token_type = TOK_Tilde;
+        fsm.emit = true;
+        break;
+    case LS_At:
+        fsm.token_type = TOK_At;
         fsm.emit = true;
         break;
 
@@ -779,292 +893,13 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     case LS_COUNT:
         INVALID_CODE_PATH;
     }
-    //fsm.state = LS_Invalid;
-    //fsm.emit = false;
     return fsm;
 }
 
-void EmitToken(Lexer_Context *ctx, Lexer_State state)
+void EmitToken(Lexer_Context *ctx, Token_Type token_type)
 {
-    switch (state)
-    {
-        case LS_Default:
-            INVALID_CODE_PATH;
-
-        case LS_Int:
-            ctx->current_token.type = TOK_IntegerLit; break;
-        case LS_Float:
-            ctx->current_token.type = TOK_Float64Lit; break;
-        case LS_FloatE:
-            ctx->current_token.type = TOK_Float64Lit; break;
-        case LS_FloatF:
-            ctx->current_token.type = TOK_Float32Lit; break;
-        case LS_FloatD:
-            ctx->current_token.type = TOK_Float64Lit; break;
-
-        case LS_CharLit:
-        case LS_CharLitEsc:
-            INVALID_CODE_PATH;
-        case LS_CharLitEnd:
-            ctx->current_token.type = TOK_CharLit; break;
-
-        case LS_StringLit:
-        case LS_StringLitEsc:
-            INVALID_CODE_PATH;
-        case LS_StringLitEnd:
-            ctx->current_token.type = TOK_StringLit; break;
-
-        case LS_Ident:
-            ctx->current_token.type = TOK_Identifier; break;
-
-        case LS_STR_b:
-        case LS_STR_bo:
-        case LS_STR_boo:
-            INVALID_CODE_PATH;
-        case LS_STR_bool:
-            ctx->current_token.type = TOK_Type_Bool; break;
-
-        case LS_STR_c:
-        case LS_STR_ch:
-        case LS_STR_cha:
-            INVALID_CODE_PATH;
-        case LS_STR_char:
-            ctx->current_token.type = TOK_Type_Char; break;
-
-        case LS_STR_e:
-        case LS_STR_el:
-        case LS_STR_els:
-            INVALID_CODE_PATH;
-        case LS_STR_else:
-            ctx->current_token.type = TOK_Else; break;
-
-        case LS_STR_f:
-        case LS_STR_f3:
-            INVALID_CODE_PATH;
-        case LS_STR_f32:
-            ctx->current_token.type = TOK_Type_F32; break;
-
-        case LS_STR_f6:
-            INVALID_CODE_PATH;
-        case LS_STR_f64:
-            ctx->current_token.type = TOK_Type_F64; break;
-
-        case LS_STR_fa:
-        case LS_STR_fal:
-        case LS_STR_fals:
-            INVALID_CODE_PATH;
-        case LS_STR_false:
-            ctx->current_token.type = TOK_FalseLit; break;
-
-        case LS_STR_fo:
-            INVALID_CODE_PATH;
-        case LS_STR_for:
-            ctx->current_token.type = TOK_For; break;
-
-        case LS_STR_fore:
-        case LS_STR_forei:
-        case LS_STR_foreig:
-            INVALID_CODE_PATH;
-        case LS_STR_foreign:
-            ctx->current_token.type = TOK_Foreign; break;
-
-        case LS_STR_i:
-            INVALID_CODE_PATH;
-        case LS_STR_if:
-            ctx->current_token.type = TOK_If; break;
-
-        case LS_STR_im:
-        case LS_STR_imp:
-        case LS_STR_impo:
-        case LS_STR_impor:
-            INVALID_CODE_PATH;
-        case LS_STR_import:
-            ctx->current_token.type = TOK_Import; break;
-
-        case LS_STR_n:
-        case LS_STR_nu:
-        case LS_STR_nul:
-            INVALID_CODE_PATH;
-        case LS_STR_null:
-            ctx->current_token.type = TOK_Null; break;
-
-        case LS_STR_r:
-        case LS_STR_re:
-        case LS_STR_ret:
-        case LS_STR_retu:
-        case LS_STR_retur:
-            INVALID_CODE_PATH;
-        case LS_STR_return:
-            ctx->current_token.type = TOK_Return; break;
-
-        case LS_STR_s:
-        case LS_STR_st:
-        case LS_STR_str:
-        case LS_STR_stri:
-        case LS_STR_strin:
-            INVALID_CODE_PATH;
-        case LS_STR_string:
-            ctx->current_token.type = TOK_Type_String; break;
-
-        case LS_STR_stru:
-        case LS_STR_struc:
-            INVALID_CODE_PATH;
-        case LS_STR_struct:
-            ctx->current_token.type = TOK_Struct; break;
-
-        case LS_STR_s8:
-            ctx->current_token.type = TOK_Type_S8; break;
-
-        case LS_STR_s1:
-            INVALID_CODE_PATH;
-        case LS_STR_s16:
-            ctx->current_token.type = TOK_Type_S16; break;
-
-        case LS_STR_s3:
-            INVALID_CODE_PATH;
-        case LS_STR_s32:
-            ctx->current_token.type = TOK_Type_S32; break;
-
-        case LS_STR_s6:
-            INVALID_CODE_PATH;
-        case LS_STR_s64:
-            ctx->current_token.type = TOK_Type_S64; break;
-
-        case LS_STR_t:
-        case LS_STR_tr:
-        case LS_STR_tru:
-            INVALID_CODE_PATH;
-        case LS_STR_true:
-            ctx->current_token.type = TOK_TrueLit; break;
-
-        case LS_STR_u:
-            INVALID_CODE_PATH;
-        case LS_STR_u8:
-            ctx->current_token.type = TOK_Type_U8; break;
-
-        case LS_STR_u1:
-            INVALID_CODE_PATH;
-        case LS_STR_u16:
-            ctx->current_token.type = TOK_Type_U16; break;
-
-        case LS_STR_u3:
-            INVALID_CODE_PATH;
-        case LS_STR_u32:
-            ctx->current_token.type = TOK_Type_U32; break;
-
-        case LS_STR_u6:
-            INVALID_CODE_PATH;
-        case LS_STR_u64:
-            ctx->current_token.type = TOK_Type_U64; break;
-
-        case LS_STR_w:
-        case LS_STR_wh:
-        case LS_STR_whi:
-        case LS_STR_whil:
-            INVALID_CODE_PATH;
-        case LS_STR_while:
-            ctx->current_token.type = TOK_While; break;
-
-        case LS_Hash:
-            ctx->current_token.type = TOK_Hash; break;
-        case LS_Colon:
-            ctx->current_token.type = TOK_Colon; break;
-        case LS_ColonColon:
-            ctx->current_token.type = TOK_ColonColon; break;
-        case LS_ColonEq:
-            ctx->current_token.type = TOK_ColonEq; break;
-        case LS_Semicolon:
-            ctx->current_token.type = TOK_Semicolon; break;
-        case LS_Comma:
-            ctx->current_token.type = TOK_Comma; break;
-        case LS_Period:
-            ctx->current_token.type = TOK_Period; break;
-        case LS_PeriodPeriod:
-            ctx->current_token.type = TOK_PeriodPeriod; break;
-        case LS_QuestionMark:
-            ctx->current_token.type = TOK_QuestionMark; break;
-        case LS_OpenBlock:
-            ctx->current_token.type = TOK_OpenBlock; break;
-        case LS_CloseBlock:
-            ctx->current_token.type = TOK_CloseBlock; break;
-        case LS_OpenParent:
-            ctx->current_token.type = TOK_OpenParent; break;
-        case LS_CloseParent:
-            ctx->current_token.type = TOK_CloseParent; break;
-        case LS_OpenBracket:
-            ctx->current_token.type = TOK_OpenBracket; break;
-        case LS_CloseBracket:
-            ctx->current_token.type = TOK_CloseBracket; break;
-
-        case LS_Eq:
-            ctx->current_token.type = TOK_Eq; break;
-        case LS_EqEq:
-            ctx->current_token.type = TOK_EqEq; break;
-        case LS_Bang:
-            ctx->current_token.type = TOK_Bang; break;
-        case LS_NotEq:
-            ctx->current_token.type = TOK_NotEq; break;
-        case LS_Less:
-            ctx->current_token.type = TOK_Less; break;
-        case LS_LessEq:
-            ctx->current_token.type = TOK_LessEq; break;
-        case LS_Greater:
-            ctx->current_token.type = TOK_Greater; break;
-        case LS_GreaterEq:
-            ctx->current_token.type = TOK_GreaterEq; break;
-
-        case LS_Plus:
-            ctx->current_token.type = TOK_Plus; break;
-        case LS_Minus:
-            ctx->current_token.type = TOK_Minus; break;
-        case LS_Star:
-            ctx->current_token.type = TOK_Star; break;
-        case LS_Slash:
-            ctx->current_token.type = TOK_Slash; break;
-
-        case LS_PlusEq:
-            ctx->current_token.type = TOK_PlusEq; break;
-        case LS_MinusEq:
-            ctx->current_token.type = TOK_MinusEq; break;
-        case LS_StarEq:
-            ctx->current_token.type = TOK_StarEq; break;
-        case LS_SlashEq:
-            ctx->current_token.type = TOK_SlashEq; break;
-
-        case LS_Ampersand:
-            ctx->current_token.type = TOK_Ampersand; break;
-        case LS_AmpAmp:
-            ctx->current_token.type = TOK_AmpAmp; break;
-        case LS_Pipe:
-            ctx->current_token.type = TOK_Pipe; break;
-        case LS_PipePipe:
-            ctx->current_token.type = TOK_PipePipe; break;
-        case LS_Hat:
-            ctx->current_token.type = TOK_Hat; break;
-        case LS_Tilde:
-            ctx->current_token.type = TOK_Tilde; break;
-        case LS_At:
-            ctx->current_token.type = TOK_At; break;
-
-        case LS_AmpEq:
-            ctx->current_token.type = TOK_AmpEq; break;
-        case LS_PipeEq:
-            ctx->current_token.type = TOK_PipeEq; break;
-        case LS_HatEq:
-            ctx->current_token.type = TOK_HatEq; break;
-        case LS_TildeEq:
-            ctx->current_token.type = TOK_TildeEq; break;
-
-        case LS_Comment:
-        case LS_MultilineComment:
-        case LS_MultilineCommentStar:
-
-        case LS_Invalid:
-        case LS_Junk:
-        default:
-            INVALID_CODE_PATH;
-    }
     Token *token = PushTokenList(ctx->tokens);
+    ctx->current_token.type = token_type;
     *token = ctx->current_token;
 }
 
@@ -1171,11 +1006,7 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
         {
             ctx->file_loc.offset_end = cur;
             ctx->current_token.value_end = text + cur;
-            //fprintf(stderr, "Token value: ");
-            //PrintTokenValue(stderr, &ctx->current_token);
-            //fprintf(stderr, "\n");
-
-            EmitToken(ctx, fsm.state);
+            EmitToken(ctx, fsm.token_type);
 
             fsm.emit = false;
             fsm.state = LS_Default;

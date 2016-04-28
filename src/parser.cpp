@@ -789,7 +789,6 @@ static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
         if (!op_token) op_token = Accept(ctx, TOK_AmpEq);
         if (!op_token) op_token = Accept(ctx, TOK_PipeEq);
         if (!op_token) op_token = Accept(ctx, TOK_HatEq);
-        if (!op_token) op_token = Accept(ctx, TOK_TildeEq);
         if (!op_token) return expr;
 
         Assignment_Op op;

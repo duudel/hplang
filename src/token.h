@@ -94,7 +94,6 @@ enum Token_Type
     TOK_AmpEq,          // &=
     TOK_PipeEq,         // |=
     TOK_HatEq,          // ^=
-    TOK_TildeEq,        // ~=
 
     TOK_Bang,           // !
     TOK_AmpAmp,         // &&

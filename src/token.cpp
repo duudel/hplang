@@ -97,7 +97,6 @@ static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_AmpEq,             "&="},
     {TOK_PipeEq,            "|="},
     {TOK_HatEq,             "^="},
-    {TOK_TildeEq,           "~="},
 
     {TOK_Bang,              "!"},
     {TOK_AmpAmp,            "&&"},
