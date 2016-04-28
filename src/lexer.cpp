@@ -624,10 +624,13 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     SINGLE_CASE(LS_STR_whil, 'e', LS_STR_while);
     case LS_STR_while: KW_END_CASE(TOK_While);
 
-    case LS_Hash:
-        fsm.token_type = TOK_Hash;
-        fsm.emit = true;
-        break;
+    #define EMIT_CASE(ls, tt)\
+    case ls:\
+        fsm.token_type = tt;\
+        fsm.emit = true;\
+        break
+
+    EMIT_CASE(LS_Hash, TOK_Hash);
 
     case LS_Colon:
         switch (c)
@@ -638,23 +641,11 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Colon;
                 fsm.emit = true;
         } break;
-    case LS_ColonColon:
-        fsm.token_type = TOK_ColonColon;
-        fsm.emit = true;
-        break;
-    case LS_ColonEq:
-        fsm.token_type = TOK_ColonEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_ColonColon, TOK_ColonColon);
+    EMIT_CASE(LS_ColonEq, TOK_ColonEq);
 
-    case LS_Semicolon:
-        fsm.token_type = TOK_Semicolon;
-        fsm.emit = true;
-        break;
-    case LS_Comma:
-        fsm.token_type = TOK_Comma;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_Semicolon, TOK_Semicolon);
+    EMIT_CASE(LS_Comma, TOK_Comma);
 
     case LS_Period:
         switch (c)
@@ -664,39 +655,15 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Period;
                 fsm.emit = true;
         } break;
-    case LS_PeriodPeriod:
-        fsm.token_type = TOK_PeriodPeriod;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_PeriodPeriod, TOK_PeriodPeriod);
 
-    case LS_QuestionMark:
-        fsm.token_type = TOK_QuestionMark;
-        fsm.emit = true;
-        break;
-    case LS_OpenBlock:
-        fsm.token_type = TOK_OpenBlock;
-        fsm.emit = true;
-        break;
-    case LS_CloseBlock:
-        fsm.token_type = TOK_CloseBlock;
-        fsm.emit = true;
-        break;
-    case LS_OpenParent:
-        fsm.token_type = TOK_OpenParent;
-        fsm.emit = true;
-        break;
-    case LS_CloseParent:
-        fsm.token_type = TOK_CloseParent;
-        fsm.emit = true;
-        break;
-    case LS_OpenBracket:
-        fsm.token_type = TOK_OpenBracket;
-        fsm.emit = true;
-        break;
-    case LS_CloseBracket:
-        fsm.token_type = TOK_CloseBracket;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_QuestionMark, TOK_QuestionMark);
+    EMIT_CASE(LS_OpenBlock, TOK_OpenBlock);
+    EMIT_CASE(LS_CloseBlock, TOK_CloseBlock);
+    EMIT_CASE(LS_OpenParent, TOK_OpenParent);
+    EMIT_CASE(LS_CloseParent, TOK_CloseParent);
+    EMIT_CASE(LS_OpenBracket, TOK_OpenBracket);
+    EMIT_CASE(LS_CloseBracket, TOK_CloseBracket);
 
     case LS_Eq:
         switch (c)
@@ -706,10 +673,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Eq;
                 fsm.emit = true;
         } break;
-    case LS_EqEq:
-        fsm.token_type = TOK_EqEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_EqEq, TOK_EqEq);
 
     case LS_Bang:
         switch (c)
@@ -719,10 +683,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Bang;
                 fsm.emit = true;
         } break;
-    case LS_NotEq:
-        fsm.token_type = TOK_NotEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_NotEq, TOK_NotEq);
 
     case LS_Less:
         switch (c)
@@ -732,10 +693,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Less;
                 fsm.emit = true;
         } break;
-    case LS_LessEq:
-        fsm.token_type = TOK_LessEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_LessEq, TOK_LessEq);
 
     case LS_Greater:
         switch (c)
@@ -745,10 +703,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Greater;
                 fsm.emit = true;
         } break;
-    case LS_GreaterEq:
-        fsm.token_type = TOK_GreaterEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_GreaterEq, TOK_GreaterEq);
 
     case LS_Plus:
         switch (c)
@@ -758,10 +713,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Plus;
                 fsm.emit = true;
         } break;
-    case LS_PlusEq:
-        fsm.token_type = TOK_PlusEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_PlusEq, TOK_PlusEq);
 
     case LS_Minus:
         switch (c)
@@ -771,10 +723,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Minus;
                 fsm.emit = true;
         } break;
-    case LS_MinusEq:
-        fsm.token_type = TOK_MinusEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_MinusEq, TOK_MinusEq);
 
     case LS_Star:
         switch (c)
@@ -784,10 +733,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Star;
                 fsm.emit = true;
         } break;
-    case LS_StarEq:
-        fsm.token_type = TOK_StarEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_StarEq, TOK_StarEq);
 
     case LS_Slash:
         switch (c)
@@ -799,10 +745,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Slash;
                 fsm.emit = true;
         } break;
-    case LS_SlashEq:
-        fsm.token_type = TOK_SlashEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_SlashEq, TOK_SlashEq);
 
     case LS_Ampersand:
         switch (c)
@@ -813,14 +756,8 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Ampersand;
                 fsm.emit = true;
         } break;
-    case LS_AmpEq:
-        fsm.token_type = TOK_AmpEq;
-        fsm.emit = true;
-        break;
-    case LS_AmpAmp:
-        fsm.token_type = TOK_AmpAmp;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_AmpEq, TOK_AmpEq);
+    EMIT_CASE(LS_AmpAmp, TOK_AmpAmp);
 
     case LS_Pipe:
         switch (c)
@@ -831,14 +768,8 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Pipe;
                 fsm.emit = true;
         } break;
-    case LS_PipeEq:
-        fsm.token_type = TOK_PipeEq;
-        fsm.emit = true;
-        break;
-    case LS_PipePipe:
-        fsm.token_type = TOK_PipePipe;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_PipeEq, TOK_PipeEq);
+    EMIT_CASE(LS_PipePipe, TOK_PipePipe);
 
     case LS_Hat:
         switch (c)
@@ -848,19 +779,10 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 fsm.token_type = TOK_Hat;
                 fsm.emit = true;
         } break;
-    case LS_HatEq:
-        fsm.token_type = TOK_HatEq;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_HatEq, TOK_HatEq);
 
-    case LS_Tilde:
-        fsm.token_type = TOK_Tilde;
-        fsm.emit = true;
-        break;
-    case LS_At:
-        fsm.token_type = TOK_At;
-        fsm.emit = true;
-        break;
+    EMIT_CASE(LS_Tilde, TOK_Tilde);
+    EMIT_CASE(LS_At, TOK_At);
 
     case LS_Comment:
         if (c == '\r' || c == '\n' || c == '\f' || c == '\v')
