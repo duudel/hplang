@@ -178,6 +178,10 @@ static void FreeAstNode(Ast_Node *node)
             FreeAstNode(node->expression.ternary_expr.expr_a);
             FreeAstNode(node->expression.ternary_expr.expr_b);
             break;
+        case AST_AccessExpr:
+            FreeAstNode(node->expression.access_expr.left);
+            FreeAstNode(node->expression.access_expr.right);
+            break;
     }
 }
 

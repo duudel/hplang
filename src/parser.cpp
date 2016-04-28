@@ -129,7 +129,6 @@ static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Binary_O
 
         // NOTE(henrik): These are not used here, but as they are binary ops,
         // need to have them here to suppress warnings.
-        case BIN_OP_Access:     op_str = "."; break;
         case BIN_OP_Subscript:  op_str = "[]"; break;
     }
     fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
@@ -485,7 +484,7 @@ static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
     const Token *op_token = Accept(ctx, TOK_Period);
     if (op_token)
     {
-        Ast_Node *access_expr = PushNode(ctx, AST_BinaryExpr, op_token);
+        Ast_Node *access_expr = PushNode(ctx, AST_AccessExpr, op_token);
 
         const Token *ident_tok = Accept(ctx, TOK_Identifier);
         if (ident_tok)
@@ -495,9 +494,8 @@ static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
                     ident_tok->value, ident_tok->value_end);
             member_ref->expression.variable_ref.name = name;
 
-            access_expr->expression.binary_expr.op = BIN_OP_Access;
-            access_expr->expression.binary_expr.left = factor;
-            access_expr->expression.binary_expr.right = member_ref;
+            access_expr->expression.access_expr.left = factor;
+            access_expr->expression.access_expr.right = member_ref;
         }
         else
         {

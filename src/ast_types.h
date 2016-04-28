@@ -43,7 +43,8 @@ enum Ast_Node_Type
     AST_AssignmentExpr,
     AST_BinaryExpr,
     AST_UnaryExpr,
-    AST_TernaryExpr,      // <expr> ? <exptr> : <expr>
+    AST_TernaryExpr,    // <expr> ? <expr> : <expr>
+    AST_AccessExpr,     // <expr>.<variable_ref>
 };
 
 enum Binary_Op
@@ -70,7 +71,6 @@ enum Binary_Op
 
     BIN_OP_Range,       // a .. b
 
-    BIN_OP_Access,      // a.member
     BIN_OP_Subscript,   // a[x]
 };
 
@@ -152,6 +152,11 @@ struct Ast_Ternary_Expr
     Ast_Node *expr_b;
 };
 
+struct Ast_Access_Expr
+{
+    Ast_Node *left, *right;
+};
+
 struct Ast_Variable_Ref
 {
     Name name;
@@ -182,6 +187,7 @@ struct Ast_Expression
         Ast_Binary_Expr     binary_expr;
         Ast_Unary_Expr      unary_expr;
         Ast_Ternary_Expr    ternary_expr;
+        Ast_Access_Expr     access_expr;
         Ast_Variable_Ref    variable_ref;
         Ast_Function_Call   function_call;
         Ast_Assignment      assignment;

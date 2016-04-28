@@ -460,8 +460,8 @@ static b32 TypeIsStruct(Type *t)
 // TODO: Implement module.member
 static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node)
 {
-    Ast_Node *left = node->expression.binary_expr.left;
-    Ast_Node *right = node->expression.binary_expr.right;
+    Ast_Node *left = node->expression.access_expr.left;
+    Ast_Node *right = node->expression.access_expr.right;
 
     Type *ltype = CheckExpression(ctx, left);
     if (!TypeIsStruct(ltype) && !TypeIsString(ltype))
@@ -496,10 +496,6 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node)
     Binary_Op op = node->expression.binary_expr.op;
     Ast_Node *left = node->expression.binary_expr.left;
     Ast_Node *right = node->expression.binary_expr.right;
-    if (op == BIN_OP_Access)
-    {
-        return CheckAccessExpr(ctx, node);
-    }
     Type *ltype = CheckExpression(ctx, left);
     Type *rtype = CheckExpression(ctx, right);
     switch (op)
@@ -573,9 +569,6 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node)
             NOT_IMPLEMENTED("Binary expression ops");
             break;
 
-        case BIN_OP_Access:
-            INVALID_CODE_PATH;
-            break;
         case BIN_OP_Subscript:
             NOT_IMPLEMENTED("Binary expression ops");
             break;
@@ -618,6 +611,8 @@ static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node)
         case AST_TernaryExpr:
             NOT_IMPLEMENTED("ternary expression checking");
             break;
+        case AST_AccessExpr:
+            return CheckAccessExpr(ctx, node);
         default:
             INVALID_CODE_PATH;
     }
