@@ -14,7 +14,8 @@ enum Type_Tag
 
     TYP_FIRST_BUILTIN_SYM,
 
-    TYP_bool = TYP_FIRST_BUILTIN_SYM,
+    TYP_void = TYP_FIRST_BUILTIN_SYM,
+    TYP_bool,
     TYP_char,
     TYP_u8,
     TYP_s8,

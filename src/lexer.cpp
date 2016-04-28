@@ -133,6 +133,10 @@ enum Lexer_State
     LS_STR_u32,
     LS_STR_u6,
     LS_STR_u64,
+    LS_STR_v,
+    LS_STR_vo,
+    LS_STR_voi,
+    LS_STR_void,
     LS_STR_w,
     LS_STR_wh,
     LS_STR_whi,
@@ -260,8 +264,8 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             case 's': fsm.state = LS_STR_s; break;
             case 't': fsm.state = LS_STR_t; break;
             case 'u': fsm.state = LS_STR_u; break;
-            case 'v': fsm.state = LS_Ident; break;
-            case 'w': fsm.state = LS_Ident; break;
+            case 'v': fsm.state = LS_STR_v; break;
+            case 'w': fsm.state = LS_STR_w; break;
             case 'x': fsm.state = LS_Ident; break;
             case 'y': fsm.state = LS_Ident; break;
             case 'z': fsm.state = LS_Ident; break;
@@ -429,81 +433,31 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         }\
         break
 
-    case LS_STR_b:
-        switch (c)
-        {
-            case 'o':
-                fsm.state = LS_STR_bo; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_bo:
-        switch (c)
-        {
-            case 'o':
-                fsm.state = LS_STR_boo; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_boo:
-        switch (c)
-        {
-            case 'l':
-                fsm.state = LS_STR_bool; break;
-            default:
-                STR_END_CASE();
-        } break;
+    #define SINGLE_CASE(ls, ch, lsn)\
+    case ls:\
+        switch (c)\
+        {\
+            case ch:\
+                fsm.state = lsn; break;\
+            default:\
+                STR_END_CASE();\
+        } break
+
+    SINGLE_CASE(LS_STR_b, 'o', LS_STR_bo);
+    SINGLE_CASE(LS_STR_bo, 'o', LS_STR_boo);
+    SINGLE_CASE(LS_STR_boo, 'l', LS_STR_bool);
     case LS_STR_bool: KW_END_CASE();
-    case LS_STR_c:
-        switch (c)
-        {
-            case 'h':
-                fsm.state = LS_STR_ch; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_ch:
-        switch (c)
-        {
-            case 'a':
-                fsm.state = LS_STR_cha; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_cha:
-        switch (c)
-        {
-            case 'r':
-                fsm.state = LS_STR_char; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_c, 'h', LS_STR_ch);
+    SINGLE_CASE(LS_STR_ch, 'a', LS_STR_cha);
+    SINGLE_CASE(LS_STR_cha, 'r', LS_STR_char);
     case LS_STR_char: KW_END_CASE();
-    case LS_STR_e:
-        switch (c)
-        {
-            case 'l':
-                fsm.state = LS_STR_el; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_el:
-        switch (c)
-        {
-            case 's':
-                fsm.state = LS_STR_els; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_els:
-        switch (c)
-        {
-            case 'e':
-                fsm.state = LS_STR_else; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_e, 'l', LS_STR_el);
+    SINGLE_CASE(LS_STR_el, 's', LS_STR_els);
+    SINGLE_CASE(LS_STR_els, 'e', LS_STR_else);
     case LS_STR_else: KW_END_CASE();
+
     case LS_STR_f:
         switch (c)
         {
@@ -518,90 +472,30 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             default:
                 STR_END_CASE();
         } break;
-    case LS_STR_f3:
-        switch (c)
-        {
-            case '2':
-                fsm.state = LS_STR_f32; break;
-            default:
-                STR_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_f3, '2', LS_STR_f32);
     case LS_STR_f32: KW_END_CASE();
-    case LS_STR_f6:
-        switch (c)
-        {
-            case '4':
-                fsm.state = LS_STR_f64; break;
-            default:
-                STR_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_f6, '4', LS_STR_f64);
     case LS_STR_f64: KW_END_CASE();
-    case LS_STR_fa:
-        switch (c)
-        {
-            case 'l':
-                fsm.state = LS_STR_fal; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_fal:
-        switch (c)
-        {
-            case 's':
-                fsm.state = LS_STR_fals; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_fals:
-        switch (c)
-        {
-            case 'e':
-                fsm.state = LS_STR_false; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_fa, 'l', LS_STR_fal);
+    SINGLE_CASE(LS_STR_fal, 's', LS_STR_fals);
+    SINGLE_CASE(LS_STR_fals, 'e', LS_STR_false);
     case LS_STR_false: KW_END_CASE();
-    case LS_STR_fo:
-        switch (c)
-        {
-            case 'r':
-                fsm.state = LS_STR_for; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_fo, 'r', LS_STR_for);
     case LS_STR_for:
         switch (c)
         {
             case 'e':
                 fsm.state = LS_STR_fore; break;
             default:
-                KW_END_CASE();
+                KW_END_CASE(); // NOTE(henrik): this must be KW_END_CASE
         } break;
-    case LS_STR_fore:
-        switch (c)
-        {
-            case 'i':
-                fsm.state = LS_STR_forei; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_forei:
-        switch (c)
-        {
-            case 'g':
-                fsm.state = LS_STR_foreig; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_foreig:
-        switch (c)
-        {
-            case 'n':
-                fsm.state = LS_STR_foreign; break;
-            default:
-                STR_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_fore, 'i', LS_STR_forei);
+    SINGLE_CASE(LS_STR_forei, 'g', LS_STR_foreig);
+    SINGLE_CASE(LS_STR_foreig, 'n', LS_STR_foreign);
     case LS_STR_foreign: KW_END_CASE();
+
     case LS_STR_i:
         switch (c)
         {
@@ -613,105 +507,25 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 STR_END_CASE();
         } break;
     case LS_STR_if: KW_END_CASE();
-    case LS_STR_im:
-        switch (c)
-        {
-            case 'p':
-                fsm.state = LS_STR_imp; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_imp:
-        switch (c)
-        {
-            case 'o':
-                fsm.state = LS_STR_impo; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_impo:
-        switch (c)
-        {
-            case 'r':
-                fsm.state = LS_STR_impor; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_impor:
-        switch (c)
-        {
-            case 't':
-                fsm.state = LS_STR_import; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_im, 'p', LS_STR_imp);
+    SINGLE_CASE(LS_STR_imp, 'o', LS_STR_impo);
+    SINGLE_CASE(LS_STR_impo, 'r', LS_STR_impor);
+    SINGLE_CASE(LS_STR_impor, 't', LS_STR_import);
     case LS_STR_import: KW_END_CASE();
-    case LS_STR_n:
-        switch (c)
-        {
-            case 'u':
-                fsm.state = LS_STR_nu; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_nu:
-        switch (c)
-        {
-            case 'l':
-                fsm.state = LS_STR_nul; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_nul:
-        switch (c)
-        {
-            case 'l':
-                fsm.state = LS_STR_null; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_n, 'u', LS_STR_nu);
+    SINGLE_CASE(LS_STR_nu, 'l', LS_STR_nul);
+    SINGLE_CASE(LS_STR_nul, 'l', LS_STR_null);
     case LS_STR_null: KW_END_CASE();
-    case LS_STR_r:
-        switch (c)
-        {
-            case 'e':
-                fsm.state = LS_STR_re; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_re:
-        switch (c)
-        {
-            case 't':
-                fsm.state = LS_STR_ret; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_ret:
-        switch (c)
-        {
-            case 'u':
-                fsm.state = LS_STR_retu; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_retu:
-        switch (c)
-        {
-            case 'r':
-                fsm.state = LS_STR_retur; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_retur:
-        switch (c)
-        {
-            case 'n':
-                fsm.state = LS_STR_return; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_r, 'e', LS_STR_re);
+    SINGLE_CASE(LS_STR_re, 't', LS_STR_ret);
+    SINGLE_CASE(LS_STR_ret, 'u', LS_STR_retu);
+    SINGLE_CASE(LS_STR_retu, 'r', LS_STR_retur);
+    SINGLE_CASE(LS_STR_retur, 'n', LS_STR_return);
     case LS_STR_return: KW_END_CASE();
+
     case LS_STR_s:
         switch (c)
         {
@@ -729,41 +543,14 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 STR_END_CASE();
         } break;
     case LS_STR_s8: KW_END_CASE();
-    case LS_STR_s1:
-        switch (c)
-        {
-            case '6':
-                fsm.state = LS_STR_s16; break;
-            default:
-                STR_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_s1, '6', LS_STR_s16);
     case LS_STR_s16: KW_END_CASE();
-    case LS_STR_s3:
-        switch (c)
-        {
-            case '2':
-                fsm.state = LS_STR_s32; break;
-            default:
-                STR_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_s3, '2', LS_STR_s32);
     case LS_STR_s32: KW_END_CASE();
-    case LS_STR_s6:
-        switch (c)
-        {
-            case '4':
-                fsm.state = LS_STR_s64; break;
-            default:
-                STR_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_s6, '4', LS_STR_s64);
     case LS_STR_s64: KW_END_CASE();
-    case LS_STR_st:
-        switch (c)
-        {
-            case 'r':
-                fsm.state = LS_STR_str; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_st, 'r', LS_STR_str);
     case LS_STR_str:
         switch (c)
         {
@@ -774,65 +561,19 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
             default:
                 STR_END_CASE();
         } break;
-    case LS_STR_stri:
-        switch (c)
-        {
-            case 'n':
-                fsm.state = LS_STR_strin; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_strin:
-        switch (c)
-        {
-            case 'g':
-                fsm.state = LS_STR_string; break;
-            default:
-                STR_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_stri, 'n', LS_STR_strin);
+    SINGLE_CASE(LS_STR_strin, 'g', LS_STR_string);
     case LS_STR_string: KW_END_CASE();
-    case LS_STR_stru:
-        switch (c)
-        {
-            case 'c':
-                fsm.state = LS_STR_struc; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_struc:
-        switch (c)
-        {
-            case 't':
-                fsm.state = LS_STR_struct; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_stru, 'c', LS_STR_struc);
+    SINGLE_CASE(LS_STR_struc, 't', LS_STR_struct);
     case LS_STR_struct: KW_END_CASE();
-    case LS_STR_t:
-        switch (c)
-        {
-            case 'r':
-                fsm.state = LS_STR_tr; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_tr:
-        switch (c)
-        {
-            case 'u':
-                fsm.state = LS_STR_tru; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_tru:
-        switch (c)
-        {
-            case 'e':
-                fsm.state = LS_STR_true; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_t, 'r', LS_STR_tr);
+    SINGLE_CASE(LS_STR_tr, 'u', LS_STR_tru);
+    SINGLE_CASE(LS_STR_tru, 'e', LS_STR_true);
     case LS_STR_true: KW_END_CASE();
+
     case LS_STR_u:
         switch (c)
         {
@@ -848,65 +589,22 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
                 STR_END_CASE();
         } break;
     case LS_STR_u8: KW_END_CASE();
-    case LS_STR_u1:
-        switch (c)
-        {
-            case '6':
-                fsm.state = LS_STR_u16; break;
-            default:
-                KW_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_u1, '6', LS_STR_u16);
     case LS_STR_u16: KW_END_CASE();
-    case LS_STR_u3:
-        switch (c)
-        {
-            case '2':
-                fsm.state = LS_STR_u32; break;
-            default:
-                STR_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_u3, '2', LS_STR_u32);
     case LS_STR_u32: KW_END_CASE();
-    case LS_STR_u6:
-        switch (c)
-        {
-            case '4':
-                fsm.state = LS_STR_u64; break;
-            default:
-                STR_END_CASE();
-        } break;
+    SINGLE_CASE(LS_STR_u6, '4', LS_STR_u64);
     case LS_STR_u64: KW_END_CASE();
-    case LS_STR_w:
-        switch (c)
-        {
-            case 'h':
-                fsm.state = LS_STR_wh; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_wh:
-        switch (c)
-        {
-            case 'i':
-                fsm.state = LS_STR_whi; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_whi:
-        switch (c)
-        {
-            case 'l':
-                fsm.state = LS_STR_whil; break;
-            default:
-                STR_END_CASE();
-        } break;
-    case LS_STR_whil:
-        switch (c)
-        {
-            case 'e':
-                fsm.state = LS_STR_while; break;
-            default:
-                STR_END_CASE();
-        } break;
+
+    SINGLE_CASE(LS_STR_v, 'o', LS_STR_vo);
+    SINGLE_CASE(LS_STR_vo, 'i', LS_STR_voi);
+    SINGLE_CASE(LS_STR_voi, 'd', LS_STR_void);
+    case LS_STR_void: KW_END_CASE();
+
+    SINGLE_CASE(LS_STR_w, 'h', LS_STR_wh);
+    SINGLE_CASE(LS_STR_wh, 'i', LS_STR_whi);
+    SINGLE_CASE(LS_STR_whi, 'l', LS_STR_whil);
+    SINGLE_CASE(LS_STR_whil, 'e', LS_STR_while);
     case LS_STR_while: KW_END_CASE();
 
     case LS_Hash:

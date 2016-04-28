@@ -1,0 +1,12 @@
+// Inferring return type of a function should fail, if the type is not
+// consistent between different return statements.
+// 2016-04-29
+
+func :: (x : s64)
+{
+    if (x < 10)
+    {
+        return false;
+    }
+    return 5;
+}

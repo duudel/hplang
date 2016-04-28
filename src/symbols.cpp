@@ -21,6 +21,7 @@ b32 TypesEqual(Type *a, Type *b)
     case TYP_pointer:
         if (a->pointer != b->pointer) return false;
         return TypesEqual(a->base_type, b->base_type);
+    case TYP_void:
     case TYP_bool:
     case TYP_char:
     case TYP_u8:
@@ -82,6 +83,7 @@ Type builtin_types[] = {
     {TYP_null,      0, 1},
     {TYP_int_lit,   8, 8},
     {TYP_pointer,   8, 8},
+    {TYP_void,      0, 1},
     {TYP_bool,      1, 1},
     {TYP_char,      1, 1},
     {TYP_u8,        1, 1},
@@ -107,6 +109,7 @@ static TypeInfo builtin_type_infos[] = {
     /*TYP_null,*/       (TypeInfo){SYM_PrimitiveType,   "null_type"},
     /*TYP_int_lit,*/    (TypeInfo){SYM_PrimitiveType,   "int_lit_type"},
     /*TYP_pointer,*/    (TypeInfo){SYM_PrimitiveType,   "pointer_type"},
+    /*TYP_void,*/       (TypeInfo){SYM_PrimitiveType,   "void"},
     /*TYP_bool,*/       (TypeInfo){SYM_PrimitiveType,   "bool"},
     /*TYP_char,*/       (TypeInfo){SYM_PrimitiveType,   "char"},
     /*TYP_u8,*/         (TypeInfo){SYM_PrimitiveType,   "u8"},

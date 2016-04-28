@@ -568,6 +568,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
     Type *ltype = CheckExpression(ctx, left, &lvt);
     Type *rtype = CheckExpression(ctx, right, &rvt);
 
+    *vt = VT_NonAssignable;
     switch (op)
     {
     case BIN_OP_Add:
@@ -639,11 +640,53 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
         } break;
 
     case BIN_OP_Equal:
+        {
+            if (CheckTypeCoercion(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
+            if (CheckTypeCoercion(rtype, ltype))
+                return GetBuiltinType(TYP_bool);
+            Error(ctx, node, "Invalid operands for == operator");
+        } break;
     case BIN_OP_NotEqual:
+        {
+            if (CheckTypeCoercion(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
+            if (CheckTypeCoercion(rtype, ltype))
+                return GetBuiltinType(TYP_bool);
+            Error(ctx, node, "Invalid operands for != operator");
+        } break;
     case BIN_OP_Less:
+        {
+            if (CheckTypeCoercion(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
+            if (CheckTypeCoercion(rtype, ltype))
+                return GetBuiltinType(TYP_bool);
+            Error(ctx, node, "Invalid operands for < operator");
+        } break;
     case BIN_OP_LessEq:
+        {
+            if (CheckTypeCoercion(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
+            if (CheckTypeCoercion(rtype, ltype))
+                return GetBuiltinType(TYP_bool);
+            Error(ctx, node, "Invalid operands for <= operator");
+        } break;
     case BIN_OP_Greater:
+        {
+            if (CheckTypeCoercion(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
+            if (CheckTypeCoercion(rtype, ltype))
+                return GetBuiltinType(TYP_bool);
+            Error(ctx, node, "Invalid operands for > operator");
+        } break;
     case BIN_OP_GreaterEq:
+        {
+            if (CheckTypeCoercion(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
+            if (CheckTypeCoercion(rtype, ltype))
+                return GetBuiltinType(TYP_bool);
+            Error(ctx, node, "Invalid operands for >= operator");
+        } break;
 
     case BIN_OP_Range:
         NOT_IMPLEMENTED("Binary expression ops");
@@ -653,7 +696,6 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
         NOT_IMPLEMENTED("Binary expression ops");
         break;
     }
-    *vt = lvt;
     return ltype;
 }
 
@@ -806,7 +848,23 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
     AddSymbol(ctx->env, SYM_Variable, node->variable_decl.name, type);
 }
 
-static void CheckBlockStatement(Sem_Check_Context *ctx, Ast_Node *node);
+static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node);
+
+static void CheckIfStatement(Sem_Check_Context *ctx, Ast_Node *node)
+{
+    Ast_Node *cond_expr = node->if_stmt.condition_expr;
+    Ast_Node *true_stmt = node->if_stmt.true_stmt;
+    Ast_Node *false_stmt = node->if_stmt.false_stmt;
+
+    Value_Type vt;
+    Type *ctype = CheckExpression(ctx, cond_expr, &vt);
+
+    if (!TypeIsBoolean(ctype))
+        Error(ctx, cond_expr, "If condition must be boolean");
+    CheckStatement(ctx, true_stmt);
+    if (false_stmt)
+        CheckStatement(ctx, false_stmt);
+}
 
 static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
 {
@@ -836,6 +894,8 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     }
 }
 
+static void CheckBlockStatement(Sem_Check_Context *ctx, Ast_Node *node);
+
 static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
 {
     switch (node->type)
@@ -844,13 +904,15 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
             CheckBlockStatement(ctx, node);
             break;
         case AST_IfStmt:
-            //CheckIfStatement(ctx, node);
+            CheckIfStatement(ctx, node);
             break;
         case AST_ForStmt:
             //CheckForStatement(ctx, node);
+            NOT_IMPLEMENTED("For statement");
             break;
         case AST_WhileStmt:
             //CheckWhileStatement(ctx, node);
+            NOT_IMPLEMENTED("While statement");
             break;
         case AST_ReturnStmt:
             CheckReturnStatement(ctx, node);
@@ -875,12 +937,14 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
 
 static void CheckBlockStatement(Sem_Check_Context *ctx, Ast_Node *node)
 {
+    OpenScope(ctx->env);
     s64 count = node->block.statements.count;
     for (s64 i = 0; i < count && ContinueChecking(ctx); i++)
     {
         Ast_Node *stmt = node->block.statements.nodes[i];
         CheckStatement(ctx, stmt);
     }
+    CloseScope(ctx->env);
 }
 
 static void CheckForeignFunctionParameters(Sem_Check_Context *ctx, Ast_Node *node, Type *ftype)

@@ -34,6 +34,7 @@ enum Token_Type
 
     // TODO: Implement enums
 
+    TOK_Type_Void,      // void
     TOK_Type_Bool,      // bool
     TOK_Type_Char,      // char
     TOK_Type_S8,        // s8

@@ -37,6 +37,7 @@ static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_Struct,            "struct"},
     {TOK_Null,              "null"},
 
+    {TOK_Type_Void,         "void"},
     {TOK_Type_Bool,         "bool"},
     {TOK_Type_Char,         "char"},
     {TOK_Type_S8,           "s8"},
@@ -136,23 +137,7 @@ enum {
 void FreeTokenList(Token_List *tokens)
 {
     array::Free(tokens->array);
-    //if (tokens->memory.ptr)
-    //    Free(tokens->memory);
 }
-
-/*
-b32 GrowTokenList(Token_List *tokens)
-{
-    s64 new_size = tokens->memory.size + DEFAULT_ARENA_TOKEN_COUNT * sizeof(Token);
-    Pointer new_memory = Realloc(tokens->memory, new_size);
-    if (!new_memory.ptr) return false;
-
-    tokens->memory = new_memory;
-    tokens->begin = (Token*)tokens->memory.ptr;
-    tokens->end = tokens->begin;
-    return true;
-}
-*/
 
 Token* PushTokenList(Token_List *tokens)
 {
@@ -160,18 +145,6 @@ Token* PushTokenList(Token_List *tokens)
     Token *token = &tokens->array.data[tokens->array.count - 1];
     *token = { };
     return token;
-    /*
-    Token *memory_end = (Token*)((char*)tokens->memory.ptr + tokens->memory.size);
-    if (tokens->end >= memory_end)
-    {
-        if (!GrowTokenList(tokens))
-            return nullptr;
-    }
-    Token *result = tokens->end;
-    tokens->end++;
-    tokens->count = tokens->end - tokens->begin;
-    return result;
-    */
 }
 
 } // hplang
