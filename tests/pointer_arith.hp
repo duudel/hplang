@@ -1,0 +1,9 @@
+// Some pointer arithmetic
+// 2016-04-28
+
+main :: ()
+{
+    x := 5;
+    y := &x;
+    @y = 10;
+}

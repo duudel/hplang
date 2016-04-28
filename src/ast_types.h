@@ -47,6 +47,10 @@ enum Ast_Node_Type
     AST_AccessExpr,     // <expr>.<variable_ref>
 };
 
+// TODO(henrik): Add bit shift operators
+// << and >> (shift left and right)
+// maybe also
+// <<< and >>> (rotate left and right)
 enum Binary_Op
 {
     BIN_OP_Add,
@@ -100,8 +104,6 @@ enum Assignment_Op
     AS_OP_BitAndAssign,
     AS_OP_BitOrAssign,
     AS_OP_BitXorAssign,
-
-    AS_OP_ComplementAssign,
 };
 
 

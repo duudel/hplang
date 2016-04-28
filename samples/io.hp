@@ -18,6 +18,7 @@ stdin : FILE* = get_stdin();
 
 print :: (s : string) : s64
 {
+    // Temporary solution as we still do not have type casting
     return fwrite_chars(stdout, s.data, s.size);
 }
 

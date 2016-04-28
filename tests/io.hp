@@ -1,0 +1,8 @@
+// Simple dummy io module
+// 2016-04-28
+
+print :: (s : string) : s64 { return 0; }
+print :: (x : s64) : s64 { return 0; }
+println :: (s : string) : s64 { return 0; }
+println :: (x : s64) : s64 { return 0; }
+println :: () : s64 { return 0; }

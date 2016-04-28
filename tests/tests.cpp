@@ -51,12 +51,16 @@ Test tests[] = {
     (Test){ CP_Lexing,  "tests/lexer_fail/crlf_test.hp", {4, 26} },
     (Test){ CP_Parsing, "tests/parser_fail/token_test.hp", { }, {1, 1} },
     (Test){ CP_Parsing, "tests/parser_fail/if_paren_test.hp", { }, {8, 23} },
-    (Test){ CP_Checking, "tests/sem_check_fail/dup_func_param_test.hp", { }, { }, {4, 39} },
-    (Test){ CP_Checking, "tests/sem_check_fail/stmt_test.hp", { }, { }, {5, 12} },
     (Test){ CP_Parsing, "tests/expr_test.hp" },
+    (Test){ CP_Parsing, "tests/stmt_test.hp" },
+    (Test){ CP_Checking, "tests/sem_check_fail/dup_func_param_test.hp", { }, { }, {4, 39} },
+    (Test){ CP_Checking, "tests/sem_check_fail/ambiguous_func_call.hp", { }, { }, {8, 9} },
+    (Test){ CP_Checking, "tests/sem_check_fail/identical_func_def.hp" , { }, { }, {5, 1} },
+    (Test){ CP_Checking, "tests/sem_check_fail/parameter_decl_twice.hp" , { }, { }, {4, 28} },
     (Test){ CP_CodeGen, "tests/hello_test.hp" },
     (Test){ CP_CodeGen, "tests/beer_test.hp" },
     (Test){ CP_CodeGen, "tests/module_test.hp" },
+    (Test){ CP_CodeGen, "tests/pointer_arith.hp" },
 };
 
 void PrintError(const char *filename, s64 line, s64 column, const char *message)

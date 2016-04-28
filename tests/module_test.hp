@@ -4,5 +4,5 @@ import "module";
 
 main :: ()
 {
-    print(var_from_module);
+    var_from_module = 0;
 }

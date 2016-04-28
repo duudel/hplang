@@ -1,6 +1,8 @@
 // 99 bottles of beer
 // 2016-04-25
 
+import "io";
+
 bottles :: (n : s64)
 {
     if n == 0

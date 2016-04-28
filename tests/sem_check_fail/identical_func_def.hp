@@ -1,0 +1,5 @@
+// Tests that semantic check error happens when a function is defined twice.
+// 2016-04-28
+
+func :: () { }
+func :: () { }

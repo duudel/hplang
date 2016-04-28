@@ -71,6 +71,12 @@ struct Type
     };
 };
 
+enum Value_Type
+{
+    VT_Assignable,
+    VT_NonAssignable,
+};
+
 Type* GetBuiltinType(Type_Tag tt);
 
 enum Symbol_Type

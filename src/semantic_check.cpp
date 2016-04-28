@@ -284,7 +284,8 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
     return nullptr;
 }
 
-static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node);
+static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt);
+
 #if 0
 static void CheckFunctionArgs(Sem_Check_Context *ctx,
         Type *ftype, Ast_Node *node, Ast_Function_Call *function_call)
@@ -325,7 +326,8 @@ static s64 CheckFunctionArgs(Sem_Check_Context *ctx,
     for (s64 i = 0; i < param_count; i++)
     {
         Ast_Node *arg = function_call->args.nodes[i];
-        Type *arg_type = CheckExpression(ctx, arg);
+        Value_Type vt;
+        Type *arg_type = CheckExpression(ctx, arg, &vt);
         Type *param_type = ftype->function_type.parameter_types[i];
 
         score *= 10;
@@ -353,7 +355,8 @@ static s64 CheckFunctionArgs(Sem_Check_Context *ctx,
 static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Node *node)
 {
     Ast_Function_Call *function_call = &node->expression.function_call;
-    Type *type = CheckExpression(ctx, function_call->fexpr);
+    Value_Type vt;
+    Type *type = CheckExpression(ctx, function_call->fexpr, &vt);
     if (!type) return nullptr;
     if (type->tag == TYP_Function)
     {
@@ -458,12 +461,15 @@ static b32 TypeIsStruct(Type *t)
 }
 
 // TODO: Implement module.member
-static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node)
+static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
 {
     Ast_Node *left = node->expression.access_expr.left;
     Ast_Node *right = node->expression.access_expr.right;
 
-    Type *ltype = CheckExpression(ctx, left);
+    Value_Type lvt;
+    Type *ltype = CheckExpression(ctx, left, &lvt);
+
+    *vt = VT_Assignable;
     if (!TypeIsStruct(ltype) && !TypeIsString(ltype))
     {
         Error(ctx, node, "Operator . must be used with structs or modules");
@@ -491,128 +497,294 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node)
     return nullptr;
 }
 
-static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node)
+static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+{
+    Unary_Op op = node->expression.unary_expr.op;
+    Ast_Node *expr = node->expression.unary_expr.expr;
+
+    Value_Type evt;
+    Type *type = CheckExpression(ctx, expr, &evt);
+
+    *vt = VT_NonAssignable;
+    switch (op)
+    {
+    case UN_OP_Positive:
+        {
+            if (TypeIsNumeric(type))
+                break;
+            Error(ctx, expr, "Invalid operand for unary +");
+        } break;
+    case UN_OP_Negative:
+        {
+            if (TypeIsNumeric(type))
+                break;
+            Error(ctx, expr, "Invalid operand for unary -");
+        } break;
+    case UN_OP_Complement:
+        {
+            if (TypeIsIntegral(type))
+                break;
+            Error(ctx, expr, "Invalid operand for unary ~");
+        } break;
+    case UN_OP_Not:
+        {
+            if (TypeIsBoolean(type))
+                break;
+            Error(ctx, expr, "Invalid operand for logical !");
+        } break;
+    case UN_OP_Address:
+        {
+            if (evt == VT_Assignable)
+            {
+                Type *ptr_type = PushType(ctx->env, TYP_pointer);
+                ptr_type->pointer = 1;
+                ptr_type->base_type = type;
+                type = ptr_type;
+                break;
+            }
+            Error(ctx, expr, "Taking address of non-l-value");
+        } break;
+    case UN_OP_Deref:
+        {
+            *vt = VT_Assignable;
+            if (TypeIsPointer(type))
+            {
+                type = type->base_type;
+                break;
+            }
+            Error(ctx, expr, "Dereferencing non-pointer type");
+        } break;
+    }
+    return type;
+}
+
+static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
 {
     Binary_Op op = node->expression.binary_expr.op;
     Ast_Node *left = node->expression.binary_expr.left;
     Ast_Node *right = node->expression.binary_expr.right;
-    Type *ltype = CheckExpression(ctx, left);
-    Type *rtype = CheckExpression(ctx, right);
+
+    Value_Type lvt, rvt;
+    Type *ltype = CheckExpression(ctx, left, &lvt);
+    Type *rtype = CheckExpression(ctx, right, &rvt);
+
     switch (op)
     {
-        case BIN_OP_Add:
+    case BIN_OP_Add:
+        {
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-                return ltype;
+                break;
             if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Invalid operands for binary +");
-            return ltype;
-        case BIN_OP_Subtract:
+        } break;
+    case BIN_OP_Subtract:
+        {
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-                return ltype;
+                break;
             if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Invalid operands for binary -");
-            return ltype;
-        case BIN_OP_Multiply:
+        } break;
+    case BIN_OP_Multiply:
+        {
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Operator * expects numeric type for left and right hand side");
-            return ltype;
-        case BIN_OP_Divide:
+        } break;
+    case BIN_OP_Divide:
+        {
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Operator / expects numeric type for left and right hand side");
-            return ltype;
-        case BIN_OP_Modulo:
+        } break;
+    case BIN_OP_Modulo:
+        {
             // TODO(henrik): Should modulo work for floats too?
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Operator \% expects numeric type for left and right hand side");
-            return ltype;
+        } break;
 
-        case BIN_OP_BitAnd:
+    case BIN_OP_BitAnd:
+        {
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Bitwise & expects integral type for left and right hand side");
-            return ltype;
-        case BIN_OP_BitOr:
+        } break;
+    case BIN_OP_BitOr:
+        {
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Bitwise | expects integral type for left and right hand side");
-            return ltype;
-        case BIN_OP_BitXor:
+        } break;
+    case BIN_OP_BitXor:
+        {
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Bitwise ^ expects integral type for left and right hand side");
-            return ltype;
+        } break;
 
-        case BIN_OP_And:
+    case BIN_OP_And:
+        {
             if (TypeIsBoolean(ltype) && TypeIsBoolean(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Logical && expects boolean type for left and right hand side");
-            return ltype;
-        case BIN_OP_Or:
+        } break;
+    case BIN_OP_Or:
+        {
             if (TypeIsBoolean(ltype) && TypeIsBoolean(rtype))
-                return ltype;
+                break;
             Error(ctx, node, "Logical || expects boolean type for left and right hand side");
-            return ltype;
+        } break;
 
-        case BIN_OP_Equal:
-        case BIN_OP_NotEqual:
-        case BIN_OP_Less:
-        case BIN_OP_LessEq:
-        case BIN_OP_Greater:
-        case BIN_OP_GreaterEq:
+    case BIN_OP_Equal:
+    case BIN_OP_NotEqual:
+    case BIN_OP_Less:
+    case BIN_OP_LessEq:
+    case BIN_OP_Greater:
+    case BIN_OP_GreaterEq:
 
-        case BIN_OP_Range:
-            NOT_IMPLEMENTED("Binary expression ops");
-            break;
+    case BIN_OP_Range:
+        NOT_IMPLEMENTED("Binary expression ops");
+        break;
 
-        case BIN_OP_Subscript:
-            NOT_IMPLEMENTED("Binary expression ops");
-            break;
+    case BIN_OP_Subscript:
+        NOT_IMPLEMENTED("Binary expression ops");
+        break;
     }
-    return nullptr;
+    *vt = lvt;
+    return ltype;
 }
 
-static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node)
+static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+{
+    Assignment_Op op = node->expression.assignment.op;
+    Ast_Node *left = node->expression.assignment.left;
+    Ast_Node *right = node->expression.assignment.right;
+
+    Value_Type lvt, rvt;
+    Type *ltype = CheckExpression(ctx, left, &lvt);
+    Type *rtype = CheckExpression(ctx, right, &rvt);
+
+    if (lvt != VT_Assignable)
+    {
+        Error(ctx, left, "Assignment to non-l-value expression");
+    }
+    else
+    {
+        switch (op)
+        {
+        case AS_OP_Assign:
+            {
+                if (!CheckTypeCoercion(ltype, rtype))
+                    Error(ctx, node, "Operands of assignment are incompatible");
+            } break;
+        case AS_OP_AddAssign:
+            {
+                if (CheckTypeCoercion(ltype, rtype))
+                    break;
+                else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
+                    break;
+                Error(ctx, node, "Operands of += are incompatible");
+            } break;
+        case AS_OP_SubtractAssign:
+            {
+                if (CheckTypeCoercion(ltype, rtype))
+                    break;
+                else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
+                    break;
+                Error(ctx, node, "Operands of -= are incompatible");
+            } break;
+        case AS_OP_MultiplyAssign:
+            {
+                if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
+                    break;
+                Error(ctx, node, "Operands of *= are incompatible");
+            } break;
+        case AS_OP_DivideAssign:
+            {
+                if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
+                    break;
+                Error(ctx, node, "Operands of /= are incompatible");
+            } break;
+        case AS_OP_ModuloAssign:
+            {
+                // TODO(henrik): Should modulo work for floats too?
+                if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                    break;
+                Error(ctx, node, "Operands of %= are incompatible");
+            } break;
+
+        case AS_OP_BitAndAssign:
+            {
+                if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                    break;
+                Error(ctx, node, "Operands of &= must be integral");
+            } break;
+        case AS_OP_BitOrAssign:
+            {
+                if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                    break;
+                Error(ctx, node, "Operands of |= must be integral");
+            } break;
+        case AS_OP_BitXorAssign:
+            {
+                if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                    break;
+                Error(ctx, node, "Operands of ^= must be integral");
+            } break;
+        }
+    }
+
+    *vt = lvt;
+    return ltype;
+}
+
+static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
 {
     switch (node->type)
     {
         case AST_Null:
+            *vt = VT_NonAssignable;
             return GetBuiltinType(TYP_null);
         case AST_BoolLiteral:
+            *vt = VT_NonAssignable;
             return GetBuiltinType(TYP_bool);
         case AST_CharLiteral:
+            *vt = VT_NonAssignable;
             return GetBuiltinType(TYP_char);
         case AST_IntLiteral:
+            *vt = VT_NonAssignable;
             return GetBuiltinType(TYP_int_lit);
         case AST_Float32Literal:
+            *vt = VT_NonAssignable;
             return GetBuiltinType(TYP_f32);
         case AST_Float64Literal:
+            *vt = VT_NonAssignable;
             return GetBuiltinType(TYP_f64);
         case AST_StringLiteral:
+            *vt = VT_NonAssignable;
             return GetBuiltinType(TYP_string);
 
         case AST_VariableRef:
+            *vt = VT_Assignable;
             return CheckVariableRef(ctx, node);
         case AST_FunctionCall:
+            *vt = VT_NonAssignable;
             return CheckFunctionCall(ctx, node);
 
         case AST_AssignmentExpr:
-            NOT_IMPLEMENTED("assignment expression checking");
-            break;
+            return CheckAssignmentExpr(ctx, node, vt);
         case AST_BinaryExpr:
-            return CheckBinaryExpr(ctx, node);
+            return CheckBinaryExpr(ctx, node, vt);
         case AST_UnaryExpr:
-            NOT_IMPLEMENTED("unary expression checking");
-            break;
+            return CheckUnaryExpr(ctx, node, vt);
         case AST_TernaryExpr:
             NOT_IMPLEMENTED("ternary expression checking");
             break;
         case AST_AccessExpr:
-            return CheckAccessExpr(ctx, node);
+            return CheckAccessExpr(ctx, node, vt);
         default:
             INVALID_CODE_PATH;
     }
@@ -622,11 +794,10 @@ static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node)
 static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
 {
     Type *type = CheckType(ctx, node->variable_decl.type);
-    Type *init_type = CheckExpression(ctx, node->variable_decl.init);
-    if (!type && !init_type)
-    {
-        Error(ctx, node, "Variable type cannot be inferred");
-    }
+    Value_Type vt;
+    Type *init_type = CheckExpression(ctx, node->variable_decl.init, &vt);
+    ASSERT(type || init_type);
+
     if (!type) type = init_type;
     if (!CheckTypeCoercion(type, init_type))
     {
@@ -642,7 +813,8 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     Ast_Node *rexpr = node->return_stmt.expression;
     if (rexpr)
     {
-        Type *rtype = CheckExpression(ctx, rexpr);
+        Value_Type vt;
+        Type *rtype = CheckExpression(ctx, rexpr, &vt);
         if (!ctx->env->return_type)
         {
             ctx->env->return_type = rtype;
@@ -687,7 +859,8 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
             CheckVariableDecl(ctx, node);
             break;
         default:
-            CheckExpression(ctx, node);
+            Value_Type vt;
+            CheckExpression(ctx, node, &vt);
             break;
 
         case AST_TopLevel:
@@ -759,6 +932,7 @@ static b32 FunctionTypesAmbiguous(Sem_Check_Context *ctx, Type *a, Type *b)
 
     Function_Type *ft_a = &a->function_type;
     Function_Type *ft_b = &b->function_type;
+
     if (ft_a->parameter_count != ft_b->parameter_count)
         return false;
     for (s64 i = 0; i < ft_a->parameter_count; i++)
@@ -782,18 +956,22 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 
     ftype->function_type.return_type = CheckType(ctx, node->function.return_type);
 
-    // TODO(henrik): should the names be copied to env->arena?
+    // TODO(henrik): Should the names be copied to env->arena?
     Name name = node->function.name;
     Symbol *symbol = AddFunction(ctx->env, name, ftype);
     if (symbol->sym_type != SYM_Function)
     {
         ErrorDeclaredEarlierAs(ctx, node, name, symbol);
     }
+    // NOTE(henrik): Lookup only in current scope, before opening the
+    // function scope.
+    Symbol *overload = LookupSymbolInCurrentScope(ctx->env, name);
+
     OpenFunctionScope(ctx->env, ftype->function_type.return_type);
 
+    // NOTE(henrik): Check parameters after opening the function scope
     CheckParameters(ctx, node, ftype);
 
-    Symbol *overload = LookupSymbolInCurrentScope(ctx->env, name);
     while (overload && overload != symbol)
     {
         if (FunctionTypesAmbiguous(ctx, overload->type, symbol->type))

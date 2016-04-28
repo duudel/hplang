@@ -1,0 +1,9 @@
+
+func :: (x : s8, b : bool) { }
+
+func :: (x : s32, b : bool) { }
+
+test :: ()
+{
+    func(5, false);
+}

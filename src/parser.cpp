@@ -152,7 +152,6 @@ static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Assi
         case AS_OP_BitAndAssign:       op_str = "&="; break;
         case AS_OP_BitOrAssign:        op_str = "|="; break;
         case AS_OP_BitXorAssign:       op_str = "^="; break;
-        case AS_OP_ComplementAssign:   op_str = "~="; break;
     }
     fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
@@ -805,7 +804,6 @@ static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
             case TOK_AmpEq:     op = AS_OP_BitAndAssign; break;
             case TOK_PipeEq:    op = AS_OP_BitOrAssign; break;
             case TOK_HatEq:     op = AS_OP_BitXorAssign; break;
-            case TOK_TildeEq:   op = AS_OP_ComplementAssign; break;
             default: INVALID_CODE_PATH;
         }
 

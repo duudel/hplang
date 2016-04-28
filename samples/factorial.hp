@@ -3,20 +3,6 @@
 
 import "io";
 
-/*
-print :: (s : string)
-{
-}
-
-print :: (n : s64)
-{
-}
-
-println :: ()
-{
-}
-*/
-
 factorial :: (n : s64) : s64
 {
     if n <= 1  return 1;
