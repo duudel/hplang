@@ -33,12 +33,11 @@ println :: () : s64
 
 print :: (x : s64) : s64
 {
-    /*
     if (x == 0)  return print("0");
 
+    val := x;
     neg := val < 0;
     val = (neg ? -val : val);
-    val := x;
     magnitude := 1;
     while (val > 0)
     {
@@ -53,11 +52,10 @@ print :: (x : s64) : s64
         y := x / magnitude;
         x -= y * magnitude;
         magnitude /= 10;
-        u8 c = ('0' -> u8) + y;
+        c : u8 = ('0' -> u8) + y;
         written += fwrite(stdout, 1, &c);
     }
     return written;
-    */
-    return fprint_int(stdout, x);
+    //return fprint_int(stdout, x);
 }
 

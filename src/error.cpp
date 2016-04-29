@@ -47,6 +47,7 @@ void PrintFileLocation(FILE *file, File_Location file_loc)
             loc_len = sizeof(spaces) - 1;
         fwrite(spaces, 1, loc_len, file);
     }
+    fprintf(file, "\n  ");
 }
 
 void PrintFileLine(FILE *file, Open_File *open_file, File_Location file_loc)

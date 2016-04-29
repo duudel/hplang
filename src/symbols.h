@@ -109,13 +109,17 @@ struct Symbol
     Symbol *next_overload;
 };
 
+struct Ast_Node;
+
 struct Scope
 {
     s64 symbol_count;
     Array<Symbol*> table;
 
     Scope *parent;
-    Type *return_type;
+
+    Type *return_type;      // The return type of the current function scope
+    Ast_Node *rt_inferred;  // Set if the return type was inferred (location info for errors)
 };
 
 // TODO(henrik): Is there better name for this?
@@ -126,7 +130,8 @@ struct Environment
     Array<Scope*> scopes;
 
     Scope *current;
-    Type *return_type;
+    Type *return_type;      // The return type of the current function scope
+    Ast_Node *rt_inferred;  // Set if the return type was inferred (location info for errors)
 };
 
 Environment NewEnvironment();

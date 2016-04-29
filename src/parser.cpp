@@ -1025,6 +1025,34 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx)
     return if_node;
 }
 
+static Ast_Node* ParseWhileStatement(Parser_Context *ctx)
+{
+    TRACE(ParseWhileStatement);
+    const Token *while_tok = Accept(ctx, TOK_While);
+    if (!while_tok) return nullptr;
+
+    // TODO(henrik): Parsing if and while should take the expression in
+    // parentheses as 'special' syntax and not let the expression parsing
+    // deal with them. This would avoid the problem where if (expr) + 5; could
+    // be interpreted differently by a human and the parser.
+
+    Ast_Node *while_node = PushNode(ctx, AST_WhileStmt, while_tok);
+    Ast_Node *cond_expr = ParseExpression(ctx);
+    if (!cond_expr)
+        Error(ctx, "Expecting condition expression after while");
+
+    Ast_Node *loop_stmt = ParseStatement(ctx);
+    if (!loop_stmt)
+    {
+        Error(ctx, "Expecting statement after while");
+    }
+
+    while_node->while_stmt.condition_expr = cond_expr;
+    while_node->while_stmt.loop_stmt = loop_stmt;
+
+    return while_node;
+}
+
 static Ast_Node* ParseForStatement(Parser_Context *ctx)
 {
     TRACE(ParseForStatement);
@@ -1155,6 +1183,7 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
     TRACE(ParseStatement);
     Ast_Node *stmt = ParseBlockStatement(ctx);
     if (!stmt) stmt = ParseIfStatement(ctx);
+    if (!stmt) stmt = ParseWhileStatement(ctx);
     if (!stmt) stmt = ParseForStatement(ctx);
     if (!stmt) stmt = ParseReturnStatement(ctx);
     if (!stmt) stmt = ParseVarDeclStatement(ctx);

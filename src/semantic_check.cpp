@@ -133,17 +133,24 @@ static void ErrorFuncCallNoOverload(Sem_Check_Context *ctx,
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
 }
 
-static void ErrorReturnTypeMismatch(Sem_Check_Context *ctx, Ast_Node *node, Type *a, Type *b)
+static void ErrorReturnTypeMismatch(Sem_Check_Context *ctx,
+        Ast_Node *node, Type *a, Type *b, Ast_Node *rt_inferred)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, node->file_loc);
     PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "Return type mismatch. '");
+    fprintf(err_ctx->file, "Return type '");
     PrintType(err_ctx->file, a);
     fprintf(err_ctx->file, "' does not match '");
     PrintType(err_ctx->file, b);
     fprintf(err_ctx->file, "'\n");
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    if (rt_inferred)
+    {
+        PrintFileLocation(err_ctx->file, rt_inferred->file_loc);
+        fprintf(err_ctx->file, "The return type was inferred here:\n");
+        PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, rt_inferred->file_loc);
+    }
 }
 
 #if 0
@@ -243,6 +250,7 @@ static b32 CheckTypeCoercion(Type *from, Type *to)
 {
     if (from == to) return true;
     if (!from || !to) return false;
+    //if (!from || !to) return true; // To suppress extra errors after type error
     if (from->tag == TYP_int_lit)
     {
         // TODO(henrik): Check if the literal can fit in the to-type.
@@ -375,7 +383,7 @@ static s64 CheckFunctionArgs(Sem_Check_Context *ctx,
         }
         else
         {
-            //fprintf(stderr, "Not compatible: \n");
+            //fprintf(stderr, "Function arg %d not compatible: \n", i);
             //PrintType(stderr, arg_type);
             //fprintf(stderr, " != ");
             //PrintType(stderr, param_type);
@@ -463,10 +471,22 @@ static b32 TypeIsPointer(Type *t)
     return (t->tag == TYP_pointer) || (t->tag == TYP_null);
 }
 
+static b32 TypeIsVoid(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_void;
+}
+
 static b32 TypeIsBoolean(Type *t)
 {
     if (!t) return false;
     return t->tag == TYP_bool;
+}
+
+static b32 TypeIsChar(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_char;
 }
 
 static b32 TypeIsIntegral(Type *t)
@@ -524,6 +544,10 @@ static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Typ
         return ctype;
     if (TypeIsNumeric(etype) && TypeIsNumeric(ctype))
         return ctype;
+    if (TypeIsNumeric(etype) && TypeIsChar(ctype))
+        return ctype;
+    if (TypeIsChar(etype) && TypeIsNumeric(ctype))
+        return ctype;
     ErrorTypecast(ctx, node, etype, ctype);
     return nullptr;
 }
@@ -563,6 +587,32 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
     }
     Error(ctx, right, "Struct member not found");
     return nullptr;
+}
+
+static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+{
+    Ast_Node *cond_expr = node->expression.ternary_expr.condition_expr;
+    Ast_Node *true_expr = node->expression.ternary_expr.true_expr;
+    Ast_Node *false_expr = node->expression.ternary_expr.false_expr;
+
+    Value_Type cvt;
+    Type *cond_type = CheckExpression(ctx, cond_expr, &cvt);
+    if (cond_type && !TypeIsBoolean(cond_type))
+        Error(ctx, cond_expr, "Condition of ternary ? expression must be boolean");
+
+    Value_Type tvt, fvt;
+    Type *true_type = CheckExpression(ctx, true_expr, &tvt);
+    Type *false_type = CheckExpression(ctx, false_expr, &fvt);
+    if (!CheckTypeCoercion(true_type, false_type) &&
+        !CheckTypeCoercion(false_type, true_type))
+    {
+        Error(ctx, node, "Both results of ternary ? expression must be convertible to same type");
+    }
+    if (tvt == VT_NonAssignable || fvt == VT_NonAssignable)
+        *vt = VT_NonAssignable;
+    else
+        *vt = VT_Assignable;
+    return true_type;
 }
 
 static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
@@ -637,11 +687,15 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
     Type *rtype = CheckExpression(ctx, right, &rvt);
 
     *vt = VT_NonAssignable;
-    if (!ltype || !rtype) return nullptr;
+    if (!ltype && !rtype) return nullptr;
     switch (op)
     {
     case BIN_OP_Add:
         {
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
                 break;
             if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
@@ -650,6 +704,10 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
         } break;
     case BIN_OP_Subtract:
         {
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
                 break;
             if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
@@ -658,12 +716,20 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
         } break;
     case BIN_OP_Multiply:
         {
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
                 break;
             Error(ctx, node, "Operator * expects numeric type for left and right hand side");
         } break;
     case BIN_OP_Divide:
         {
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
                 break;
             Error(ctx, node, "Operator / expects numeric type for left and right hand side");
@@ -671,6 +737,10 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
     case BIN_OP_Modulo:
         {
             // TODO(henrik): Should modulo work for floats too?
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 break;
             Error(ctx, node, "Operator \% expects numeric type for left and right hand side");
@@ -678,18 +748,30 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
 
     case BIN_OP_BitAnd:
         {
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 break;
             Error(ctx, node, "Bitwise & expects integral type for left and right hand side");
         } break;
     case BIN_OP_BitOr:
         {
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 break;
             Error(ctx, node, "Bitwise | expects integral type for left and right hand side");
         } break;
     case BIN_OP_BitXor:
         {
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 break;
             Error(ctx, node, "Bitwise ^ expects integral type for left and right hand side");
@@ -697,12 +779,20 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
 
     case BIN_OP_And:
         {
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsBoolean(ltype) && TypeIsBoolean(rtype))
                 break;
             Error(ctx, node, "Logical && expects boolean type for left and right hand side");
         } break;
     case BIN_OP_Or:
         {
+            if (!ltype && TypeIsNumeric(rtype))
+                break;
+            if (!rtype && TypeIsNumeric(ltype))
+                break;
             if (TypeIsBoolean(ltype) && TypeIsBoolean(rtype))
                 break;
             Error(ctx, node, "Logical || expects boolean type for left and right hand side");
@@ -710,51 +800,45 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
 
     case BIN_OP_Equal:
         {
-            if (CheckTypeCoercion(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
-            if (CheckTypeCoercion(rtype, ltype))
-                return GetBuiltinType(TYP_bool);
-            Error(ctx, node, "Invalid operands for == operator");
+            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
+            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
+            else { Error(ctx, node, "Invalid operands for == operator"); }
+            return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_NotEqual:
         {
-            if (CheckTypeCoercion(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
-            if (CheckTypeCoercion(rtype, ltype))
-                return GetBuiltinType(TYP_bool);
-            Error(ctx, node, "Invalid operands for != operator");
+            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
+            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
+            else { Error(ctx, node, "Invalid operands for != operator"); }
+            return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_Less:
         {
-            if (CheckTypeCoercion(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
-            if (CheckTypeCoercion(rtype, ltype))
-                return GetBuiltinType(TYP_bool);
-            Error(ctx, node, "Invalid operands for < operator");
+            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
+            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
+            else { Error(ctx, node, "Invalid operands for < operator"); }
+            return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_LessEq:
         {
-            if (CheckTypeCoercion(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
-            if (CheckTypeCoercion(rtype, ltype))
-                return GetBuiltinType(TYP_bool);
-            Error(ctx, node, "Invalid operands for <= operator");
+            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
+            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
+            else { Error(ctx, node, "Invalid operands for <= operator"); }
+            return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_Greater:
         {
-            if (CheckTypeCoercion(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
-            if (CheckTypeCoercion(rtype, ltype))
-                return GetBuiltinType(TYP_bool);
-            Error(ctx, node, "Invalid operands for > operator");
+            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
+            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
+            else { Error(ctx, node, "Invalid operands for > operator"); }
+            return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_GreaterEq:
         {
-            if (CheckTypeCoercion(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
-            if (CheckTypeCoercion(rtype, ltype))
-                return GetBuiltinType(TYP_bool);
-            Error(ctx, node, "Invalid operands for >= operator");
+            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
+            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
+            else { Error(ctx, node, "Invalid operands for >= operator"); }
+            return GetBuiltinType(TYP_bool);
         } break;
 
     case BIN_OP_Range:
@@ -894,8 +978,7 @@ static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
         case AST_UnaryExpr:
             return CheckUnaryExpr(ctx, node, vt);
         case AST_TernaryExpr:
-            NOT_IMPLEMENTED("ternary expression checking");
-            break;
+            return CheckTernaryExpr(ctx, node, vt);
         case AST_AccessExpr:
             return CheckAccessExpr(ctx, node, vt);
         case AST_TypecastExpr:
@@ -911,7 +994,7 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
     Type *type = CheckType(ctx, node->variable_decl.type);
     Value_Type vt;
     Type *init_type = CheckExpression(ctx, node->variable_decl.init, &vt);
-    ASSERT(type || init_type);
+    //ASSERT(type || init_type);
 
     if (!type) type = init_type;
     if (!CheckTypeCoercion(type, init_type))
@@ -930,13 +1013,26 @@ static void CheckIfStatement(Sem_Check_Context *ctx, Ast_Node *node)
     Ast_Node *false_stmt = node->if_stmt.false_stmt;
 
     Value_Type vt;
-    Type *ctype = CheckExpression(ctx, cond_expr, &vt);
+    Type *cond_type = CheckExpression(ctx, cond_expr, &vt);
 
-    if (!TypeIsBoolean(ctype))
+    if (!TypeIsBoolean(cond_type))
         Error(ctx, cond_expr, "If condition must be boolean");
     CheckStatement(ctx, true_stmt);
     if (false_stmt)
         CheckStatement(ctx, false_stmt);
+}
+
+static void CheckWhileStatement(Sem_Check_Context *ctx, Ast_Node *node)
+{
+    Ast_Node *cond_expr = node->while_stmt.condition_expr;
+    Ast_Node *loop_stmt = node->while_stmt.loop_stmt;
+
+    Value_Type vt;
+    Type *cond_type = CheckExpression(ctx, cond_expr, &vt);
+
+    if (!TypeIsBoolean(cond_type))
+        Error(ctx, cond_expr, "While condition must be boolean");
+    CheckStatement(ctx, loop_stmt);
 }
 
 static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
@@ -952,27 +1048,40 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
             // try to check the return type.
             return;
         }
-        if (!ctx->env->return_type)
+        if (ctx->env->return_type)
+        {
+            if (rtype->tag == TYP_int_lit && TypeIsIntegral(ctx->env->return_type))
+                rtype = ctx->env->return_type;
+            else
+                rtype = GetBuiltinType(TYP_s64);
+            if (!CheckTypeCoercion(rtype, ctx->env->return_type))
+            {
+                ErrorReturnTypeMismatch(ctx, rexpr, rtype, ctx->env->return_type, ctx->env->rt_inferred);
+            }
+        }
+        else
         {
             // TODO(henrik): We need TYP_uint_lit for the case when the
             // literal does not fit in signed 64.
             if (rtype->tag == TYP_int_lit)
                 rtype = GetBuiltinType(TYP_s64);
             ctx->env->return_type = rtype;
-        }
-        else
-        {
-            if (!CheckTypeCoercion(rtype, ctx->env->return_type))
-            {
-                ErrorReturnTypeMismatch(ctx, rexpr, rtype, ctx->env->return_type);
-            }
+            ctx->env->rt_inferred = node;
+            //fprintf(stderr, "inferred return type: ");
+            //PrintType(stderr, rtype);
+            //fprintf(stderr, "\n");
         }
     }
     else
     {
-        if (ctx->env->return_type)
+        if (ctx->env->return_type && !TypeIsVoid(ctx->env->return_type))
         {
             Error(ctx, node, "Return value expceted");
+        }
+        else if (!ctx->env->return_type)
+        {
+            ctx->env->return_type = GetBuiltinType(TYP_void);
+            ctx->env->rt_inferred = node;
         }
     }
 }
@@ -989,13 +1098,12 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
         case AST_IfStmt:
             CheckIfStatement(ctx, node);
             break;
+        case AST_WhileStmt:
+            CheckWhileStatement(ctx, node);
+            break;
         case AST_ForStmt:
             //CheckForStatement(ctx, node);
             NOT_IMPLEMENTED("For statement");
-            break;
-        case AST_WhileStmt:
-            //CheckWhileStatement(ctx, node);
-            NOT_IMPLEMENTED("While statement");
             break;
         case AST_ReturnStmt:
             CheckReturnStatement(ctx, node);
@@ -1114,7 +1222,6 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     // NOTE(henrik): Lookup only in current scope, before opening the
     // function scope.
     Symbol *overload = LookupSymbolInCurrentScope(ctx->env, name);
-
 
     OpenFunctionScope(ctx->env, return_type);
 
