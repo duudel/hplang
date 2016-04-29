@@ -100,12 +100,9 @@ enum Token_Type
     TOK_PipePipe,       // ||
 
     // TODO: Add increment & decrement ops (++, --) ??
-    // TODO: Add modulo op
-    // TODO: Add bitwise ops
     // TODO: Add shift ops
-    // TODO: Add ternary op "?"
 
-    TOK_StarStar,       // **
+    TOK_Arrow,          // ->
 
     TOK_EOF,            // Special token that is used to signal
                         // end of token stream in the parser.

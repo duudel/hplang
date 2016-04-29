@@ -49,12 +49,22 @@ s64*[] == ((s64)*)[]
 s64**[] == ((s64)**)[] == (s64**)[]
 
 
+// Type casting. Which of these syntaxes would be best?
+a := (u64)b;
+fwrite(stdout, (char*)s.data, s.size);
+fwrite(stdout, s.data|char*|, s.size);
+fwrite(stdout, s.data -> (char*), s.size);
+fwrite(stdout, s.data : (char*), s.size); // <- this is my favourite right now
+fwrite(stdout, s.data as (char*), s.size);
+fwrite(stdout, |char*|s.data, s.size);
+fwrite(stdout, <char*>s.data, s.size);
+fwrite(stdout, cast<char*>s.data, s.size);
+fwrite(stdout, [char*]s.data, s.size);
 
 // -- Data type definition syntax
 
 // Struct syntax for string data type.
-// The builtin string will be like this (but possibly
-// likely defined inside the compiler)
+// The builtin string will be like this:
 string :: struct
 {
     length : s64;
@@ -73,6 +83,8 @@ Ast_Kind :: enum
 
 // Maybe optionally specify the underlying integral data type:
 Ast_Kind :: enum(s64)
+// or
+Ast_Kind :: enum : s64
 {
     ...
 }

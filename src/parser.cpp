@@ -241,6 +241,84 @@ static Ast_Node* PushNode(Parser_Context *ctx,
 }
 
 
+static Ast_Node* ParseType(Parser_Context *ctx)
+{
+    TRACE(ParseType);
+    Ast_Node *type_node = nullptr;
+    const Token *token = GetCurrentToken(ctx);
+    switch (token->type)
+    {
+        case TOK_OpenParent:
+            {
+                GetNextToken(ctx);
+                type_node = ParseType(ctx);
+                ExpectAfterLast(ctx, TOK_CloseParent);
+            } break;
+
+        case TOK_Type_Void:
+        case TOK_Type_Bool:
+        case TOK_Type_Char:
+        case TOK_Type_String:
+        case TOK_Type_S8:
+        case TOK_Type_S16:
+        case TOK_Type_S32:
+        case TOK_Type_S64:
+        case TOK_Type_U8:
+        case TOK_Type_U16:
+        case TOK_Type_U32:
+        case TOK_Type_U64:
+        case TOK_Type_F32:
+        case TOK_Type_F64:
+        case TOK_Identifier:
+            {
+                GetNextToken(ctx);
+                type_node = PushNode(ctx, AST_Type_Plain, token);
+                Name name = PushName(&ctx->ast->arena,
+                        token->value, token->value_end);
+                type_node->type_node.plain.name = name;
+            } break;
+
+        default:
+            return nullptr;
+    }
+
+    while (ContinueParsing(ctx))
+    {
+        const Token *token = Accept(ctx, TOK_Star);
+        if (token)
+        {
+            Ast_Node *pointer_node = PushNode(ctx, AST_Type_Pointer, token);
+            s64 indirection = 1;
+            while (Accept(ctx, TOK_Star))
+            {
+                indirection++;
+            }
+            pointer_node->type_node.pointer.indirection = indirection;
+            pointer_node->type_node.pointer.base_type = type_node;
+            type_node = pointer_node;
+            continue;
+        }
+        token = Accept(ctx, TOK_OpenBracket);
+        if (token)
+        {
+            Ast_Node *array_node = PushNode(ctx, AST_Type_Array, token);
+            ExpectAfterLast(ctx, TOK_CloseBracket);
+            s64 arrays = 1;
+            while (Accept(ctx, TOK_OpenBracket))
+            {
+                arrays++;
+                ExpectAfterLast(ctx, TOK_CloseBracket);
+            }
+            array_node->type_node.array.array = arrays;
+            array_node->type_node.array.base_type = type_node;
+            type_node = array_node;
+            continue;
+        }
+        break;
+    }
+    return type_node;
+}
+
 static s64 ConvertInt(const char *s, const char *end)
 {
     s64 result = 0;
@@ -523,6 +601,27 @@ static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
         ExpectAfterLast(ctx, TOK_CloseParent);
         return fcall_expr;
     }
+    op_token = Accept(ctx, TOK_Arrow);
+    if (op_token)
+    {
+        Ast_Node *cast_expr = PushNode(ctx, AST_TypecastExpr, op_token);
+        cast_expr->expression.typecast_expr.expr = factor;
+        Ast_Node *type = ParseType(ctx);
+        if (!type)
+        {
+            const Token *star_tok = Accept(ctx, TOK_Star);
+            if (star_tok)
+            {
+                Error(ctx, star_tok, "For pointer types * comes after the typename");
+                if (ContinueParsing(ctx))
+                    type = ParseType(ctx);
+            }
+            if (!type)
+                Error(ctx, op_token, "Expecting type after typecast operator ->");
+        }
+        cast_expr->expression.typecast_expr.type = type;
+        return cast_expr;
+    }
     return nullptr;
 }
 
@@ -773,9 +872,35 @@ static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
     return expr;
 }
 
-static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
+static Ast_Node* ParseTernaryExpr(Parser_Context *ctx)
 {
     Ast_Node *expr = ParseComparisonExpr(ctx);
+    if (!expr) return nullptr;
+
+    const Token *qmark_tok = Accept(ctx, TOK_QuestionMark);
+    if (!qmark_tok) return expr;
+
+    Ast_Node *true_expr = ParseComparisonExpr(ctx);
+    if (!true_expr)
+        Error(ctx, qmark_tok, "Expecting expression after ternary ?");
+
+    const Token *colon_tok = ExpectAfterLast(ctx, TOK_Colon);
+
+    Ast_Node *false_expr = ParseComparisonExpr(ctx);
+    if (!false_expr)
+        Error(ctx, colon_tok, "Expecting expression after ternary :");
+
+    Ast_Node *ternary_expr = PushNode(ctx, AST_TernaryExpr, qmark_tok);
+    ternary_expr->expression.ternary_expr.condition_expr = expr;
+    ternary_expr->expression.ternary_expr.true_expr = true_expr;
+    ternary_expr->expression.ternary_expr.false_expr = false_expr;
+
+    return ternary_expr;
+}
+
+static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
+{
+    Ast_Node *expr = ParseTernaryExpr(ctx);
     if (!expr) return nullptr;
 
     if (ContinueParsing(ctx))
@@ -964,8 +1089,6 @@ static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
     return return_node;
 }
 
-static Ast_Node* ParseType(Parser_Context *ctx);
-
 static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
 {
     const Token *ident_tok = GetCurrentToken(ctx);
@@ -1047,84 +1170,6 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
     return stmt;
 }
 
-static Ast_Node* ParseType(Parser_Context *ctx)
-{
-    TRACE(ParseType);
-    Ast_Node *type_node = nullptr;
-    const Token *token = GetCurrentToken(ctx);
-    switch (token->type)
-    {
-        case TOK_OpenParent:
-            {
-                GetNextToken(ctx);
-                type_node = ParseType(ctx);
-                ExpectAfterLast(ctx, TOK_CloseParent);
-            } break;
-
-        case TOK_Type_Bool:
-        case TOK_Type_Char:
-        case TOK_Type_String:
-        case TOK_Type_S8:
-        case TOK_Type_S16:
-        case TOK_Type_S32:
-        case TOK_Type_S64:
-        case TOK_Type_U8:
-        case TOK_Type_U16:
-        case TOK_Type_U32:
-        case TOK_Type_U64:
-        case TOK_Type_F32:
-        case TOK_Type_F64:
-        case TOK_Identifier:
-            {
-                GetNextToken(ctx);
-                type_node = PushNode(ctx, AST_Type_Plain, token);
-                Name name = PushName(&ctx->ast->arena,
-                        token->value, token->value_end);
-                type_node->type_node.plain.name = name;
-            } break;
-
-        default: break;
-    }
-    if (!type_node)
-        return nullptr;
-
-    while (ContinueParsing(ctx))
-    {
-        const Token *token = Accept(ctx, TOK_Star);
-        if (token)
-        {
-            Ast_Node *pointer_node = PushNode(ctx, AST_Type_Pointer, token);
-            s64 indirection = 1;
-            while (Accept(ctx, TOK_Star))
-            {
-                indirection++;
-            }
-            pointer_node->type_node.pointer.indirection = indirection;
-            pointer_node->type_node.pointer.base_type = type_node;
-            type_node = pointer_node;
-            continue;
-        }
-        token = Accept(ctx, TOK_OpenBracket);
-        if (token)
-        {
-            Ast_Node *array_node = PushNode(ctx, AST_Type_Array, token);
-            ExpectAfterLast(ctx, TOK_CloseBracket);
-            s64 arrays = 1;
-            while (Accept(ctx, TOK_OpenBracket))
-            {
-                arrays++;
-                ExpectAfterLast(ctx, TOK_CloseBracket);
-            }
-            array_node->type_node.array.array = arrays;
-            array_node->type_node.array.base_type = type_node;
-            type_node = array_node;
-            continue;
-        }
-        break;
-    }
-    return type_node;
-}
-
 static void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
 {
     TRACE(ParseParameters);
@@ -1182,6 +1227,8 @@ static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
         if (!return_type)
         {
             Error(ctx, "Expecting function return type");
+            if (GetCurrentToken(ctx)->type != TOK_OpenBlock)
+                GetNextToken(ctx);
         }
     }
     Ast_Node *body = ParseBlockStatement(ctx);

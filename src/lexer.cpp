@@ -190,6 +190,8 @@ enum Lexer_State
     LS_PipeEq,          // |=
     LS_HatEq,           // ^=
 
+    LS_Arrow,           // ->
+
     LS_Comment,
     LS_MultilineComment,
     LS_MultilineCommentStar,
@@ -719,11 +721,13 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
         switch (c)
         {
             case '=': fsm.state = LS_MinusEq; break;
+            case '>': fsm.state = LS_Arrow; break;
             default:
                 fsm.token_type = TOK_Minus;
                 fsm.emit = true;
         } break;
     EMIT_CASE(LS_MinusEq, TOK_MinusEq);
+    EMIT_CASE(LS_Arrow, TOK_Arrow);
 
     case LS_Star:
         switch (c)

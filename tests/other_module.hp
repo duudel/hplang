@@ -1,0 +1,6 @@
+// A dummy module that forwards another module
+// 2016-04-29
+
+import "module";
+
+var_from_other_module := 5;

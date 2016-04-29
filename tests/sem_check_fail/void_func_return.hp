@@ -1,0 +1,7 @@
+// Function with return type defined to be void returning non-void
+// 2016-04-29
+
+test :: () : void
+{
+    return "invalid";
+}

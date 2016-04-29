@@ -7,8 +7,7 @@ foreign {
     get_stderr :: () : FILE*;
     get_stdin :: () : FILE*;
 
-    fwrite :: (file : FILE*, data : u8*, size : s64) : s64;
-    fwrite_chars :: (file : FILE*, data : char*, size : s64) : s64;
+    fwrite :: (file : FILE*, size : s64, data : u8*) : s64;
     fprint_int :: (file : FILE*, x : s64) : s64;
 }
 
@@ -18,8 +17,7 @@ stdin : FILE* = get_stdin();
 
 print :: (s : string) : s64
 {
-    // Temporary solution as we still do not have type casting
-    return fwrite_chars(stdout, s.data, s.size);
+    return fwrite(stdout, s.size, s.data -> u8*);
 }
 
 println :: (s : string) : s64
@@ -35,6 +33,31 @@ println :: () : s64
 
 print :: (x : s64) : s64
 {
+    /*
+    if (x == 0)  return print("0");
+
+    neg := val < 0;
+    val = (neg ? -val : val);
+    val := x;
+    magnitude := 1;
+    while (val > 0)
+    {
+        val /= 10;
+        magnitude *= 10;
+    }
+
+    written := 0;
+    if neg  written += print("-");
+    while (x > 0)
+    {
+        y := x / magnitude;
+        x -= y * magnitude;
+        magnitude /= 10;
+        u8 c = ('0' -> u8) + y;
+        written += fwrite(stdout, 1, &c);
+    }
+    return written;
+    */
     return fprint_int(stdout, x);
 }
 

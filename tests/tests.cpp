@@ -58,10 +58,12 @@ Test tests[] = {
     (Test){ CP_Checking, "tests/sem_check_fail/identical_func_def.hp", { }, { }, {5, 1} },
     (Test){ CP_Checking, "tests/sem_check_fail/parameter_decl_twice.hp", { }, { }, {4, 28} },
     (Test){ CP_Checking, "tests/sem_check_fail/return_infer_fail.hp", },
+    (Test){ CP_Checking, "tests/sem_check_fail/void_func_return.hp", },
     (Test){ CP_CodeGen, "tests/hello_test.hp" },
     (Test){ CP_CodeGen, "tests/beer_test.hp" },
-    (Test){ CP_CodeGen, "tests/module_test.hp" },
     (Test){ CP_CodeGen, "tests/pointer_arith.hp" },
+    (Test){ CP_CodeGen, "tests/module_test.hp" },
+    (Test){ CP_CodeGen, "tests/modules_test.hp" },
 };
 
 void PrintError(const char *filename, s64 line, s64 column, const char *message)

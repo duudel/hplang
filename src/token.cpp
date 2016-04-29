@@ -102,7 +102,7 @@ static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_AmpAmp,            "&&"},
     {TOK_PipePipe,          "||"},
 
-    {TOK_StarStar,          "**"},
+    {TOK_Arrow,             "->"},
 };
 
 template <class T, s64 N>

@@ -61,6 +61,24 @@ static void ErrorSymbolNotTypename(Sem_Check_Context *ctx, Ast_Node *node, Name 
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
 }
 
+static void PrintType(FILE *file, Type *type);
+
+static void PrintFunctionType(FILE *file, Type *return_type, s64 param_count, Type **param_types)
+{
+    fprintf(file, "(");
+    for (s64 i = 0; i < param_count; i++)
+    {
+        if (i > 0) fprintf(file, ", ");
+        PrintType(file, param_types[i]);
+    }
+    fprintf(file, ")");
+    fprintf(file, " : ");
+    if (return_type)
+        PrintType(file, return_type);
+    else
+        fprintf(file, "*");
+}
+
 static void PrintType(FILE *file, Type *type)
 {
     switch (type->tag)
@@ -71,18 +89,9 @@ static void PrintType(FILE *file, Type *type)
         break;
     case TYP_Function:
         {
-            fprintf(file, "(");
-            for (s64 i = 0; i < type->function_type.parameter_count; i++)
-            {
-                if (i > 0) fprintf(file, ", ");
-                PrintType(file, type->function_type.parameter_types[i]);
-            }
-            fprintf(file, ")");
-            fprintf(file, " : ");
-            if (type->function_type.return_type)
-                PrintType(file, type->function_type.return_type);
-            else
-                fprintf(file, "*");
+            PrintFunctionType(file, type->function_type.return_type,
+                    type->function_type.parameter_count,
+                    type->function_type.parameter_types);
         } break;
     case TYP_pointer:
         {
@@ -111,12 +120,25 @@ static void PrintType(FILE *file, Type *type)
     }
 }
 
-static void ErrorTypeMismatch(Sem_Check_Context *ctx, Ast_Node *node, Type *a, Type *b)
+static void ErrorFuncCallNoOverload(Sem_Check_Context *ctx,
+        Ast_Node *node, Name func_name, s64 arg_count, Type **arg_types)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, node->file_loc);
     PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "Type mismatch. '");
+    fprintf(err_ctx->file, "No function overload '");
+    PrintString(err_ctx->file, func_name.str);
+    PrintFunctionType(err_ctx->file, nullptr, arg_count, arg_types);
+    fprintf(err_ctx->file, "' found\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+}
+
+static void ErrorReturnTypeMismatch(Sem_Check_Context *ctx, Ast_Node *node, Type *a, Type *b)
+{
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, node->file_loc);
+    PrintFileLocation(err_ctx->file, node->file_loc);
+    fprintf(err_ctx->file, "Return type mismatch. '");
     PrintType(err_ctx->file, a);
     fprintf(err_ctx->file, "' does not match '");
     PrintType(err_ctx->file, b);
@@ -138,6 +160,20 @@ static void ErrorArgTypeMismatch(Sem_Check_Context *ctx, Ast_Node *node, Type *a
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
 }
 #endif
+
+static void ErrorTypecast(Sem_Check_Context *ctx, Ast_Node *node, Type *from_type, Type *to_type)
+{
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, node->file_loc);
+    PrintFileLocation(err_ctx->file, node->file_loc);
+    fprintf(err_ctx->file, "Type '");
+    PrintType(err_ctx->file, from_type);
+    fprintf(err_ctx->file, "' cannot be casted to '");
+    PrintType(err_ctx->file, to_type);
+    fprintf(err_ctx->file, "'\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+}
+
 
 static void ErrorImport(Sem_Check_Context *ctx, Ast_Node *node, String filename)
 {
@@ -312,22 +348,20 @@ static void CheckFunctionArgs(Sem_Check_Context *ctx,
 // Returns -1, if not compatible.
 // Otherwise returns >= 0, if compatible.
 static s64 CheckFunctionArgs(Sem_Check_Context *ctx,
-        Type *ftype, Ast_Node *node, Ast_Function_Call *function_call)
+        Type *ftype, s64 arg_count, Type **arg_types)
 {
     // TODO(henrik): Make the check so that we can report the argument type
     // mismatch of the best matching overload
 
     s64 param_count = ftype->function_type.parameter_count;
-    if (param_count != function_call->args.count)
+    if (param_count != arg_count)
     {
         return -1;
     }
     s64 score = 0;
     for (s64 i = 0; i < param_count; i++)
     {
-        Ast_Node *arg = function_call->args.nodes[i];
-        Value_Type vt;
-        Type *arg_type = CheckExpression(ctx, arg, &vt);
+        Type *arg_type = arg_types[i];
         Type *param_type = ftype->function_type.parameter_types[i];
 
         score *= 10;
@@ -362,14 +396,28 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Node *node)
     {
         Ast_Node *fexpr = function_call->fexpr;
         ASSERT(fexpr->type == AST_VariableRef);
-        Symbol *func = LookupSymbol(ctx->env, fexpr->expression.variable_ref.name);
+
+        s64 arg_count = function_call->args.count;
+        Type **arg_types = PushArray<Type*>(&ctx->env->arena, arg_count);
+        Value_Type vt;
+        for (s64 i = 0; i < arg_count && ContinueChecking(ctx); i++)
+        {
+            Ast_Node *arg = function_call->args.nodes[i];
+            arg_types[i] = CheckExpression(ctx, arg, &vt);
+        }
+
+        if (!ContinueChecking(ctx))
+            return nullptr;
+
+        Name func_name = fexpr->expression.variable_ref.name;
+        Symbol *func = LookupSymbol(ctx->env, func_name);
 
         s64 best_score = -1;
         Symbol *best_overload = nullptr;
         b32 ambiguous = false;
         while (func)
         {
-            s64 score = CheckFunctionArgs(ctx, func->type, node, function_call);
+            s64 score = CheckFunctionArgs(ctx, func->type, arg_count, arg_types);
             if (score > best_score)
             {
                 best_score = score;
@@ -384,7 +432,8 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Node *node)
         }
         if (!best_overload)
         {
-            Error(ctx, node, "Function call does not match any overload");
+            //Error(ctx, node, "Function call does not match any overload");
+            ErrorFuncCallNoOverload(ctx, node, func_name, arg_count, arg_types);
             return nullptr;
         }
         else if (ambiguous)
@@ -460,7 +509,26 @@ static b32 TypeIsStruct(Type *t)
     return t->tag == TYP_Struct;
 }
 
-// TODO: Implement module.member
+static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+{
+    Ast_Node *expr = node->expression.typecast_expr.expr;
+    Ast_Node *type = node->expression.typecast_expr.type;
+
+    Value_Type evt;
+    Type *etype = CheckExpression(ctx, expr, &evt);
+    Type *ctype = CheckType(ctx, type);
+
+    *vt = VT_NonAssignable;
+
+    if (TypeIsPointer(etype) && TypeIsPointer(ctype))
+        return ctype;
+    if (TypeIsNumeric(etype) && TypeIsNumeric(ctype))
+        return ctype;
+    ErrorTypecast(ctx, node, etype, ctype);
+    return nullptr;
+}
+
+// TODO: Implement module.member; implement pointer.member
 static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
 {
     Ast_Node *left = node->expression.access_expr.left;
@@ -569,6 +637,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
     Type *rtype = CheckExpression(ctx, right, &rvt);
 
     *vt = VT_NonAssignable;
+    if (!ltype || !rtype) return nullptr;
     switch (op)
     {
     case BIN_OP_Add:
@@ -709,6 +778,8 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_T
     Type *ltype = CheckExpression(ctx, left, &lvt);
     Type *rtype = CheckExpression(ctx, right, &rvt);
 
+    if (!ltype || !rtype) return nullptr;
+
     if (lvt != VT_Assignable)
     {
         Error(ctx, left, "Assignment to non-l-value expression");
@@ -827,6 +898,8 @@ static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
             break;
         case AST_AccessExpr:
             return CheckAccessExpr(ctx, node, vt);
+        case AST_TypecastExpr:
+            return CheckTypecastExpr(ctx, node, vt);
         default:
             INVALID_CODE_PATH;
     }
@@ -873,15 +946,25 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     {
         Value_Type vt;
         Type *rtype = CheckExpression(ctx, rexpr, &vt);
+        if (!rtype)
+        {
+            // NOTE(henrik): If there was an error in the expression, do not
+            // try to check the return type.
+            return;
+        }
         if (!ctx->env->return_type)
         {
+            // TODO(henrik): We need TYP_uint_lit for the case when the
+            // literal does not fit in signed 64.
+            if (rtype->tag == TYP_int_lit)
+                rtype = GetBuiltinType(TYP_s64);
             ctx->env->return_type = rtype;
         }
         else
         {
             if (!CheckTypeCoercion(rtype, ctx->env->return_type))
             {
-                ErrorTypeMismatch(ctx, rexpr, rtype, ctx->env->return_type);
+                ErrorReturnTypeMismatch(ctx, rexpr, rtype, ctx->env->return_type);
             }
         }
     }
@@ -1018,7 +1101,8 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     ftype->function_type.parameter_count = param_count;
     ftype->function_type.parameter_types = PushArray<Type*>(&ctx->env->arena, param_count);
 
-    ftype->function_type.return_type = CheckType(ctx, node->function.return_type);
+    Type *return_type = CheckType(ctx, node->function.return_type);
+    ftype->function_type.return_type = return_type;
 
     // TODO(henrik): Should the names be copied to env->arena?
     Name name = node->function.name;
@@ -1031,7 +1115,8 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     // function scope.
     Symbol *overload = LookupSymbolInCurrentScope(ctx->env, name);
 
-    OpenFunctionScope(ctx->env, ftype->function_type.return_type);
+
+    OpenFunctionScope(ctx->env, return_type);
 
     // NOTE(henrik): Check parameters after opening the function scope
     CheckParameters(ctx, node, ftype);
@@ -1049,6 +1134,9 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     CheckBlockStatement(ctx, node->function.body);
 
     ftype->function_type.return_type = ctx->env->return_type;
+
+    if (return_type)
+        ASSERT(ftype->function_type.return_type);
     CloseFunctionScope(ctx->env);
 }
 

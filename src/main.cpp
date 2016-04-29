@@ -68,15 +68,15 @@ int main(int argc, char **argv)
     Open_File *file = OpenFile(&compiler_ctx, source);
     if (!file)
     {
-        printf("Error reading source file '%s'\n", source);
+        fprintf(stderr, "Error reading source file '%s'\n", source);
     }
     if (file && Compile(&compiler_ctx, file))
     {
-        printf("Compilation ok\n");
+        fprintf(stderr, "Compilation ok\n");
     }
     else
     {
-        printf("Compilation failed\n");
+        fprintf(stderr, "Compilation failed\n");
     }
 
     FreeCompilerContext(&compiler_ctx);

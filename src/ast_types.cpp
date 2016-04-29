@@ -175,12 +175,16 @@ static void FreeAstNode(Ast_Node *node)
             break;
         case AST_TernaryExpr:
             FreeAstNode(node->expression.ternary_expr.condition_expr);
-            FreeAstNode(node->expression.ternary_expr.expr_a);
-            FreeAstNode(node->expression.ternary_expr.expr_b);
+            FreeAstNode(node->expression.ternary_expr.true_expr);
+            FreeAstNode(node->expression.ternary_expr.false_expr);
             break;
         case AST_AccessExpr:
             FreeAstNode(node->expression.access_expr.left);
             FreeAstNode(node->expression.access_expr.right);
+            break;
+        case AST_TypecastExpr:
+            FreeAstNode(node->expression.typecast_expr.expr);
+            FreeAstNode(node->expression.typecast_expr.type);
             break;
     }
 }

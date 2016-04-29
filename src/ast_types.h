@@ -45,6 +45,7 @@ enum Ast_Node_Type
     AST_UnaryExpr,
     AST_TernaryExpr,    // <expr> ? <expr> : <expr>
     AST_AccessExpr,     // <expr>.<variable_ref>
+    AST_TypecastExpr,   // <expr> -> <type>
 };
 
 // TODO(henrik): Add bit shift operators
@@ -150,13 +151,19 @@ struct Ast_Unary_Expr
 struct Ast_Ternary_Expr
 {
     Ast_Node *condition_expr;
-    Ast_Node *expr_a;
-    Ast_Node *expr_b;
+    Ast_Node *true_expr;
+    Ast_Node *false_expr;
 };
 
 struct Ast_Access_Expr
 {
     Ast_Node *left, *right;
+};
+
+struct Ast_Typecast_Expr
+{
+    Ast_Node *expr;
+    Ast_Node *type;
 };
 
 struct Ast_Variable_Ref
@@ -190,6 +197,7 @@ struct Ast_Expression
         Ast_Unary_Expr      unary_expr;
         Ast_Ternary_Expr    ternary_expr;
         Ast_Access_Expr     access_expr;
+        Ast_Typecast_Expr   typecast_expr;
         Ast_Variable_Ref    variable_ref;
         Ast_Function_Call   function_call;
         Ast_Assignment      assignment;

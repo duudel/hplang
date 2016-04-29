@@ -212,6 +212,7 @@ void OpenFunctionScope(Environment *env, Type *return_type)
 {
     OpenScope(env);
     env->current->return_type = return_type;
+    env->return_type = return_type;
 }
 
 void CloseFunctionScope(Environment *env)
