@@ -130,8 +130,6 @@ struct Environment
     Array<Scope*> scopes;
 
     Scope *current;
-    Type *return_type;      // The return type of the current function scope
-    Ast_Node *rt_inferred;  // Set if the return type was inferred (location info for errors)
 };
 
 Environment NewEnvironment();

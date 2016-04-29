@@ -192,10 +192,11 @@ void OpenScope(Environment *env)
     *scope = { };
     array::Resize(scope->table, INITIAL_SYM_TABLE_SIZE);
     scope->parent = env->current;
-    //if (env->current)
-    //{
-    //    scope->return_type = env->current->return_type;
-    //}
+    if (env->current)
+    {
+        scope->return_type = scope->parent->return_type;
+        scope->rt_inferred = scope->parent->rt_inferred;
+    }
 
     env->current = scope;
     array::Push(env->scopes, scope);
@@ -204,8 +205,15 @@ void OpenScope(Environment *env)
 void CloseScope(Environment *env)
 {
     ASSERT(env->current->parent != nullptr);
-    //env->return_type = env->current->return_type;
+    Type *return_type = env->current->return_type;
+    Ast_Node *rt_inferred = env->current->rt_inferred;
+
     env->current = env->current->parent;
+    if (return_type)
+    {
+        env->current->return_type = return_type;
+        env->current->rt_inferred = rt_inferred;
+    }
 }
 
 void OpenFunctionScope(Environment *env, Type *return_type)
@@ -213,23 +221,12 @@ void OpenFunctionScope(Environment *env, Type *return_type)
     OpenScope(env);
     env->current->return_type = return_type;
     env->current->rt_inferred = nullptr;
-    env->return_type = return_type;
-    env->rt_inferred = nullptr;
 }
 
 void CloseFunctionScope(Environment *env)
 {
-    CloseScope(env);
-    if (env->current)
-    {
-        env->return_type = env->current->return_type;
-        env->rt_inferred = env->current->rt_inferred;
-    }
-    else
-    {
-        env->return_type = nullptr;
-        env->rt_inferred = nullptr;
-    }
+    ASSERT(env->current->parent != nullptr);
+    env->current = env->current->parent;
 }
 
 Type* PushType(Environment *env, Type_Tag tag)

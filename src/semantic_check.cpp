@@ -1048,15 +1048,16 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
             // try to check the return type.
             return;
         }
-        if (ctx->env->return_type)
+        Type *cur_rtype = ctx->env->current->return_type;
+        if (cur_rtype)
         {
-            if (rtype->tag == TYP_int_lit && TypeIsIntegral(ctx->env->return_type))
-                rtype = ctx->env->return_type;
+            if (rtype->tag == TYP_int_lit && TypeIsIntegral(cur_rtype))
+                rtype = cur_rtype;
             else
                 rtype = GetBuiltinType(TYP_s64);
-            if (!CheckTypeCoercion(rtype, ctx->env->return_type))
+            if (!CheckTypeCoercion(rtype, cur_rtype))
             {
-                ErrorReturnTypeMismatch(ctx, rexpr, rtype, ctx->env->return_type, ctx->env->rt_inferred);
+                ErrorReturnTypeMismatch(ctx, rexpr, rtype, cur_rtype, ctx->env->current->rt_inferred);
             }
         }
         else
@@ -1065,8 +1066,8 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
             // literal does not fit in signed 64.
             if (rtype->tag == TYP_int_lit)
                 rtype = GetBuiltinType(TYP_s64);
-            ctx->env->return_type = rtype;
-            ctx->env->rt_inferred = node;
+            ctx->env->current->return_type = rtype;
+            ctx->env->current->rt_inferred = node;
             //fprintf(stderr, "inferred return type: ");
             //PrintType(stderr, rtype);
             //fprintf(stderr, "\n");
@@ -1074,14 +1075,14 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     }
     else
     {
-        if (ctx->env->return_type && !TypeIsVoid(ctx->env->return_type))
+        if (ctx->env->current->return_type && !TypeIsVoid(ctx->env->current->return_type))
         {
             Error(ctx, node, "Return value expceted");
         }
-        else if (!ctx->env->return_type)
+        else if (!ctx->env->current->return_type)
         {
-            ctx->env->return_type = GetBuiltinType(TYP_void);
-            ctx->env->rt_inferred = node;
+            ctx->env->current->return_type = GetBuiltinType(TYP_void);
+            ctx->env->current->rt_inferred = node;
         }
     }
 }
@@ -1240,7 +1241,7 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 
     CheckBlockStatement(ctx, node->function.body);
 
-    ftype->function_type.return_type = ctx->env->return_type;
+    ftype->function_type.return_type = ctx->env->current->return_type;
 
     if (return_type)
         ASSERT(ftype->function_type.return_type);
