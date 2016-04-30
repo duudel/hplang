@@ -1,0 +1,8 @@
+// Accessing non struct type with . operator
+// 2016-04-30
+
+test :: ()
+{
+    value : bool;
+    value.member;
+}

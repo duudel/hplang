@@ -6,14 +6,7 @@ namespace hplang
 {
 
 struct Error_Context;
-
-enum Lexer_Status
-{
-    LEX_None,
-    LEX_Pending,
-    LEX_Done,
-    LEX_Error
-};
+struct Compiler_Context;
 
 struct Lexer_Context
 {
@@ -22,18 +15,18 @@ struct Lexer_Context
     s64 current;
     s64 state;
     b32 carriage_return;
-    Lexer_Status status;
 
     Token current_token;
 
     File_Location file_loc;
-    Error_Context *error_ctx;
+    Compiler_Context *comp_ctx;
 };
 
-Lexer_Context NewLexerContext(Token_List *tokens, Error_Context *err_ctx);
+Lexer_Context NewLexerContext(Token_List *tokens,
+        Open_File *file, Compiler_Context *comp_ctx);
 void FreeLexerContext(Lexer_Context *ctx);
 
-void Lex(Lexer_Context *ctx, const char *text, s64 text_length);
+void Lex(Lexer_Context *ctx);
 
 } // hplang
 

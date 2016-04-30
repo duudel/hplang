@@ -34,7 +34,7 @@ static s64 NumberLen(s64 number)
 
 void PrintFileLocation(FILE *file, File_Location file_loc)
 {
-    fwrite(file_loc.filename.data, 1, file_loc.filename.size, file);
+    fwrite(file_loc.file->filename.data, 1, file_loc.file->filename.size, file);
     fprintf(file, ":%" PRId64 ":%" PRId64 ": ", file_loc.line, file_loc.column);
 
     s64 loc_len = NumberLen(file_loc.line) + NumberLen(file_loc.column);
@@ -50,8 +50,11 @@ void PrintFileLocation(FILE *file, File_Location file_loc)
     fprintf(file, "\n  ");
 }
 
-void PrintFileLine(FILE *file, Open_File *open_file, File_Location file_loc)
+void PrintFileLine(FILE *file, File_Location file_loc)
 {
+    Open_File *open_file = file_loc.file;
+    ASSERT(open_file != nullptr);
+
     const char *file_start = (const char*)open_file->contents.ptr;
     ASSERT(file_start != nullptr);
     ASSERT(file_loc.line_offset < open_file->contents.size);

@@ -1,21 +1,23 @@
 
 #include "lexer.h"
+#include "compiler.h"
 #include "error.h"
 #include "assert.h"
 
-#include <cstdio> // TODO(henrik): remove direct dependency to stdio
+#include <cstdio>
 
 namespace hplang
 {
 
-Lexer_Context NewLexerContext(Token_List *tokens, Error_Context *error_ctx)
+Lexer_Context NewLexerContext(Token_List *tokens,
+        Open_File *file, Compiler_Context *comp_ctx)
 {
     Lexer_Context ctx = { };
     ctx.tokens = tokens;
-    ctx.status = LEX_None;
+    ctx.file_loc.file = file;
     ctx.file_loc.line = 1;
     ctx.file_loc.column = 1;
-    ctx.error_ctx = error_ctx;
+    ctx.comp_ctx = comp_ctx;
     return ctx;
 }
 
@@ -822,27 +824,63 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     return fsm;
 }
 
-static b32 IsStateOK(Lexer_State state)
+static void Error(Lexer_Context *ctx, //File_Location file_loc,
+            const char *message, const Token *token)
 {
-    switch (state)
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    File_Location file_loc = ctx->current_token.file_loc;
+
+    AddError(err_ctx, file_loc);
+    if (!token)
+    {
+        PrintFileLocation(err_ctx->file, file_loc);
+        fprintf(err_ctx->file, "%s\n", message);
+        PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
+    }
+    else
+    {
+        PrintFileLocation(err_ctx->file, file_loc);
+        fprintf(err_ctx->file, "%s '", message);
+        PrintTokenValue(err_ctx->file, token);
+        fprintf(err_ctx->file, "'\n");
+    }
+}
+
+static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
+{
+    switch (fsm.state)
     {
         case LS_Default:
             INVALID_CODE_PATH;
 
         case LS_Int:            return true;
-        case LS_FloatP:         return false;
+        case LS_FloatP:
+            Error(ctx, "Invalid floating point number", &ctx->current_token);
+            return false;
+
         case LS_Float:          return true;
-        case LS_FloatE1:        return false;
-        case LS_FloatE_Sign:    return false;
+
+        case LS_FloatE1:
+        case LS_FloatE_Sign:
+            Error(ctx, "Invalid floating point exponent", &ctx->current_token);
+            return false;
+
         case LS_FloatE:         return true;
         case LS_FloatF:         return true;
         case LS_FloatD:         return true;
 
-        case LS_StringLit:      return false;
-        case LS_StringLitEsc:   return false;
+        case LS_StringLit:
+        case LS_StringLitEsc:
+            Error(ctx, "Unterminated string literal", nullptr);
+            return false;
+
         case LS_StringLitEnd:   return true;
-        case LS_CharLit:        return false;
-        case LS_CharLitEsc:     return false;
+
+        case LS_CharLit:
+        case LS_CharLitEsc:
+            Error(ctx, "Unterminated character lilteral", nullptr);
+            return false;
+
         case LS_CharLitEnd:     return true;
 
         case LS_Ident:          return true;
@@ -979,8 +1017,12 @@ static b32 IsStateOK(Lexer_State state)
         case LS_Arrow:          return true;
 
         case LS_Comment:
+            return false;
         case LS_MultilineComment:
         case LS_MultilineCommentStar:
+            Error(ctx, "Unterminated multiline comment", nullptr);
+            return false;
+
         case LS_Invalid:
         case LS_Junk:
 
@@ -990,33 +1032,9 @@ static b32 IsStateOK(Lexer_State state)
     return false;
 }
 
-void Error(Error_Context *ctx, File_Location file_loc,
-            const char *message, const Token *token)
-{
-    AddError(ctx, file_loc);
-    if (!token)
-    {
-        PrintFileLocation(ctx->file, file_loc);
-        fprintf(ctx->file, "%s\n", message);
-    }
-    else
-    {
-        PrintFileLocation(ctx->file, file_loc);
-        fprintf(ctx->file, "%s '", message);
-        PrintTokenValue(ctx->file, token);
-        fprintf(ctx->file, "'\n");
-    }
-}
-
 void EmitToken(Lexer_Context *ctx, FSM fsm)
 {
-    // If not valid state, give an error
-    if (!IsStateOK(fsm.state))
-    {
-        Error(ctx->error_ctx, ctx->current_token.file_loc,
-            "Invalid token", &ctx->current_token);
-    }
-    else
+    if (CheckEmitState(ctx, fsm))
     {
         Token *token = PushTokenList(ctx->tokens);
         ctx->current_token.type = fsm.token_type;
@@ -1024,8 +1042,11 @@ void EmitToken(Lexer_Context *ctx, FSM fsm)
     }
 }
 
-void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
+void Lex(Lexer_Context *ctx)
 {
+    const char *text = (const char*)ctx->file_loc.file->contents.ptr;
+    s64 text_length = ctx->file_loc.file->contents.size;
+
     s64 cur = ctx->current;
     ctx->current_token.value = text;
     ctx->current_token.value_end = text;
@@ -1087,8 +1108,7 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
                 if (fsm.state == LS_Invalid)
                 {
                     ctx->current_token.value_end = text + cur;
-                    Error(ctx->error_ctx, ctx->current_token.file_loc,
-                        "Invalid token", &ctx->current_token);
+                    Error(ctx, "Invalid token", &ctx->current_token);
 
                     fsm.state = LS_Default;
                     ctx->file_loc.offset_start = cur;
@@ -1123,19 +1143,8 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
         }
     }
 
+    // A remain from continuing lexer days.. -.-´
     ctx->current = cur;
-    if (fsm.done)
-    {
-        ctx->status = LEX_Done;
-    }
-    else if (ctx->error_ctx->error_count > 0)
-    {
-        ctx->status = LEX_Error;
-    }
-    else
-    {
-        ctx->status = LEX_Pending;
-    }
 }
 
 } // hplang

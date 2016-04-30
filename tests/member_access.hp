@@ -1,0 +1,23 @@
+// Tests different struct member access expressions.
+// 2016-04-30
+
+my_struct :: struct
+{
+    x : f32;
+    y : f32;
+}
+
+test :: ()
+{
+    s : string = "a string";
+    s.size;
+    s.data;
+
+    m : my_struct;
+    m.x = 1.0f;
+    m.y = -3.04e2f;
+
+    pm := &m;
+    pm.x *= 3.0f;
+    pm.y = m.x * pm.x - 2;
+}

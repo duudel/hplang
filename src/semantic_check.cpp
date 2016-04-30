@@ -47,7 +47,7 @@ static void Error(Sem_Check_Context *ctx, Ast_Node *node, const char *message)
     AddError(err_ctx, node->file_loc);
     PrintFileLocation(err_ctx->file, node->file_loc);
     fprintf(err_ctx->file, "%s\n", message);
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
 static void ErrorSymbolNotTypename(Sem_Check_Context *ctx, Ast_Node *node, Name name)
@@ -58,7 +58,7 @@ static void ErrorSymbolNotTypename(Sem_Check_Context *ctx, Ast_Node *node, Name 
     fprintf(err_ctx->file, "Symbol '");
     PrintString(err_ctx->file, name.str);
     fprintf(err_ctx->file, "' is not a typename\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
 static void PrintType(FILE *file, Type *type);
@@ -130,7 +130,7 @@ static void ErrorFuncCallNoOverload(Sem_Check_Context *ctx,
     PrintString(err_ctx->file, func_name.str);
     PrintFunctionType(err_ctx->file, nullptr, arg_count, arg_types);
     fprintf(err_ctx->file, "' found\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
 static void ErrorReturnTypeMismatch(Sem_Check_Context *ctx,
@@ -144,12 +144,12 @@ static void ErrorReturnTypeMismatch(Sem_Check_Context *ctx,
     fprintf(err_ctx->file, "' does not match '");
     PrintType(err_ctx->file, b);
     fprintf(err_ctx->file, "'\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
     if (rt_inferred)
     {
         PrintFileLocation(err_ctx->file, rt_inferred->file_loc);
         fprintf(err_ctx->file, "The return type was inferred here:\n");
-        PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, rt_inferred->file_loc);
+        PrintSourceLineAndArrow(ctx->comp_ctx, rt_inferred->file_loc);
     }
 }
 
@@ -178,7 +178,7 @@ static void ErrorTypecast(Sem_Check_Context *ctx, Ast_Node *node, Type *from_typ
     fprintf(err_ctx->file, "' cannot be casted to '");
     PrintType(err_ctx->file, to_type);
     fprintf(err_ctx->file, "'\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
 
@@ -190,7 +190,7 @@ static void ErrorImport(Sem_Check_Context *ctx, Ast_Node *node, String filename)
     fprintf(err_ctx->file, "Could not open file '");
     PrintString(err_ctx->file, filename);
     fprintf(err_ctx->file, "'\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
 static void ErrorUndefinedReference(Sem_Check_Context *ctx, Ast_Node *node, Name name)
@@ -201,7 +201,7 @@ static void ErrorUndefinedReference(Sem_Check_Context *ctx, Ast_Node *node, Name
     fprintf(err_ctx->file, "Undefined reference to '");
     PrintString(err_ctx->file, name.str);
     fprintf(err_ctx->file, "'\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
 static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
@@ -228,7 +228,7 @@ static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
     }
     fprintf(err_ctx->file, "' was declared as %s earlier\n", sym_type);
 
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
 static void ErrorVaribleShadowsParam(Sem_Check_Context *ctx,
@@ -240,7 +240,7 @@ static void ErrorVaribleShadowsParam(Sem_Check_Context *ctx,
     fprintf(err_ctx->file, "Variable '");
     PrintString(err_ctx->file, name.str);
     fprintf(err_ctx->file, "' shadows a parameter with the same name\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
 
@@ -314,7 +314,7 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
                         return symbol->type;
                     //case SYM_Enum:
                     //case SYM_Typealias:
-                        NOT_IMPLEMENTED("struct, enum and typealias in CheckType");
+                        NOT_IMPLEMENTED("enum and typealias in CheckType");
                         break;
 
                     case SYM_PrimitiveType:
@@ -333,7 +333,6 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
     case AST_Type_Array:
         NOT_IMPLEMENTED("Array type check");
         return CheckType(ctx, node->type_node.array.base_type);
-        break;
     default:
         INVALID_CODE_PATH;
     }
@@ -580,9 +579,22 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
     Type *ltype = CheckExpression(ctx, left, &lvt);
 
     *vt = VT_Assignable;
+    if (!ltype) return nullptr;
+
+    if (TypeIsNull(ltype))
+    {
+        Error(ctx, node, "Trying to access null with operator .");
+        return nullptr;
+    }
+
+    if (TypeIsPointer(ltype))
+    {
+        ltype = ltype->base_type;
+        ASSERT(ltype != nullptr);
+    }
     if (!TypeIsStruct(ltype) && !TypeIsString(ltype))
     {
-        Error(ctx, node, "Operator . must be used with structs or modules");
+        Error(ctx, node, "Left hand side of operator . must be a struct or module");
         return nullptr;
     }
     if (right->type != AST_VariableRef)
@@ -1010,8 +1022,13 @@ static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
 static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
 {
     Type *type = CheckType(ctx, node->variable_decl.type);
-    Value_Type vt;
-    Type *init_type = CheckExpression(ctx, node->variable_decl.init, &vt);
+
+    Type *init_type = nullptr;
+    if (node->variable_decl.init)
+    {
+        Value_Type vt;
+        init_type = CheckExpression(ctx, node->variable_decl.init, &vt);
+    }
     //ASSERT(type || init_type);
 
     if (!type)
@@ -1026,7 +1043,7 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         Error(ctx, node, "Cannot declare variable of type void");
     }
 
-    if (type)
+    if (type && init_type)
     {
         if (!CheckTypeCoercion(type, init_type))
         {

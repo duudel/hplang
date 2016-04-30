@@ -59,8 +59,7 @@ bool CompileModule(Compiler_Context *ctx,
 b32 ContinueCompiling(Compiler_Context *ctx);
 b32 HasError(Compiler_Context *ctx);
 
-void PrintSourceLineAndArrow(Compiler_Context *ctx,
-        Open_File *open_file, File_Location file_loc);
+void PrintSourceLineAndArrow(Compiler_Context *ctx, File_Location file_loc);
 
 } // hplang
 

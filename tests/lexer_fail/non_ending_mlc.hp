@@ -1,0 +1,11 @@
+// This test should fail due to non-ending multiline comment.
+// 2016-04-30
+
+test :: ()
+{
+    /* some comment
+    that does not end
+
+    x := 5;
+    return x;
+}

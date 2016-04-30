@@ -159,30 +159,28 @@ b32 HasError(Compiler_Context *ctx)
     return ctx->error_ctx.error_count != 0;
 }
 
-void PrintSourceLineAndArrow(Compiler_Context *ctx,
-        Open_File *open_file, File_Location file_loc)
+void PrintSourceLineAndArrow(Compiler_Context *ctx, File_Location file_loc)
 {
     if (ctx->error_ctx.error_count <= ctx->options.max_line_arrow_error_count)
     {
         fprintf(ctx->error_ctx.file, "\n");
-        PrintFileLine(ctx->error_ctx.file, open_file, file_loc);
+        PrintFileLine(ctx->error_ctx.file, file_loc);
         PrintFileLocArrow(ctx->error_ctx.file, file_loc);
         fprintf(ctx->error_ctx.file, "\n");
     }
 }
 
-b32 Compile(Compiler_Context *ctx, Open_File *file)
+b32 Compile(Compiler_Context *ctx, Open_File *open_file)
 {
     Module *root_module = PushStruct<Module>(&ctx->arena);
     *root_module = { };
-    root_module->module_file = file;
+    root_module->module_file = open_file;
     array::Push(ctx->modules, root_module);
 
     // Lexing
     Token_List tokens = { };
-    Lexer_Context lexer_ctx = NewLexerContext(&tokens, &ctx->error_ctx);
-    lexer_ctx.file_loc.filename = file->filename;
-    Lex(&lexer_ctx, (const char*)file->contents.ptr, file->contents.size);
+    Lexer_Context lexer_ctx = NewLexerContext(&tokens, open_file, ctx);
+    Lex(&lexer_ctx);
     if (HasError(ctx))
     {
         FreeTokenList(&tokens);
@@ -203,7 +201,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
     // Parsing
     Ast *ast = &root_module->ast;
     Parser_Context parser_ctx = NewParserContext(
-            ast, &tokens, file, ctx);
+            ast, &tokens, open_file, ctx);
 
     Parse(&parser_ctx);
     if (HasError(ctx))
@@ -224,7 +222,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *file)
     }
 
     // Semantic checking
-    Sem_Check_Context sem_ctx = NewSemanticCheckContext(ast, file, ctx);
+    Sem_Check_Context sem_ctx = NewSemanticCheckContext(ast, open_file, ctx);
 
     Check(&sem_ctx);
     if (HasError(ctx))
@@ -259,10 +257,8 @@ bool CompileModule(Compiler_Context *ctx,
 
     // Lexing
     Token_List tokens = { };
-    Lexer_Context lexer_ctx = NewLexerContext(&tokens, &ctx->error_ctx);
-    lexer_ctx.file_loc.filename = open_file->filename;
-    const char *contents = (const char*)open_file->contents.ptr;
-    Lex(&lexer_ctx, contents, open_file->contents.size);
+    Lexer_Context lexer_ctx = NewLexerContext(&tokens, open_file, ctx);
+    Lex(&lexer_ctx);
     if (HasError(ctx))
     {
         FreeTokenList(&tokens);

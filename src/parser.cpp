@@ -48,7 +48,7 @@ static void Error(Parser_Context *ctx, const Token *token, const char *message)
     AddError(err_ctx, token->file_loc);
     PrintFileLocation(err_ctx->file, token->file_loc);
     fprintf(err_ctx->file, "%s\n", message);
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
 static void ErrorInvalidToken(Parser_Context *ctx, const Token *token)
@@ -59,7 +59,7 @@ static void ErrorInvalidToken(Parser_Context *ctx, const Token *token)
     fprintf(err_ctx->file, "Invalid token ");
     PrintTokenValue(err_ctx->file, token);
     fprintf(err_ctx->file, "\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
 static void ErrorExpected(Parser_Context *ctx,
@@ -70,7 +70,7 @@ static void ErrorExpected(Parser_Context *ctx,
     AddError(err_ctx, token->file_loc);
     PrintFileLocation(err_ctx->file, token->file_loc);
     fprintf(err_ctx->file, "Expecting %s\n", expected_token);
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
 static void ErrorExpectedAtEnd(Parser_Context *ctx,
@@ -89,7 +89,7 @@ static void ErrorExpectedAtEnd(Parser_Context *ctx,
     AddError(err_ctx, file_loc);
     PrintFileLocation(err_ctx->file, file_loc);
     fprintf(err_ctx->file, "Expecting %s\n", expected_token);
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
 static void ErrorUnexpectedEOF(Parser_Context *ctx)
@@ -132,7 +132,7 @@ static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Binary_O
         case BIN_OP_Subscript:  op_str = "[]"; break;
     }
     fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
 static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Assignment_Op op)
@@ -154,7 +154,7 @@ static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Assi
         case AS_OP_BitXorAssign:       op_str = "^="; break;
     }
     fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
-    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, token->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
 
