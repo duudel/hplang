@@ -1,6 +1,8 @@
 // Tests variables declared in nested scopes.
 // 2016-04-30
 
+x : f64 = 6.8;
+
 test :: (value : s64)
 {
     x : s64 = -1;
