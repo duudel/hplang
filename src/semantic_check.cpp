@@ -904,12 +904,12 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_T
         {
         case AS_OP_Assign:
             {
-                if (!CheckTypeCoercion(ltype, rtype))
+                if (!CheckTypeCoercion(rtype, ltype))
                     Error(ctx, node, "Operands of assignment are incompatible");
             } break;
         case AS_OP_AddAssign:
             {
-                if (CheckTypeCoercion(ltype, rtype))
+                if (CheckTypeCoercion(rtype, ltype))
                     break;
                 else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
                     break;
@@ -917,7 +917,7 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_T
             } break;
         case AS_OP_SubtractAssign:
             {
-                if (CheckTypeCoercion(ltype, rtype))
+                if (CheckTypeCoercion(rtype, ltype))
                     break;
                 else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
                     break;
@@ -1029,7 +1029,6 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         Value_Type vt;
         init_type = CheckExpression(ctx, node->variable_decl.init, &vt);
     }
-    //ASSERT(type || init_type);
 
     if (!type)
     {
@@ -1045,7 +1044,7 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
 
     if (type && init_type)
     {
-        if (!CheckTypeCoercion(type, init_type))
+        if (!CheckTypeCoercion(init_type, type))
         {
             Error(ctx, node, "Variable initializer expression is incompatible");
         }

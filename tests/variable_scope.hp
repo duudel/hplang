@@ -1,0 +1,17 @@
+// Tests variables declared in nested scopes.
+// 2016-04-30
+
+test :: (value : s64)
+{
+    x : s64 = -1;
+    if true
+    {
+        y : bool;
+        while false
+        {
+            value += x;
+            y = false;
+        }
+        x = 0;
+    }
+}
