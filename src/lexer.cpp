@@ -822,11 +822,172 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     return fsm;
 }
 
-void EmitToken(Lexer_Context *ctx, Token_Type token_type)
+static b32 IsStateOK(Lexer_State state)
 {
-    Token *token = PushTokenList(ctx->tokens);
-    ctx->current_token.type = token_type;
-    *token = ctx->current_token;
+    switch (state)
+    {
+        case LS_Default:
+            INVALID_CODE_PATH;
+
+        case LS_Int:            return true;
+        case LS_FloatP:         return false;
+        case LS_Float:          return true;
+        case LS_FloatE1:        return false;
+        case LS_FloatE_Sign:    return false;
+        case LS_FloatE:         return true;
+        case LS_FloatF:         return true;
+        case LS_FloatD:         return true;
+
+        case LS_StringLit:      return false;
+        case LS_StringLitEsc:   return false;
+        case LS_StringLitEnd:   return true;
+        case LS_CharLit:        return false;
+        case LS_CharLitEsc:     return false;
+        case LS_CharLitEnd:     return true;
+
+        case LS_Ident:          return true;
+
+        case LS_STR_b:          return true;
+        case LS_STR_bo:         return true;
+        case LS_STR_boo:        return true;
+        case LS_STR_bool:       return true;
+        case LS_STR_c:          return true;
+        case LS_STR_ch:         return true;
+        case LS_STR_cha:        return true;
+        case LS_STR_char:       return true;
+        case LS_STR_e:          return true;
+        case LS_STR_el:         return true;
+        case LS_STR_els:        return true;
+        case LS_STR_else:       return true;
+        case LS_STR_f:          return true;
+        case LS_STR_f3:         return true;
+        case LS_STR_f32:        return true;
+        case LS_STR_f6:         return true;
+        case LS_STR_f64:        return true;
+        case LS_STR_fa:         return true;
+        case LS_STR_fal:        return true;
+        case LS_STR_fals:       return true;
+        case LS_STR_false:      return true;
+        case LS_STR_fo:         return true;
+        case LS_STR_for:        return true;
+        case LS_STR_fore:       return true;
+        case LS_STR_forei:      return true;
+        case LS_STR_foreig:     return true;
+        case LS_STR_foreign:    return true;
+        case LS_STR_i:          return true;
+        case LS_STR_if:         return true;
+        case LS_STR_im:         return true;
+        case LS_STR_imp:        return true;
+        case LS_STR_impo:       return true;
+        case LS_STR_impor:      return true;
+        case LS_STR_import:     return true;
+        case LS_STR_n:          return true;
+        case LS_STR_nu:         return true;
+        case LS_STR_nul:        return true;
+        case LS_STR_null:       return true;
+        case LS_STR_r:          return true;
+        case LS_STR_re:         return true;
+        case LS_STR_ret:        return true;
+        case LS_STR_retu:       return true;
+        case LS_STR_retur:      return true;
+        case LS_STR_return:     return true;
+        case LS_STR_s:          return true;
+        case LS_STR_s8:         return true;
+        case LS_STR_s1:         return true;
+        case LS_STR_s16:        return true;
+        case LS_STR_s3:         return true;
+        case LS_STR_s32:        return true;
+        case LS_STR_s6:         return true;
+        case LS_STR_s64:        return true;
+        case LS_STR_st:         return true;
+        case LS_STR_str:        return true;
+        case LS_STR_stri:       return true;
+        case LS_STR_strin:      return true;
+        case LS_STR_string:     return true;
+        case LS_STR_stru:       return true;
+        case LS_STR_struc:      return true;
+        case LS_STR_struct:     return true;
+        case LS_STR_t:          return true;
+        case LS_STR_tr:         return true;
+        case LS_STR_tru:        return true;
+        case LS_STR_true:       return true;
+        case LS_STR_u:          return true;
+        case LS_STR_u8:         return true;
+        case LS_STR_u1:         return true;
+        case LS_STR_u16:        return true;
+        case LS_STR_u3:         return true;
+        case LS_STR_u32:        return true;
+        case LS_STR_u6:         return true;
+        case LS_STR_u64:        return true;
+        case LS_STR_v:          return true;
+        case LS_STR_vo:         return true;
+        case LS_STR_voi:        return true;
+        case LS_STR_void:       return true;
+        case LS_STR_w:          return true;
+        case LS_STR_wh:         return true;
+        case LS_STR_whi:        return true;
+        case LS_STR_whil:       return true;
+        case LS_STR_while:      return true;
+
+        case LS_Hash:           return true;
+        case LS_Colon:          return true;
+        case LS_ColonColon:     return true;
+        case LS_ColonEq:        return true;
+        case LS_Semicolon:      return true;
+        case LS_Comma:          return true;
+        case LS_Period:         return true;
+        case LS_PeriodPeriod:   return true;
+        case LS_QuestionMark:   return true;
+        case LS_OpenBlock:      return true;
+        case LS_CloseBlock:     return true;
+        case LS_OpenParent:     return true;
+        case LS_CloseParent:    return true;
+        case LS_OpenBracket:    return true;
+        case LS_CloseBracket:   return true;
+
+        case LS_Eq:             return true;
+        case LS_EqEq:           return true;
+        case LS_Bang:           return true;
+        case LS_NotEq:          return true;
+        case LS_Less:           return true;
+        case LS_LessEq:         return true;
+        case LS_Greater:        return true;
+        case LS_GreaterEq:      return true;
+
+        case LS_Plus:           return true;
+        case LS_Minus:          return true;
+        case LS_Star:           return true;
+        case LS_Slash:          return true;
+
+        case LS_PlusEq:         return true;
+        case LS_MinusEq:        return true;
+        case LS_StarEq:         return true;
+        case LS_SlashEq:        return true;
+
+        case LS_Ampersand:      return true;
+        case LS_AmpAmp:         return true;
+        case LS_Pipe:           return true;
+        case LS_PipePipe:       return true;
+        case LS_Hat:            return true;
+        case LS_Tilde:          return true;
+        case LS_At:             return true;
+
+        case LS_AmpEq:          return true;
+        case LS_PipeEq:         return true;
+        case LS_HatEq:          return true;
+
+        case LS_Arrow:          return true;
+
+        case LS_Comment:
+        case LS_MultilineComment:
+        case LS_MultilineCommentStar:
+        case LS_Invalid:
+        case LS_Junk:
+
+        case LS_COUNT:
+            INVALID_CODE_PATH;
+    }
+    return false;
 }
 
 void Error(Error_Context *ctx, File_Location file_loc,
@@ -844,6 +1005,22 @@ void Error(Error_Context *ctx, File_Location file_loc,
         fprintf(ctx->file, "%s '", message);
         PrintTokenValue(ctx->file, token);
         fprintf(ctx->file, "'\n");
+    }
+}
+
+void EmitToken(Lexer_Context *ctx, FSM fsm)
+{
+    // If not valid state, give an error
+    if (!IsStateOK(fsm.state))
+    {
+        Error(ctx->error_ctx, ctx->current_token.file_loc,
+            "Invalid token", &ctx->current_token);
+    }
+    else
+    {
+        Token *token = PushTokenList(ctx->tokens);
+        ctx->current_token.type = fsm.token_type;
+        *token = ctx->current_token;
     }
 }
 
@@ -930,9 +1107,13 @@ void Lex(Lexer_Context *ctx, const char *text, s64 text_length)
         }
         if (fsm.emit)
         {
+            // NOTE(henrik): Put \0 back; we do not want to include it into
+            // our last token.
+            if (fsm.done) cur--;
+
             ctx->file_loc.offset_end = cur;
             ctx->current_token.value_end = text + cur;
-            EmitToken(ctx, fsm.token_type);
+            EmitToken(ctx, fsm);
 
             fsm.emit = false;
             fsm.state = LS_Default;
