@@ -4,40 +4,39 @@ hplang
 Henrik Paananen -- henrik.j.paananen@student.jyu.fi
 
 The language design has been infuenced by
-[Jonathan Blow's language, jai](http://www.youtube.com/user/jblow888/videos)
+[Jonathan Blow's language, jai](http://www.youtube.com/user/jblow888/videos).
 
 The language will be procedural with:
 - static typing
 - simple type inference
 
-    // these are equivalent:
-    a : s64 = 0;
-    a := 0;
+        // these are equivalent:
+        a : s64 = 0;
+        a := 0;
 
-- control structures:
-    - if, for, while
+- control structures: if, for, while
 - a few primitive datatypes:
     - signed & unsigned integers of sizes 8, 16, 32 and 64 bits
         - s8, s16, s32, s64, u8, ...
     - boolean (bool)
     - 8 bit character (char)
-    - raw pointers (char*, s8*, ...)
+    - raw pointers (char\*, s8\*, ...)
 - printing functionality, something like
 
-    print("Hello, ", name, "\n");
+        print("Hello, ", name, "\n");
 
 these features have less priority:
 - operator overloading
 - procedures with variadic arguments
 - multiple return values from procedures
 
-    x, y := calculate_xy();
+        x, y := calculate_xy();
 
 - deferred code-blocks (defer keyword):
 
-    defer {
-        <code-that is run after the scope ends>
-    }
+        defer {
+            <code-that is run after the scope ends>
+        }
 
 - possibility to define structures containing other types
 - floating point numbers of sizes 32 and 64
