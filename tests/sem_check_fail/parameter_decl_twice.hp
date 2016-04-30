@@ -1,4 +1,0 @@
-// Tests that semantic error happens when a parameter name is used twice.
-// 2016-04-28
-
-func :: (x : f64, y : f64, y : f64) { }

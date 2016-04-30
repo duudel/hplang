@@ -216,18 +216,30 @@ static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
     const char *sym_type = "";
     switch (symbol->sym_type)
     {
-        case SYM_Module: sym_type = "module"; break;
-        case SYM_Function: sym_type = "function"; break;
-        case SYM_ForeignFunction: sym_type = "foreign function"; break;
-        case SYM_Constant: sym_type = "constant"; break;
-        case SYM_Variable: sym_type = "variable"; break;
-        case SYM_Parameter: sym_type = "parameter"; break;
-        case SYM_Member: sym_type = "struct member"; break;
-        case SYM_Struct: sym_type = "struct"; break;
-        case SYM_PrimitiveType: sym_type = "primitive type"; break;
+        case SYM_Module:            sym_type = "module"; break;
+        case SYM_Function:          sym_type = "function"; break;
+        case SYM_ForeignFunction:   sym_type = "foreign function"; break;
+        case SYM_Constant:          sym_type = "constant"; break;
+        case SYM_Variable:          sym_type = "variable"; break;
+        case SYM_Parameter:         sym_type = "parameter"; break;
+        case SYM_Member:            sym_type = "struct member"; break;
+        case SYM_Struct:            sym_type = "struct"; break;
+        case SYM_PrimitiveType:     sym_type = "primitive type"; break;
     }
     fprintf(err_ctx->file, "' was declared as %s earlier\n", sym_type);
 
+    PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
+}
+
+static void ErrorVaribleShadowsParam(Sem_Check_Context *ctx,
+        Ast_Node *node, Name name)
+{
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, node->file_loc);
+    PrintFileLocation(err_ctx->file, node->file_loc);
+    fprintf(err_ctx->file, "Variable '");
+    PrintString(err_ctx->file, name.str);
+    fprintf(err_ctx->file, "' shadows a parameter with the same name\n");
     PrintSourceLineAndArrow(ctx->comp_ctx, ctx->open_file, node->file_loc);
 }
 
@@ -463,6 +475,12 @@ static Type* CheckVariableRef(Sem_Check_Context *ctx, Ast_Node *node)
         return nullptr;
     }
     return symbol->type;
+}
+
+static b32 TypeIsNull(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_null;
 }
 
 static b32 TypeIsPointer(Type *t)
@@ -996,12 +1014,39 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
     Type *init_type = CheckExpression(ctx, node->variable_decl.init, &vt);
     //ASSERT(type || init_type);
 
-    if (!type) type = init_type;
-    if (!CheckTypeCoercion(type, init_type))
+    if (!type)
     {
-        Error(ctx, node, "Variable initializer expression is incompatible");
+        if (TypeIsNull(init_type))
+            Error(ctx, node, "Variable type cannot be inferred from null");
+        else
+            type = init_type;
     }
-    AddSymbol(ctx->env, SYM_Variable, node->variable_decl.name, type);
+    else if (TypeIsVoid(type))
+    {
+        Error(ctx, node, "Cannot declare variable of type void");
+    }
+
+    if (type)
+    {
+        if (!CheckTypeCoercion(type, init_type))
+        {
+            Error(ctx, node, "Variable initializer expression is incompatible");
+        }
+    }
+
+    Name name = node->variable_decl.name;
+    Symbol *old_symbol = LookupSymbolInCurrentScope(ctx->env, name);
+    if (old_symbol)
+    {
+        ErrorDeclaredEarlierAs(ctx, node, name, old_symbol);
+    }
+    else
+    {
+        old_symbol = LookupSymbol(ctx->env, name);
+        if (old_symbol && old_symbol->sym_type == SYM_Parameter)
+            ErrorVaribleShadowsParam(ctx, node, name);
+    }
+    AddSymbol(ctx->env, SYM_Variable, name, type);
 }
 
 static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node);
@@ -1058,7 +1103,7 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     {
         if (!rexpr && !TypeIsVoid(cur_return_type))
         {
-            Error(ctx, node, "Return value expceted");
+            Error(ctx, node, "Return value expected");
             return;
         }
         // Coerce int literal type to current return type or default to s64

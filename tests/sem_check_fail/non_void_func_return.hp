@@ -1,0 +1,7 @@
+// Non void function returns void
+// 2016-04-30
+
+test :: () : bool
+{
+    return;
+}

@@ -1,0 +1,7 @@
+// Local variable shadows function parameter
+// 2016-04-30
+
+test :: (param : f32)
+{
+    param := 23;
+}

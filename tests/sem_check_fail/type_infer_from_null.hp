@@ -1,0 +1,4 @@
+// Type cannot be inferred from null alone
+// 2016-04-30
+
+var := null;

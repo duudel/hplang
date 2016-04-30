@@ -1,0 +1,8 @@
+// Duplicate variable
+// 2016-04-30
+
+test :: ()
+{
+    x := 0;
+    x : bool = false;
+}
