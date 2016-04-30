@@ -195,7 +195,7 @@ void OpenScope(Environment *env)
     if (env->current)
     {
         scope->return_type = scope->parent->return_type;
-        scope->rt_inferred = scope->parent->rt_inferred;
+        scope->rt_infer_loc = scope->parent->rt_infer_loc;
     }
 
     env->current = scope;
@@ -206,28 +206,57 @@ void CloseScope(Environment *env)
 {
     ASSERT(env->current->parent != nullptr);
     Type *return_type = env->current->return_type;
-    Ast_Node *rt_inferred = env->current->rt_inferred;
+    Ast_Node *rt_infer_loc = env->current->rt_infer_loc;
+    s64 return_stmts = env->current->return_stmt_count;
 
     env->current = env->current->parent;
     if (return_type)
     {
         env->current->return_type = return_type;
-        env->current->rt_inferred = rt_inferred;
+        env->current->rt_infer_loc = rt_infer_loc;
     }
+    env->current->return_stmt_count = return_stmts;
 }
 
 void OpenFunctionScope(Environment *env, Type *return_type)
 {
     OpenScope(env);
     env->current->return_type = return_type;
-    env->current->rt_inferred = nullptr;
+    env->current->rt_infer_loc = nullptr;
 }
 
-void CloseFunctionScope(Environment *env)
+Type* CloseFunctionScope(Environment *env)
 {
     ASSERT(env->current->parent != nullptr);
+    Type *return_type = env->current->return_type;
+    if (!return_type)
+    {
+        // NOTE(henrik): Infer return type to be void, if no return statements
+        // were encountered.
+        if (env->current->return_stmt_count == 0)
+            return_type = GetBuiltinType(TYP_void);
+    }
+
     env->current = env->current->parent;
+
+    return return_type;
 }
+
+void IncReturnStatements(Environment *env)
+{ env->current->return_stmt_count++; }
+
+Type* GetCurrentReturnType(Environment *env)
+{ return env->current->return_type; }
+
+Ast_Node* GetCurrentReturnTypeInferLoc(Environment *env)
+{ return env->current->rt_infer_loc; }
+
+void InferReturnType(Environment *env, Type *return_type, Ast_Node *location)
+{
+    env->current->return_type = return_type;
+    env->current->rt_infer_loc = location;
+}
+
 
 Type* PushType(Environment *env, Type_Tag tag)
 {

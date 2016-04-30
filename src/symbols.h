@@ -119,7 +119,8 @@ struct Scope
     Scope *parent;
 
     Type *return_type;      // The return type of the current function scope
-    Ast_Node *rt_inferred;  // Set if the return type was inferred (location info for errors)
+    Ast_Node *rt_infer_loc;  // Set if the return type was inferred (location info for errors)
+    s64 return_stmt_count;
 };
 
 // TODO(henrik): Is there better name for this?
@@ -139,7 +140,13 @@ void OpenScope(Environment *env);
 void CloseScope(Environment *env);
 
 void OpenFunctionScope(Environment *env, Type *return_type);
-void CloseFunctionScope(Environment *env);
+// Returns the inferred or declared function type
+Type* CloseFunctionScope(Environment *env);
+
+void IncReturnStatements(Environment *env);
+Type* GetCurrentReturnType(Environment *env);
+Ast_Node* GetCurrentReturnTypeInferLoc(Environment *env);
+void InferReturnType(Environment *env, Type *return_type, Ast_Node *location);
 
 Type* PushType(Environment *env, Type_Tag tag);
 

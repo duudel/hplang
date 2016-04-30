@@ -1037,53 +1037,60 @@ static void CheckWhileStatement(Sem_Check_Context *ctx, Ast_Node *node)
 
 static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
 {
+    IncReturnStatements(ctx->env);
     Ast_Node *rexpr = node->return_stmt.expression;
+
+    Type *rtype = nullptr;
     if (rexpr)
     {
         Value_Type vt;
-        Type *rtype = CheckExpression(ctx, rexpr, &vt);
+        rtype = CheckExpression(ctx, rexpr, &vt);
         if (!rtype)
         {
-            // NOTE(henrik): If there was an error in the expression, do not
-            // try to check the return type.
+            // NOTE(henrik): If there was an error in the expression, we
+            // do not need to check the return type.
             return;
         }
-        Type *cur_rtype = ctx->env->current->return_type;
-        if (cur_rtype)
+    }
+
+    Type *cur_return_type = GetCurrentReturnType(ctx->env);
+    if (cur_return_type)
+    {
+        if (!rexpr && !TypeIsVoid(cur_return_type))
         {
-            if (rtype->tag == TYP_int_lit && TypeIsIntegral(cur_rtype))
-                rtype = cur_rtype;
+            Error(ctx, node, "Return value expceted");
+            return;
+        }
+        // Coerce int literal type to current return type or default to s64
+        if (rtype->tag == TYP_int_lit)
+        {
+            // TODO(henrik): We should check if the literal can fit to the
+            // current return type.
+            if (TypeIsIntegral(cur_return_type))
+                rtype = cur_return_type;
             else
                 rtype = GetBuiltinType(TYP_s64);
-            if (!CheckTypeCoercion(rtype, cur_rtype))
-            {
-                ErrorReturnTypeMismatch(ctx, rexpr, rtype, cur_rtype, ctx->env->current->rt_inferred);
-            }
         }
-        else
+
+        if (!CheckTypeCoercion(rtype, cur_return_type))
         {
-            // TODO(henrik): We need TYP_uint_lit for the case when the
-            // literal does not fit in signed 64.
-            if (rtype->tag == TYP_int_lit)
-                rtype = GetBuiltinType(TYP_s64);
-            ctx->env->current->return_type = rtype;
-            ctx->env->current->rt_inferred = node;
-            //fprintf(stderr, "inferred return type: ");
-            //PrintType(stderr, rtype);
-            //fprintf(stderr, "\n");
+            Ast_Node *infer_loc = GetCurrentReturnTypeInferLoc(ctx->env);
+            ErrorReturnTypeMismatch(ctx, rexpr, rtype, cur_return_type, infer_loc);
         }
     }
     else
     {
-        if (ctx->env->current->return_type && !TypeIsVoid(ctx->env->current->return_type))
-        {
-            Error(ctx, node, "Return value expceted");
-        }
-        else if (!ctx->env->current->return_type)
-        {
-            ctx->env->current->return_type = GetBuiltinType(TYP_void);
-            ctx->env->current->rt_inferred = node;
-        }
+        // TODO(henrik): We need TYP_uint_lit for the case when the
+        // literal does not fit in signed 64.
+        if (!rexpr)
+            rtype = GetBuiltinType(TYP_void);
+        else if (rtype->tag == TYP_int_lit)
+            rtype = GetBuiltinType(TYP_s64);
+
+        InferReturnType(ctx->env, rtype, node);
+        //fprintf(stderr, "inferred return type: ");
+        //PrintType(stderr, rtype);
+        //fprintf(stderr, "\n");
     }
 }
 
@@ -1241,11 +1248,15 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 
     CheckBlockStatement(ctx, node->function.body);
 
-    ftype->function_type.return_type = ctx->env->current->return_type;
-
+    Type *inferred_return_type = CloseFunctionScope(ctx->env);
     if (return_type)
-        ASSERT(ftype->function_type.return_type);
-    CloseFunctionScope(ctx->env);
+        ASSERT(inferred_return_type);
+
+    if (!inferred_return_type)
+    {
+        Error(ctx, node, "Could not infer return type for function");
+    }
+    ftype->function_type.return_type = inferred_return_type;
 }
 
 static void CheckStructMember(Sem_Check_Context *ctx,
