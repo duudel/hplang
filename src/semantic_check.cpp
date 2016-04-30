@@ -1117,6 +1117,12 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
                 rtype = GetBuiltinType(TYP_s64);
         }
 
+        if (TypeIsNull(cur_return_type))
+        {
+            if (TypeIsPointer(rtype))
+                InferReturnType(ctx->env, rtype, node);
+        }
+
         if (!CheckTypeCoercion(rtype, cur_return_type))
         {
             Ast_Node *infer_loc = GetCurrentReturnTypeInferLoc(ctx->env);
@@ -1293,6 +1299,9 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 
     CheckBlockStatement(ctx, node->function.body);
 
+    // NOTE(henrik): Must be called before closing the scope
+    Ast_Node *infer_loc = GetCurrentReturnTypeInferLoc(ctx->env);
+
     Type *inferred_return_type = CloseFunctionScope(ctx->env);
     if (return_type)
         ASSERT(inferred_return_type);
@@ -1300,6 +1309,10 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     if (!inferred_return_type)
     {
         Error(ctx, node, "Could not infer return type for function");
+    }
+    else if (TypeIsNull(inferred_return_type))
+    {
+        Error(ctx, infer_loc, "Function type cannot be inferred from null");
     }
     ftype->function_type.return_type = inferred_return_type;
 }

@@ -1,0 +1,7 @@
+// The return type cannot be inferred from null.
+// 2016-04-30
+
+test :: ()
+{
+    return null;
+}
