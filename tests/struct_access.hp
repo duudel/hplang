@@ -1,0 +1,18 @@
+// Accessing members of a struct
+// 2016-05-04
+
+My_Struct :: struct
+{
+    my_member : s64;
+    other_member : u8*;
+}
+
+test :: (s : My_Struct*)
+{
+    s.my_member = -127;
+    s.other_member = null;
+
+    u := @s; // dereference s
+    u.my_member == -127;
+    u.other_member == null;
+}

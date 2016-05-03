@@ -68,6 +68,7 @@ Test tests[] = {
     (Test){ CP_Checking, "tests/sem_check_fail/access_non_struct.hp",           {}, {}, {7, 10} },
     (Test){ CP_Checking, "tests/empty.hp", {}, {}, {}, },
     (Test){ CP_Checking, "tests/variable_scope.hp", {}, {}, {}, },
+    (Test){ CP_Checking, "tests/struct_access.hp", {}, {}, {}, },
     (Test){ CP_CodeGen, "tests/hello_test.hp", {}, {}, {}, },
     (Test){ CP_CodeGen, "tests/beer_test.hp", {}, {}, {}, },
     (Test){ CP_CodeGen, "tests/pointer_arith.hp", {}, {}, {}, },
