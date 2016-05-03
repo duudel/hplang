@@ -72,31 +72,24 @@ b32 TypesEqual(Type *a, Type *b)
     return false;
 }
 
-struct TypeInfo
-{
-    Symbol_Type sym_type;
-    const char *name;
-    Type *type;
-};
-
 Type builtin_types[] = {
-    {TYP_null,      0, 1},
-    {TYP_int_lit,   8, 8},
-    {TYP_pointer,   8, 8},
-    {TYP_void,      0, 1},
-    {TYP_bool,      1, 1},
-    {TYP_char,      1, 1},
-    {TYP_u8,        1, 1},
-    {TYP_s8,        1, 1},
-    {TYP_u16,       2, 2},
-    {TYP_s16,       2, 2},
-    {TYP_u32,       4, 4},
-    {TYP_s32,       4, 4},
-    {TYP_u64,       8, 8},
-    {TYP_s64,       8, 8},
-    {TYP_f32,       4, 4},
-    {TYP_f64,       8, 8},
-    {TYP_string,    16, 8},
+    {TYP_null,      0, 1, 1, { }},
+    {TYP_int_lit,   8, 8, 0, { }},
+    {TYP_pointer,   8, 8, 1, { }},
+    {TYP_void,      0, 1, 0, { }},
+    {TYP_bool,      1, 1, 0, { }},
+    {TYP_char,      1, 1, 0, { }},
+    {TYP_u8,        1, 1, 0, { }},
+    {TYP_s8,        1, 1, 0, { }},
+    {TYP_u16,       2, 2, 0, { }},
+    {TYP_s16,       2, 2, 0, { }},
+    {TYP_u32,       4, 4, 0, { }},
+    {TYP_s32,       4, 4, 0, { }},
+    {TYP_u64,       8, 8, 0, { }},
+    {TYP_s64,       8, 8, 0, { }},
+    {TYP_f32,       4, 4, 0, { }},
+    {TYP_f64,       8, 8, 0, { }},
+    {TYP_string,    16, 8, 0, { }},
 };
 
 Type* GetBuiltinType(Type_Tag tt)
@@ -105,24 +98,30 @@ Type* GetBuiltinType(Type_Tag tt)
     return &builtin_types[tt];
 }
 
-static TypeInfo builtin_type_infos[] = {
-    /*TYP_null,*/       (TypeInfo){SYM_PrimitiveType,   "null_type"},
-    /*TYP_int_lit,*/    (TypeInfo){SYM_PrimitiveType,   "int_lit_type"},
-    /*TYP_pointer,*/    (TypeInfo){SYM_PrimitiveType,   "pointer_type"},
-    /*TYP_void,*/       (TypeInfo){SYM_PrimitiveType,   "void"},
-    /*TYP_bool,*/       (TypeInfo){SYM_PrimitiveType,   "bool"},
-    /*TYP_char,*/       (TypeInfo){SYM_PrimitiveType,   "char"},
-    /*TYP_u8,*/         (TypeInfo){SYM_PrimitiveType,   "u8"},
-    /*TYP_s8,*/         (TypeInfo){SYM_PrimitiveType,   "s8"},
-    /*TYP_u16,*/        (TypeInfo){SYM_PrimitiveType,   "u16"},
-    /*TYP_s16,*/        (TypeInfo){SYM_PrimitiveType,   "s16"},
-    /*TYP_u32,*/        (TypeInfo){SYM_PrimitiveType,   "u32"},
-    /*TYP_s32,*/        (TypeInfo){SYM_PrimitiveType,   "s32"},
-    /*TYP_u64,*/        (TypeInfo){SYM_PrimitiveType,   "u64"},
-    /*TYP_s64,*/        (TypeInfo){SYM_PrimitiveType,   "s64"},
-    /*TYP_f32,*/        (TypeInfo){SYM_PrimitiveType,   "f32"},
-    /*TYP_f64,*/        (TypeInfo){SYM_PrimitiveType,   "f64"},
-    /*TYP_string,*/     (TypeInfo){SYM_Struct,          "string"},
+struct Type_Info
+{
+    Symbol_Type sym_type;
+    const char *name;
+};
+
+static Type_Info builtin_type_infos[] = {
+    /*TYP_null,*/       (Type_Info){SYM_PrimitiveType,   "null_type"},
+    /*TYP_int_lit,*/    (Type_Info){SYM_PrimitiveType,   "int_lit_type"},
+    /*TYP_pointer,*/    (Type_Info){SYM_PrimitiveType,   "pointer_type"},
+    /*TYP_void,*/       (Type_Info){SYM_PrimitiveType,   "void"},
+    /*TYP_bool,*/       (Type_Info){SYM_PrimitiveType,   "bool"},
+    /*TYP_char,*/       (Type_Info){SYM_PrimitiveType,   "char"},
+    /*TYP_u8,*/         (Type_Info){SYM_PrimitiveType,   "u8"},
+    /*TYP_s8,*/         (Type_Info){SYM_PrimitiveType,   "s8"},
+    /*TYP_u16,*/        (Type_Info){SYM_PrimitiveType,   "u16"},
+    /*TYP_s16,*/        (Type_Info){SYM_PrimitiveType,   "s16"},
+    /*TYP_u32,*/        (Type_Info){SYM_PrimitiveType,   "u32"},
+    /*TYP_s32,*/        (Type_Info){SYM_PrimitiveType,   "s32"},
+    /*TYP_u64,*/        (Type_Info){SYM_PrimitiveType,   "u64"},
+    /*TYP_s64,*/        (Type_Info){SYM_PrimitiveType,   "s64"},
+    /*TYP_f32,*/        (Type_Info){SYM_PrimitiveType,   "f32"},
+    /*TYP_f64,*/        (Type_Info){SYM_PrimitiveType,   "f64"},
+    /*TYP_string,*/     (Type_Info){SYM_Struct,          "string"},
 
     /*TYP_Function,*/
     /*TYP_Struct,*/
@@ -142,7 +141,7 @@ static void AddBuiltinTypes(Environment *env)
              i++)
     {
         Type *type = &builtin_types[i];
-        const TypeInfo &info = builtin_type_infos[i];
+        const Type_Info &info = builtin_type_infos[i];
         Name name = PushName(&env->arena, info.name);
         if (info.sym_type == SYM_PrimitiveType)
             type->type_name = name;

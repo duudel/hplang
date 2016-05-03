@@ -158,7 +158,12 @@ static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Assi
 }
 
 
-static Token eof_token = { TOK_EOF };
+static Token eof_token = {
+    TOK_EOF,    // token type
+    nullptr,    // value
+    nullptr,    // value_end
+    { }         // file_loc
+};
 
 static const Token* GetCurrentToken(Parser_Context *ctx)
 {
@@ -356,6 +361,12 @@ static f64 ConvertFloat(Parser_Context *ctx, const Token *token)
 
 static char ConvertChar(Parser_Context *ctx, const char *s, const char *end)
 {
+    ASSERT(s[0] == '\'');
+    ASSERT(end[-1] == '\'');
+
+    s++;
+    end--;
+
     char result = 0;
     if (s != end)
     {
@@ -386,8 +397,12 @@ static char ConvertChar(Parser_Context *ctx, const char *s, const char *end)
         }
         result = c;
     }
+    // NOTE(henrik): If we did not get to the end of the literal, there is a
+    // bug in either the lexer or the conversion above.
     if (s != end)
-        ; // error
+    {
+        INVALID_CODE_PATH;
+    }
     return result;
 }
 

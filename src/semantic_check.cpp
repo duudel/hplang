@@ -255,7 +255,7 @@ static void CheckImport(Sem_Check_Context *ctx, Ast_Node *node)
         ErrorImport(ctx, node, module_filename);
         return;
     }
-    CompileModule(ctx->comp_ctx, open_file, module_filename);
+    CompileModule(ctx->comp_ctx, open_file);
 }
 
 static b32 CheckTypeCoercion(Type *from, Type *to)
@@ -366,8 +366,7 @@ static void CheckFunctionArgs(Sem_Check_Context *ctx,
 
 // Returns -1, if not compatible.
 // Otherwise returns >= 0, if compatible.
-static s64 CheckFunctionArgs(Sem_Check_Context *ctx,
-        Type *ftype, s64 arg_count, Type **arg_types)
+static s64 CheckFunctionArgs(Type *ftype, s64 arg_count, Type **arg_types)
 {
     // TODO(henrik): Make the check so that we can report the argument type
     // mismatch of the best matching overload
@@ -436,7 +435,7 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Node *node)
         b32 ambiguous = false;
         while (func)
         {
-            s64 score = CheckFunctionArgs(ctx, func->type, arg_count, arg_types);
+            s64 score = CheckFunctionArgs(func->type, arg_count, arg_types);
             if (score > best_score)
             {
                 best_score = score;
@@ -1028,6 +1027,8 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
     {
         Value_Type vt;
         init_type = CheckExpression(ctx, node->variable_decl.init, &vt);
+        if (init_type && init_type->tag == TYP_int_lit)
+            init_type = GetBuiltinType(TYP_s64);
     }
 
     if (!type)
@@ -1255,7 +1256,7 @@ static void CheckParameters(Sem_Check_Context *ctx, Ast_Node *node, Type *ftype)
     }
 }
 
-static b32 FunctionTypesAmbiguous(Sem_Check_Context *ctx, Type *a, Type *b)
+static b32 FunctionTypesAmbiguous(Type *a, Type *b)
 {
     ASSERT(a->tag == TYP_Function && b->tag == TYP_Function);
     if (a == b) return true;
@@ -1305,7 +1306,7 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 
     while (overload && overload != symbol)
     {
-        if (FunctionTypesAmbiguous(ctx, overload->type, symbol->type))
+        if (FunctionTypesAmbiguous(overload->type, symbol->type))
         {
             Error(ctx, node, "Ambiguous function definition");
             break;

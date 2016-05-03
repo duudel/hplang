@@ -52,9 +52,7 @@ Open_File* OpenModule(Compiler_Context *ctx,
         Open_File *current_file, String filename, String *filename_out);
 
 b32 Compile(Compiler_Context *ctx, Open_File *file);
-
-bool CompileModule(Compiler_Context *ctx,
-        Open_File *open_file, String module_filename);
+b32 CompileModule(Compiler_Context *ctx, Open_File *open_file);
 
 b32 ContinueCompiling(Compiler_Context *ctx);
 b32 HasError(Compiler_Context *ctx);

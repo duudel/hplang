@@ -1,6 +1,6 @@
 
 COMPILER := gcc
-COMPILER_FLAGS := -std=c++11 -Wall -g
+COMPILER_FLAGS := -std=c++11 -Wall -Wextra -fno-exceptions -fno-rtti -g
 EXENAME := hplangc.exe
 
 SOURCES := \

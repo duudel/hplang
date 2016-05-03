@@ -213,7 +213,7 @@ struct FSM
     b32 carriage_return;
 };
 
-static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
+static FSM lex_default(FSM fsm, char c)
 {
     if (c == 0)
     {
@@ -824,8 +824,7 @@ static FSM lex_default(FSM fsm, char c, File_Location *file_loc)
     return fsm;
 }
 
-static void Error(Lexer_Context *ctx, //File_Location file_loc,
-            const char *message, const Token *token)
+static void Error(Lexer_Context *ctx, const char *message, const Token *token)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     File_Location file_loc = ctx->current_token.file_loc;
@@ -1063,7 +1062,7 @@ void Lex(Lexer_Context *ctx)
         while (!fsm.emit && cur < text_length)
         {
             char c = text[cur];
-            fsm = lex_default(fsm, c, file_loc);
+            fsm = lex_default(fsm, c);
 
             // NOTE(henrik): There is lexically ambiguouss case where .
             // follows after n digits that could result in either a floating

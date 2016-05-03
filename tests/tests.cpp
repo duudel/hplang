@@ -48,13 +48,13 @@ struct Test
 };
 
 Test tests[] = {
-    (Test){ CP_Lexing,  "tests/lexer_fail/crlf_test.hp",        {4, 26} },
-    (Test){ CP_Lexing,  "tests/lexer_fail/only_one_dquote.hp",  {1, 1} },
-    (Test){ CP_Lexing,  "tests/lexer_fail/non_ending_mlc.hp",   {6, 5} },
-    (Test){ CP_Parsing, "tests/parser_fail/token_test.hp",      {}, {1, 1} },
-    (Test){ CP_Parsing, "tests/parser_fail/if_paren_test.hp",   {}, {8, 23} },
-    (Test){ CP_Parsing, "tests/expr_test.hp" },
-    (Test){ CP_Parsing, "tests/stmt_test.hp" },
+    (Test){ CP_Lexing,  "tests/lexer_fail/crlf_test.hp",        {4, 26}, {}, {} },
+    (Test){ CP_Lexing,  "tests/lexer_fail/only_one_dquote.hp",  {1, 1}, {}, {} },
+    (Test){ CP_Lexing,  "tests/lexer_fail/non_ending_mlc.hp",   {6, 5}, {}, {} },
+    (Test){ CP_Parsing, "tests/parser_fail/token_test.hp",      {}, {1, 1}, {} },
+    (Test){ CP_Parsing, "tests/parser_fail/if_paren_test.hp",   {}, {8, 23}, {} },
+    (Test){ CP_Parsing, "tests/expr_test.hp", {}, {}, {} },
+    (Test){ CP_Parsing, "tests/stmt_test.hp", {}, {}, {} },
     (Test){ CP_Checking, "tests/sem_check_fail/infer_var_type_from_null.hp",    {}, {}, {4, 1} },
     (Test){ CP_Checking, "tests/sem_check_fail/dup_func_param.hp",              {}, {}, {4, 39} },
     (Test){ CP_Checking, "tests/sem_check_fail/dup_variable.hp",                {}, {}, {7, 5} },
@@ -66,14 +66,14 @@ Test tests[] = {
     (Test){ CP_Checking, "tests/sem_check_fail/non_void_func_return.hp",        {}, {}, {6, 5} },
     (Test){ CP_Checking, "tests/sem_check_fail/infer_ret_type_from_null.hp",    {}, {}, {6, 5} },
     (Test){ CP_Checking, "tests/sem_check_fail/access_non_struct.hp",           {}, {}, {7, 10} },
-    (Test){ CP_Checking, "tests/empty.hp", },
-    (Test){ CP_Checking, "tests/variable_scope.hp", },
-    (Test){ CP_CodeGen, "tests/hello_test.hp" },
-    (Test){ CP_CodeGen, "tests/beer_test.hp" },
-    (Test){ CP_CodeGen, "tests/pointer_arith.hp" },
-    (Test){ CP_CodeGen, "tests/member_access.hp" },
-    (Test){ CP_CodeGen, "tests/module_test.hp" },
-    (Test){ CP_CodeGen, "tests/modules_test.hp" },
+    (Test){ CP_Checking, "tests/empty.hp", {}, {}, {}, },
+    (Test){ CP_Checking, "tests/variable_scope.hp", {}, {}, {}, },
+    (Test){ CP_CodeGen, "tests/hello_test.hp", {}, {}, {}, },
+    (Test){ CP_CodeGen, "tests/beer_test.hp", {}, {}, {}, },
+    (Test){ CP_CodeGen, "tests/pointer_arith.hp", {}, {}, {}, },
+    (Test){ CP_CodeGen, "tests/member_access.hp", {}, {}, {}, },
+    (Test){ CP_CodeGen, "tests/module_test.hp", {}, {}, {}, },
+    (Test){ CP_CodeGen, "tests/modules_test.hp", {}, {}, {}, },
 };
 
 void PrintError(const char *filename, s64 line, s64 column, const char *message)
@@ -138,6 +138,7 @@ b32 CheckSemCheckResult(Compiler_Context *compiler_ctx,
 
 s64 RunTest(Test_Context *ctx, const Test &test)
 {
+    (void)ctx;
     fprintf(stderr, "Running test '%s'\n", test.filename);
 
     s64 failed = 0;
@@ -183,6 +184,9 @@ s64 RunTest(Test_Context *ctx, const Test &test)
 
 int main(int argc, char **argv)
 {
+    (void)argc;
+    (void)argv;
+
     nulldev = fopen("/dev/null", "w");
     if (!nulldev)
         nulldev = fopen("nul", "w");

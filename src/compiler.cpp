@@ -244,12 +244,8 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     return true;
 }
 
-bool CompileModule(Compiler_Context *ctx,
-        Open_File *open_file, String module_filename)
+b32 CompileModule(Compiler_Context *ctx, Open_File *open_file)
 {
-    //NOT_IMPLEMENTED("module compilation");
-    //return false;
-
     Module *module = PushStruct<Module>(&ctx->arena);
     *module = { };
     module->module_file = open_file;
