@@ -627,7 +627,7 @@ static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type
     Value_Type cvt;
     Type *cond_type = CheckExpression(ctx, cond_expr, &cvt);
     if (cond_type && !TypeIsBoolean(cond_type))
-        Error(ctx, cond_expr, "Condition of ternary ? expression must be boolean");
+        Error(ctx, cond_expr, "Condition of ternary ?: expression must be boolean");
 
     Value_Type tvt, fvt;
     Type *true_type = CheckExpression(ctx, true_expr, &tvt);
@@ -635,7 +635,7 @@ static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type
     if (!CheckTypeCoercion(true_type, false_type) &&
         !CheckTypeCoercion(false_type, true_type))
     {
-        Error(ctx, node, "Both results of ternary ? expression must be convertible to same type");
+        Error(ctx, node, "Both results of ternary ?: expression must be convertible to same type");
     }
     if (tvt == VT_NonAssignable || fvt == VT_NonAssignable)
         *vt = VT_NonAssignable;
@@ -681,15 +681,21 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *
         } break;
     case UN_OP_Address:
         {
-            if (evt == VT_Assignable)
+            if (evt != VT_Assignable)
             {
-                Type *ptr_type = PushType(ctx->env, TYP_pointer);
-                ptr_type->pointer = 1;
-                ptr_type->base_type = type;
-                type = ptr_type;
-                break;
+                Error(ctx, expr, "Taking address of non-l-value");
+                return type;
             }
-            Error(ctx, expr, "Taking address of non-l-value");
+            // NOTE(henrik): We may want to simplify pointer types by making
+            // Type::pointer be boolean, so there is no special cases where the
+            // type may have base_type hieararchy of pointer types or
+            // pointer > 1 that could be equivalent. Other way to do this,
+            // could be to make something like caching of pointer types and
+            // make them retrieavable through GetPointerType(base_type).
+            Type *ptr_type = PushType(ctx->env, TYP_pointer);
+            ptr_type->pointer = 1;
+            ptr_type->base_type = type;
+            type = ptr_type;
         } break;
     case UN_OP_Deref:
         {
@@ -697,6 +703,8 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *
             if (TypeIsPointer(type))
             {
                 type = type->base_type;
+                if (TypeIsVoid(type))
+                    Error(ctx, expr, "Dereferencing void pointer");
                 break;
             }
             Error(ctx, expr, "Dereferencing non-pointer type");

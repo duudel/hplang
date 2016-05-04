@@ -1,0 +1,8 @@
+// Dereferencing a void* is an error
+// 2016-05-04
+
+test :: ()
+{
+    p : void*;
+    x := @p;
+}

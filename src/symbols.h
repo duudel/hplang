@@ -140,7 +140,7 @@ void OpenScope(Environment *env);
 void CloseScope(Environment *env);
 
 void OpenFunctionScope(Environment *env, Type *return_type);
-// Returns the inferred or declared function type
+// Returns the inferred or declared function return type
 Type* CloseFunctionScope(Environment *env);
 
 void IncReturnStatements(Environment *env);
