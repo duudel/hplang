@@ -61,15 +61,17 @@ struct Function_Type
 struct Type
 {
     Type_Tag tag;
-    s32 size;
-    s32 alignment;
-    s32 pointer;
+    s32 size;       // this need not be here
+    s32 alignment;  // this need not be here
     union {
         Name            type_name;
         Type            *base_type;
         Function_Type    function_type;
         Struct_Type      struct_type;
     };
+
+    // Cached pointer type; returned by GetPointerType(env, base_type)
+    Type *pointer_type;
 };
 
 enum Value_Type
@@ -77,6 +79,17 @@ enum Value_Type
     VT_Assignable,
     VT_NonAssignable,
 };
+
+b32 TypeIsNull(Type *t);
+b32 TypeIsPointer(Type *t);
+b32 TypeIsVoid(Type *t);
+b32 TypeIsBoolean(Type *t);
+b32 TypeIsChar(Type *t);
+b32 TypeIsIntegral(Type *t);
+b32 TypeIsFloat(Type *t);
+b32 TypeIsNumeric(Type *t);
+b32 TypeIsString(Type *t);
+b32 TypeIsStruct(Type *t);
 
 Type* GetBuiltinType(Type_Tag tt);
 
@@ -149,6 +162,7 @@ Ast_Node* GetCurrentReturnTypeInferLoc(Environment *env);
 void InferReturnType(Environment *env, Type *return_type, Ast_Node *location);
 
 Type* PushType(Environment *env, Type_Tag tag);
+Type* GetPointerType(Environment *env, Type *base_type);
 
 Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type);
 Symbol* AddFunction(Environment *env, Name name, Type *type);

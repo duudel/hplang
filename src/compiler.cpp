@@ -32,6 +32,7 @@ void FreeCompilerContext(Compiler_Context *ctx)
     {
         FreeModule(array::At(ctx->modules, i));
     }
+    array::Free(ctx->modules);
     FreeMemoryArena(&ctx->arena);
 }
 

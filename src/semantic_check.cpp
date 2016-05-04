@@ -96,8 +96,7 @@ static void PrintType(FILE *file, Type *type)
     case TYP_pointer:
         {
             PrintType(file, type->base_type);
-            for (s64 i = 0; i < type->pointer; i++)
-                fprintf(file, "*");
+            fprintf(file, "*");
         } break;
 
     // These should not appear in any normal case
@@ -279,9 +278,9 @@ static b32 CheckTypeCoercion(Type *from, Type *to)
     }
     else if (from->tag == TYP_null)
     {
-        return to->pointer > 0;
+        return TypeIsPointer(to);
     }
-    else if (from->tag == TYP_pointer && to->tag == TYP_pointer)
+    else if (TypeIsPointer(from) && TypeIsPointer(to))
     {
         return from->base_type == to->base_type;
     }
@@ -324,11 +323,15 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
         } break;
     case AST_Type_Pointer:
         {
-            Type *base_type = CheckType(ctx, node->type_node.pointer.base_type);
-            Type *type = PushType(ctx->env, TYP_pointer);
-            type->base_type = base_type;
-            type->pointer = node->type_node.pointer.indirection;
-            return type;
+            Type *pointer_type = nullptr;
+            s64 indirection = node->type_node.pointer.indirection;
+            while (indirection > 0)
+            {
+                Type *base_type = CheckType(ctx, node->type_node.pointer.base_type);
+                pointer_type = GetPointerType(ctx->env, base_type);
+                indirection--;
+            }
+            return pointer_type;
         } break;
     case AST_Type_Array:
         NOT_IMPLEMENTED("Array type check");
@@ -475,76 +478,6 @@ static Type* CheckVariableRef(Sem_Check_Context *ctx, Ast_Node *node)
     return symbol->type;
 }
 
-static b32 TypeIsNull(Type *t)
-{
-    if (!t) return false;
-    return t->tag == TYP_null;
-}
-
-static b32 TypeIsPointer(Type *t)
-{
-    if (!t) return false;
-    return (t->tag == TYP_pointer) || (t->tag == TYP_null);
-}
-
-static b32 TypeIsVoid(Type *t)
-{
-    if (!t) return false;
-    return t->tag == TYP_void;
-}
-
-static b32 TypeIsBoolean(Type *t)
-{
-    if (!t) return false;
-    return t->tag == TYP_bool;
-}
-
-static b32 TypeIsChar(Type *t)
-{
-    if (!t) return false;
-    return t->tag == TYP_char;
-}
-
-static b32 TypeIsIntegral(Type *t)
-{
-    if (!t) return false;
-    switch (t->tag)
-    {
-        case TYP_int_lit:
-        case TYP_u8: case TYP_s8:
-        case TYP_u16: case TYP_s16:
-        case TYP_u32: case TYP_s32:
-        case TYP_u64: case TYP_s64:
-            return true;
-        default:
-            break;
-    }
-    return false;
-}
-
-static b32 TypeIsFloat(Type *t)
-{
-    if (!t) return false;
-    return (t->tag == TYP_f32) || (t->tag == TYP_f64);
-}
-
-static b32 TypeIsNumeric(Type *t)
-{
-    return TypeIsIntegral(t) || TypeIsFloat(t);
-}
-
-static b32 TypeIsString(Type *t)
-{
-    if (!t) return false;
-    return t->tag == TYP_string;
-}
-
-static b32 TypeIsStruct(Type *t)
-{
-    if (!t) return false;
-    return t->tag == TYP_Struct;
-}
-
 static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
 {
     Ast_Node *expr = node->expression.typecast_expr.expr;
@@ -686,16 +619,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *
                 Error(ctx, expr, "Taking address of non-l-value");
                 return type;
             }
-            // NOTE(henrik): We may want to simplify pointer types by making
-            // Type::pointer be boolean, so there is no special cases where the
-            // type may have base_type hieararchy of pointer types or
-            // pointer > 1 that could be equivalent. Other way to do this,
-            // could be to make something like caching of pointer types and
-            // make them retrieavable through GetPointerType(base_type).
-            Type *ptr_type = PushType(ctx->env, TYP_pointer);
-            ptr_type->pointer = 1;
-            ptr_type->base_type = type;
-            type = ptr_type;
+            type = GetPointerType(ctx->env, type);
         } break;
     case UN_OP_Deref:
         {

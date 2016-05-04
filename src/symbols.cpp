@@ -6,6 +6,76 @@
 namespace hplang
 {
 
+b32 TypeIsNull(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_null;
+}
+
+b32 TypeIsPointer(Type *t)
+{
+    if (!t) return false;
+    return (t->tag == TYP_pointer) || (t->tag == TYP_null);
+}
+
+b32 TypeIsVoid(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_void;
+}
+
+b32 TypeIsBoolean(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_bool;
+}
+
+b32 TypeIsChar(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_char;
+}
+
+b32 TypeIsIntegral(Type *t)
+{
+    if (!t) return false;
+    switch (t->tag)
+    {
+        case TYP_int_lit:
+        case TYP_u8: case TYP_s8:
+        case TYP_u16: case TYP_s16:
+        case TYP_u32: case TYP_s32:
+        case TYP_u64: case TYP_s64:
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
+b32 TypeIsFloat(Type *t)
+{
+    if (!t) return false;
+    return (t->tag == TYP_f32) || (t->tag == TYP_f64);
+}
+
+b32 TypeIsNumeric(Type *t)
+{
+    return TypeIsIntegral(t) || TypeIsFloat(t);
+}
+
+b32 TypeIsString(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_string;
+}
+
+b32 TypeIsStruct(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_Struct;
+}
+
 b32 TypesEqual(Type *a, Type *b)
 {
     if (a == b) return true;
@@ -19,7 +89,7 @@ b32 TypesEqual(Type *a, Type *b)
         return false;
 
     case TYP_pointer:
-        if (a->pointer != b->pointer) return false;
+        if (!TypeIsPointer(b)) return false;
         return TypesEqual(a->base_type, b->base_type);
     case TYP_void:
     case TYP_bool:
@@ -73,23 +143,24 @@ b32 TypesEqual(Type *a, Type *b)
 }
 
 Type builtin_types[] = {
-    {TYP_null,      0, 1, 1, { }},
-    {TYP_int_lit,   8, 8, 0, { }},
-    {TYP_pointer,   8, 8, 1, { }},
-    {TYP_void,      0, 1, 0, { }},
-    {TYP_bool,      1, 1, 0, { }},
-    {TYP_char,      1, 1, 0, { }},
-    {TYP_u8,        1, 1, 0, { }},
-    {TYP_s8,        1, 1, 0, { }},
-    {TYP_u16,       2, 2, 0, { }},
-    {TYP_s16,       2, 2, 0, { }},
-    {TYP_u32,       4, 4, 0, { }},
-    {TYP_s32,       4, 4, 0, { }},
-    {TYP_u64,       8, 8, 0, { }},
-    {TYP_s64,       8, 8, 0, { }},
-    {TYP_f32,       4, 4, 0, { }},
-    {TYP_f64,       8, 8, 0, { }},
-    {TYP_string,    16, 8, 0, { }},
+    // tag,      size, align, union{}, pointer_type
+    {TYP_null,      0, 1, { }, nullptr},
+    {TYP_int_lit,   8, 8, { }, nullptr},
+    {TYP_pointer,   8, 8, { }, nullptr},
+    {TYP_void,      0, 1, { }, nullptr},
+    {TYP_bool,      1, 1, { }, nullptr},
+    {TYP_char,      1, 1, { }, nullptr},
+    {TYP_u8,        1, 1, { }, nullptr},
+    {TYP_s8,        1, 1, { }, nullptr},
+    {TYP_u16,       2, 2, { }, nullptr},
+    {TYP_s16,       2, 2, { }, nullptr},
+    {TYP_u32,       4, 4, { }, nullptr},
+    {TYP_s32,       4, 4, { }, nullptr},
+    {TYP_u64,       8, 8, { }, nullptr},
+    {TYP_s64,       8, 8, { }, nullptr},
+    {TYP_f32,       4, 4, { }, nullptr},
+    {TYP_f64,       8, 8, { }, nullptr},
+    {TYP_string,    16, 8, { }, nullptr},
 };
 
 Type* GetBuiltinType(Type_Tag tt)
@@ -159,10 +230,7 @@ static void AddBuiltinTypes(Environment *env)
     members[0].name = PushName(&env->arena, "size");
     members[0].type = GetBuiltinType(TYP_s64);
     members[1].name = PushName(&env->arena, "data");
-    Type *data_ptr = PushType(env, TYP_pointer);
-    data_ptr->pointer = 1;
-    data_ptr->base_type = GetBuiltinType(TYP_char);
-    members[1].type = data_ptr;
+    members[1].type = GetPointerType(env, GetBuiltinType(TYP_char));
 }
 
 Environment NewEnvironment()
@@ -263,6 +331,18 @@ Type* PushType(Environment *env, Type_Tag tag)
     *type = { };
     type->tag = tag;
     return type;
+}
+
+Type* GetPointerType(Environment *env, Type *base_type)
+{
+    Type *pointer_type = base_type->pointer_type;
+    if (!pointer_type)
+    {
+        pointer_type = PushType(env, TYP_pointer);
+        pointer_type->base_type = base_type;
+        base_type->pointer_type = pointer_type;
+    }
+    return pointer_type;
 }
 
 static void PutHash(Array<Symbol*> &arr, Name name, Symbol *symbol);
