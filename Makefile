@@ -9,6 +9,7 @@ SOURCES := \
 	src/compiler.cpp \
 	src/error.cpp \
 	src/hplang.cpp \
+	src/ir_gen.cpp \
 	src/lexer.cpp \
 	src/memory.cpp \
 	src/compiler_options.cpp \

@@ -95,7 +95,7 @@ enum Assignment_Op
 {
     AS_OP_Assign,
 
-    // Shorthand assigment operators
+    // Shorthand assignment operators
     AS_OP_AddAssign,
     AS_OP_SubtractAssign,
     AS_OP_MultiplyAssign,
@@ -110,6 +110,7 @@ enum Assignment_Op
 
 struct Token;
 struct Ast_Node;
+struct Symbol;
 
 struct Ast_Node_List
 {
@@ -249,6 +250,8 @@ struct Ast_Function_Def
     Ast_Node_List parameters;
     Ast_Node *return_type; // NOTE(henrik): This is optional, so may be null
     Ast_Node *body; // TODO(henrik): should use Ast_Node_List here?
+
+    Symbol *symbol;
 };
 
 struct Ast_Parameter

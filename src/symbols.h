@@ -116,8 +116,8 @@ struct Symbol
 {
     Symbol_Type sym_type;
     Name name;
+    Name unique_name;
     Type *type;
-    Scope *scope;
 
     Symbol *next_overload;
 };
@@ -130,9 +130,10 @@ struct Scope
     Array<Symbol*> table;
 
     Scope *parent;
+    Symbol *function;       // Set, if the scope is a function scope
 
     Type *return_type;      // The return type of the current function scope
-    Ast_Node *rt_infer_loc;  // Set if the return type was inferred (location info for errors)
+    Ast_Node *rt_infer_loc; // Set, if the return type was inferred (location info for errors)
     s64 return_stmt_count;
 };
 
@@ -144,6 +145,8 @@ struct Environment
     Array<Scope*> scopes;
 
     Scope *current;
+
+    s64 unique_id;
 };
 
 Environment NewEnvironment();
@@ -152,7 +155,7 @@ void FreeEnvironment(Environment *env);
 void OpenScope(Environment *env);
 void CloseScope(Environment *env);
 
-void OpenFunctionScope(Environment *env, Type *return_type);
+void OpenFunctionScope(Environment *env, Symbol *function, Type *return_type);
 // Returns the inferred or declared function return type
 Type* CloseFunctionScope(Environment *env);
 
@@ -167,7 +170,6 @@ Type* GetPointerType(Environment *env, Type *base_type);
 Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type);
 Symbol* AddFunction(Environment *env, Name name, Type *type);
 Symbol* LookupSymbol(Environment *env, Name name);
-//Symbol* LookupOverloadedSymbol(Environment *env, Name name, Type *type);
 Symbol* LookupSymbolInCurrentScope(Environment *env, Name name);
 
 b32 TypesEqual(Type *a, Type *b);

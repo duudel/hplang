@@ -4,6 +4,7 @@
 #include "parser.h"
 #include "ast_types.h"
 #include "semantic_check.h"
+#include "ir_gen.h"
 
 #include <cstdio>
 
@@ -236,6 +237,20 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     FreeSemanticCheckContext(&sem_ctx);
 
     if (ctx->options.stop_after == CP_Checking)
+    {
+        ctx->result = RES_OK;
+        return true;
+    }
+
+    // IR generation
+    Ir_Gen_Context ir_ctx = NewIrGenContext(ctx);
+
+    GenIr(&ir_ctx);
+    PrintIr(stderr, &ir_ctx);
+
+    FreeIrGenContext(&ir_ctx);
+
+    if (ctx->options.stop_after == CP_IrGen)
     {
         ctx->result = RES_OK;
         return true;

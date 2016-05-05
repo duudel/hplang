@@ -2,6 +2,7 @@
 #include "common.h"
 #include "symbols.h"
 #include "assert.h"
+#include <cstdio>
 
 namespace hplang
 {
@@ -285,9 +286,10 @@ void CloseScope(Environment *env)
     env->current->return_stmt_count = return_stmts;
 }
 
-void OpenFunctionScope(Environment *env, Type *return_type)
+void OpenFunctionScope(Environment *env, Symbol *function, Type *return_type)
 {
     OpenScope(env);
+    env->current->function = function;
     env->current->return_type = return_type;
     env->current->rt_infer_loc = nullptr;
 }
@@ -426,11 +428,42 @@ static Symbol* PushSymbol(Environment *env, Symbol_Type sym_type, Name name, Typ
 Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
 {
     Symbol *symbol = PushSymbol(env, sym_type, name, type);
+    symbol->unique_name = name;
 
     Scope *scope = env->current;
     PutHash(scope->table, name, symbol);
     scope->symbol_count++;
     return symbol;
+}
+
+static Name MakeUniqueName(Environment *env, Name base_name, Type *type)
+{
+    // TODO(henrik): This way of making unique names for function overloads is
+    // not the best. The names do not "survive" reordering of the functions in
+    // the source or their compilation order. Maybe make the unique name based
+    // on the type? So something similar to c++ name mangling.
+    (void)type;
+
+    s64 max_size = base_name.str.size + 32;
+    char *data = (char*)PushData(&env->arena, max_size, 1);
+    String str;
+    str.size = 0;
+    str.data = data;
+
+    for (s64 i = 0; i < base_name.str.size; i++)
+    {
+        str.data[i] = base_name.str.data[i];
+    }
+    str.size = base_name.str.size;
+
+    char *buf = str.data + str.size;
+    int id_len = snprintf(buf, max_size - str.size, "#%llx", env->unique_id);
+
+    ASSERT(str.size + id_len < max_size);
+    str.size += id_len;
+
+    env->unique_id++;
+    return MakeName(str);
 }
 
 Symbol* AddFunction(Environment *env, Name name, Type *type)
@@ -442,12 +475,14 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
         if (old_symbol->sym_type == SYM_Function)
         {
             Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
+            symbol->unique_name = MakeUniqueName(env, name, type);
             Symbol *prev = old_symbol;
             while (prev->next_overload)
             {
                 prev = prev->next_overload;
             }
             prev->next_overload = symbol;
+            scope->symbol_count++;
             return symbol;
         }
         return old_symbol;
@@ -455,6 +490,7 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
     else
     {
         Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
+        symbol->unique_name = MakeUniqueName(env, name, type);
         PutHash(scope->table, name, symbol);
         scope->symbol_count++;
         return symbol;

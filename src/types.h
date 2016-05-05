@@ -41,9 +41,8 @@ struct Open_File
 
 struct File_Location
 {
-    //String filename;
     Open_File *file;
-    s64 line, column;
+    s32 line, column;
     s64 offset_start;   // token file offset start
     s64 offset_end;     // token file offset end
     // offset from the begin of the file to the start of previous line

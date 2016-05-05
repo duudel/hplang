@@ -10,7 +10,7 @@ enum Compilation_Phase
     CP_Lexing,
     CP_Parsing,
     CP_Checking,
-    CP_IRGen,
+    CP_IrGen,
     CP_CodeGen,
 };
 

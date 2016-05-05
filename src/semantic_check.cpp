@@ -1227,11 +1227,14 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     {
         ErrorDeclaredEarlierAs(ctx, node, name, symbol);
     }
+
+    node->function.symbol = symbol;
+
     // NOTE(henrik): Lookup only in current scope, before opening the
     // function scope.
     Symbol *overload = LookupSymbolInCurrentScope(ctx->env, name);
 
-    OpenFunctionScope(ctx->env, return_type);
+    OpenFunctionScope(ctx->env, symbol, return_type);
 
     // NOTE(henrik): Check parameters after opening the function scope
     CheckParameters(ctx, node, ftype);
