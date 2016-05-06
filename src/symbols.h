@@ -2,6 +2,7 @@
 
 #include "types.h"
 #include "array.h"
+#include "io.h"
 
 namespace hplang
 {
@@ -12,9 +13,9 @@ enum Type_Tag
     TYP_int_lit,
     TYP_pointer,
 
-    TYP_FIRST_BUILTIN_SYM,
+    TYP_void,
+    TYP_FIRST_BUILTIN_SYM = TYP_void,
 
-    TYP_void = TYP_FIRST_BUILTIN_SYM,
     TYP_bool,
     TYP_char,
     TYP_u8,
@@ -91,7 +92,14 @@ b32 TypeIsNumeric(Type *t);
 b32 TypeIsString(Type *t);
 b32 TypeIsStruct(Type *t);
 
+b32 TypeIsSigned(Type *t);
+b32 TypeIsUnsigned(Type *t);
+
 Type* GetBuiltinType(Type_Tag tt);
+
+void PrintType(IoFile *file, Type *type);
+void PrintFunctionType(IoFile *file, Type *return_type, s64 param_count, Type **param_types);
+
 
 enum Symbol_Type
 {

@@ -2,6 +2,7 @@
 #include "error.h"
 #include "assert.h"
 
+#include <cstdio>
 #include <cinttypes>
 
 namespace hplang
@@ -32,10 +33,12 @@ static s64 NumberLen(s64 number)
     return len;
 }
 
-void PrintFileLocation(FILE *file, File_Location file_loc)
+void PrintFileLocation(IoFile *file, File_Location file_loc)
 {
-    fwrite(file_loc.file->filename.data, 1, file_loc.file->filename.size, file);
-    fprintf(file, ":%" PRId32 ":%" PRId32 ": ", file_loc.line, file_loc.column);
+    FILE *fp = (FILE*)file;
+
+    fwrite(file_loc.file->filename.data, 1, file_loc.file->filename.size, fp);
+    fprintf(fp, ":%" PRId32 ":%" PRId32 ": ", file_loc.line, file_loc.column);
 
     s64 loc_len = NumberLen(file_loc.line) + NumberLen(file_loc.column);
     loc_len += 2;           // add colons
@@ -45,12 +48,12 @@ void PrintFileLocation(FILE *file, File_Location file_loc)
         const char spaces[] = "         ";
         if ((u64)loc_len >= sizeof(spaces))
             loc_len = sizeof(spaces) - 1;
-        fwrite(spaces, 1, loc_len, file);
+        fwrite(spaces, 1, loc_len, fp);
     }
-    fprintf(file, "\n  ");
+    fprintf(fp, "\n  ");
 }
 
-void PrintFileLine(FILE *file, File_Location file_loc)
+void PrintFileLine(IoFile *file, File_Location file_loc)
 {
     Open_File *open_file = file_loc.file;
     ASSERT(open_file != nullptr);
@@ -70,26 +73,26 @@ void PrintFileLine(FILE *file, File_Location file_loc)
         line_len++;
     }
 
-    fwrite(line_start, 1, line_len, file);
-    fprintf(file, "\n");
+    fwrite(line_start, 1, line_len, (FILE*)file);
+    fprintf((FILE*)file, "\n");
 }
 
-void PrintFileLocArrow(FILE *file, File_Location file_loc)
+void PrintFileLocArrow(IoFile *file, File_Location file_loc)
 {
     const char dashes[81] = "--------------------------------------------------------------------------------";
     if (file_loc.column > 0 && file_loc.column < 81 - 1)
     {
-        fwrite(dashes, 1, file_loc.column - 1, file);
-        fprintf(file, "^\n");
+        fwrite(dashes, 1, file_loc.column - 1, (FILE*)file);
+        fprintf((FILE*)file, "^\n");
     }
 }
 
-void PrintTokenValue(FILE *file, const Token *token)
+void PrintTokenValue(IoFile *file, const Token *token)
 {
     // TODO(henrik): There is a problem, when the token value contains newline
     // characters. Should loop through and transform to escape sequences.
     s64 size = token->value_end - token->value;
-    fwrite(token->value, 1, size, file);
+    fwrite(token->value, 1, size, (FILE*)file);
 }
 
 } // hplang

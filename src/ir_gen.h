@@ -13,23 +13,46 @@ namespace hplang
     PASTE_IR(IR_Mul)\
     PASTE_IR(IR_Div)\
     PASTE_IR(IR_Mod)\
-\
+    \
     PASTE_IR(IR_Eq)\
     PASTE_IR(IR_Neq)\
     PASTE_IR(IR_Lt)\
     PASTE_IR(IR_Leq)\
     PASTE_IR(IR_Gt)\
     PASTE_IR(IR_Geq)\
-\
+    \
     PASTE_IR(IR_And)\
     PASTE_IR(IR_Or)\
     PASTE_IR(IR_Xor)\
-\
+    \
+    PASTE_IR(IR_Mov)\
+    \
+    PASTE_IR(IR_Neg)\
+    PASTE_IR(IR_Not)\
+    PASTE_IR(IR_Compl)\
+    PASTE_IR(IR_Addr)\
+    PASTE_IR(IR_Deref)\
+    \
     PASTE_IR(IR_Call)\
     PASTE_IR(IR_CallForeign)\
     PASTE_IR(IR_Param)\
     PASTE_IR(IR_Return)\
-\
+    PASTE_IR(IR_Jump)\
+    PASTE_IR(IR_Jz)\
+    PASTE_IR(IR_Jnz)\
+    PASTE_IR(IR_Jgt)\
+    \
+    PASTE_IR(IR_U_TO_F32)\
+    PASTE_IR(IR_S_TO_F32)\
+    PASTE_IR(IR_F64_TO_F32)\
+    PASTE_IR(IR_U_TO_F64)\
+    PASTE_IR(IR_S_TO_F64)\
+    PASTE_IR(IR_F32_TO_F64)\
+    PASTE_IR(IR_F32_TO_U)\
+    PASTE_IR(IR_F32_TO_S)\
+    PASTE_IR(IR_F64_TO_U)\
+    PASTE_IR(IR_F64_TO_S)\
+    \
     PASTE_IR(IR_COUNT)
 
 #define PASTE_IR(ir) ir,
@@ -58,15 +81,28 @@ enum Ir_Type
 
 enum Ir_Oper_Type
 {
+    IR_OPER_None,
     IR_OPER_Variable,
     IR_OPER_Temp,
     IR_OPER_Immediate,
+    IR_OPER_Label,
+};
+
+struct Ir_Variable
+{
+    Name name;
 };
 
 struct Ir_Temp
 {
     //Name name;
     s64 temp_id;
+};
+
+struct Ir_Label
+{
+    //Name name;
+    s64 target_loc;
 };
 
 struct Symbol;
@@ -76,8 +112,9 @@ struct Ir_Operand
     Ir_Oper_Type oper_type;
     Ir_Type type;
     union {
-        Symbol *symbol;
+        Ir_Variable var;
         Ir_Temp temp;
+        Ir_Label *label;
 
         bool imm_bool;
         s8 imm_s8;
@@ -99,6 +136,7 @@ struct Ir_Instruction
 {
     Ir_Opcode opcode;
     Ir_Operand target, oper1, oper2;
+    //String comment;
 };
 
 typedef Array<Ir_Instruction> Ir_Instruction_List;

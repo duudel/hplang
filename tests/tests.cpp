@@ -66,7 +66,7 @@ Test tests[] = {
     (Test){ CP_Checking, "tests/sem_check_fail/non_void_func_return.hp",        {}, {}, {6, 5} },
     (Test){ CP_Checking, "tests/sem_check_fail/infer_ret_type_from_null.hp",    {}, {}, {6, 5} },
     (Test){ CP_Checking, "tests/sem_check_fail/access_non_struct.hp",           {}, {}, {7, 10} },
-    (Test){ CP_Checking, "tests/sem_check_fail/deref_void_ptr.hp",              {}, {}, {7, 11} },
+    (Test){ CP_Checking, "tests/sem_check_fail/deref_void_ptr.hp",              {}, {}, {7, 10} },
     (Test){ CP_Checking, "tests/empty.hp", {}, {}, {}, },
     (Test){ CP_Checking, "tests/variable_scope.hp", {}, {}, {}, },
     (Test){ CP_Checking, "tests/struct_access.hp", {}, {}, {}, },
@@ -159,9 +159,9 @@ s64 RunTest(Test_Context *ctx, const Test &test)
         b32 should_fail = should_fail_lexing || should_fail_parsing || should_fail_sem_check;
 
         if (should_fail)
-            compiler_ctx.error_ctx.file = nulldev;
+            compiler_ctx.error_ctx.file = (IoFile*)nulldev;
         else
-            compiler_ctx.error_ctx.file = stderr;
+            compiler_ctx.error_ctx.file = (IoFile*)stderr;
 
         Compile(&compiler_ctx, file);
 

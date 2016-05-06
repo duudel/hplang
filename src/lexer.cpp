@@ -833,15 +833,15 @@ static void Error(Lexer_Context *ctx, const char *message, const Token *token)
     if (!token)
     {
         PrintFileLocation(err_ctx->file, file_loc);
-        fprintf(err_ctx->file, "%s\n", message);
+        fprintf((FILE*)err_ctx->file, "%s\n", message);
         PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
     }
     else
     {
         PrintFileLocation(err_ctx->file, file_loc);
-        fprintf(err_ctx->file, "%s '", message);
+        fprintf((FILE*)err_ctx->file, "%s '", message);
         PrintTokenValue(err_ctx->file, token);
-        fprintf(err_ctx->file, "'\n");
+        fprintf((FILE*)err_ctx->file, "'\n");
     }
 }
 

@@ -6,6 +6,8 @@
 #include "compiler_options.h"
 #include "assert.h"
 
+#include <cstdio>
+
 namespace hplang
 {
 
@@ -36,18 +38,13 @@ static b32 ContinueChecking(Sem_Check_Context *ctx)
     return ContinueCompiling(ctx->comp_ctx);
 }
 
-static void PrintString(FILE *file, String str)
-{
-    fwrite(str.data, 1, str.size, file);
-}
-
-static void Error(Sem_Check_Context *ctx, Ast_Node *node, const char *message)
+static void Error(Sem_Check_Context *ctx, File_Location file_loc, const char *message)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
-    AddError(err_ctx, node->file_loc);
-    PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "%s\n", message);
-    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "%s\n", message);
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
 static void ErrorSymbolNotTypename(Sem_Check_Context *ctx, Ast_Node *node, Name name)
@@ -55,99 +52,41 @@ static void ErrorSymbolNotTypename(Sem_Check_Context *ctx, Ast_Node *node, Name 
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, node->file_loc);
     PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "Symbol '");
+    fprintf((FILE*)err_ctx->file, "Symbol '");
     PrintString(err_ctx->file, name.str);
-    fprintf(err_ctx->file, "' is not a typename\n");
+    fprintf((FILE*)err_ctx->file, "' is not a typename\n");
     PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
-}
-
-static void PrintType(FILE *file, Type *type);
-
-static void PrintFunctionType(FILE *file, Type *return_type, s64 param_count, Type **param_types)
-{
-    fprintf(file, "(");
-    for (s64 i = 0; i < param_count; i++)
-    {
-        if (i > 0) fprintf(file, ", ");
-        PrintType(file, param_types[i]);
-    }
-    fprintf(file, ")");
-    fprintf(file, " : ");
-    if (return_type)
-        PrintType(file, return_type);
-    else
-        fprintf(file, "*");
-}
-
-static void PrintType(FILE *file, Type *type)
-{
-    switch (type->tag)
-    {
-    case TYP_string:
-    case TYP_Struct:
-        PrintString(file, type->struct_type.name.str);
-        break;
-    case TYP_Function:
-        {
-            PrintFunctionType(file, type->function_type.return_type,
-                    type->function_type.parameter_count,
-                    type->function_type.parameter_types);
-        } break;
-    case TYP_pointer:
-        {
-            PrintType(file, type->base_type);
-            fprintf(file, "*");
-        } break;
-
-    // These should not appear in any normal case
-    case TYP_null:
-        NOT_IMPLEMENTED("null type printing");
-        break;
-    case TYP_int_lit:
-        NOT_IMPLEMENTED("int literal type printing");
-        break;
-
-    default:
-        if (type->tag <= TYP_LAST_BUILTIN)
-        {
-            PrintString(file, type->type_name.str);
-        }
-        else
-        {
-            INVALID_CODE_PATH;
-        }
-    }
 }
 
 static void ErrorFuncCallNoOverload(Sem_Check_Context *ctx,
-        Ast_Node *node, Name func_name, s64 arg_count, Type **arg_types)
+        File_Location file_loc, Name func_name, s64 arg_count, Type **arg_types)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
-    AddError(err_ctx, node->file_loc);
-    PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "No function overload '");
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "No function overload '");
     PrintString(err_ctx->file, func_name.str);
     PrintFunctionType(err_ctx->file, nullptr, arg_count, arg_types);
-    fprintf(err_ctx->file, "' found\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
+    fprintf((FILE*)err_ctx->file, "' found\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
 static void ErrorReturnTypeMismatch(Sem_Check_Context *ctx,
-        Ast_Node *node, Type *a, Type *b, Ast_Node *rt_inferred)
+        File_Location file_loc, Type *a, Type *b, Ast_Node *rt_inferred)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
-    AddError(err_ctx, node->file_loc);
-    PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "Return type '");
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "Return type '");
     PrintType(err_ctx->file, a);
-    fprintf(err_ctx->file, "' does not match '");
+    fprintf((FILE*)err_ctx->file, "' does not match '");
     PrintType(err_ctx->file, b);
-    fprintf(err_ctx->file, "'\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
+    fprintf((FILE*)err_ctx->file, "'\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
     if (rt_inferred)
     {
         PrintFileLocation(err_ctx->file, rt_inferred->file_loc);
-        fprintf(err_ctx->file, "The return type was inferred here:\n");
+        fprintf((FILE*)err_ctx->file, "The return type was inferred here:\n");
         PrintSourceLineAndArrow(ctx->comp_ctx, rt_inferred->file_loc);
     }
 }
@@ -167,17 +106,17 @@ static void ErrorArgTypeMismatch(Sem_Check_Context *ctx, Ast_Node *node, Type *a
 }
 #endif
 
-static void ErrorTypecast(Sem_Check_Context *ctx, Ast_Node *node, Type *from_type, Type *to_type)
+static void ErrorTypecast(Sem_Check_Context *ctx, File_Location file_loc, Type *from_type, Type *to_type)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
-    AddError(err_ctx, node->file_loc);
-    PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "Type '");
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "Type '");
     PrintType(err_ctx->file, from_type);
-    fprintf(err_ctx->file, "' cannot be casted to '");
+    fprintf((FILE*)err_ctx->file, "' cannot be casted to '");
     PrintType(err_ctx->file, to_type);
-    fprintf(err_ctx->file, "'\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
+    fprintf((FILE*)err_ctx->file, "'\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
 
@@ -186,21 +125,21 @@ static void ErrorImport(Sem_Check_Context *ctx, Ast_Node *node, String filename)
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, node->file_loc);
     PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "Could not open file '");
+    fprintf((FILE*)err_ctx->file, "Could not open file '");
     PrintString(err_ctx->file, filename);
-    fprintf(err_ctx->file, "'\n");
+    fprintf((FILE*)err_ctx->file, "'\n");
     PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
-static void ErrorUndefinedReference(Sem_Check_Context *ctx, Ast_Node *node, Name name)
+static void ErrorUndefinedReference(Sem_Check_Context *ctx, File_Location file_loc, Name name)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
-    AddError(err_ctx, node->file_loc);
-    PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "Undefined reference to '");
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "Undefined reference to '");
     PrintString(err_ctx->file, name.str);
-    fprintf(err_ctx->file, "'\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
+    fprintf((FILE*)err_ctx->file, "'\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
 static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
@@ -209,7 +148,7 @@ static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, node->file_loc);
     PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "'");
+    fprintf((FILE*)err_ctx->file, "'");
     PrintString(err_ctx->file, name.str);
 
     const char *sym_type = "";
@@ -225,7 +164,7 @@ static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
         case SYM_Struct:            sym_type = "struct"; break;
         case SYM_PrimitiveType:     sym_type = "primitive type"; break;
     }
-    fprintf(err_ctx->file, "' was declared as %s earlier\n", sym_type);
+    fprintf((FILE*)err_ctx->file, "' was declared as %s earlier\n", sym_type);
 
     PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
@@ -236,26 +175,12 @@ static void ErrorVaribleShadowsParam(Sem_Check_Context *ctx,
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, node->file_loc);
     PrintFileLocation(err_ctx->file, node->file_loc);
-    fprintf(err_ctx->file, "Variable '");
+    fprintf((FILE*)err_ctx->file, "Variable '");
     PrintString(err_ctx->file, name.str);
-    fprintf(err_ctx->file, "' shadows a parameter with the same name\n");
+    fprintf((FILE*)err_ctx->file, "' shadows a parameter with the same name\n");
     PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
-
-static void CheckImport(Sem_Check_Context *ctx, Ast_Node *node)
-{
-    ASSERT(node->import.module_name.data);
-    String module_filename = { };
-    Open_File *open_file = OpenModule(ctx->comp_ctx,
-            ctx->open_file, node->import.module_name, &module_filename);
-    if (!open_file)
-    {
-        ErrorImport(ctx, node, module_filename);
-        return;
-    }
-    CompileModule(ctx->comp_ctx, open_file);
-}
 
 static b32 CheckTypeCoercion(Type *from, Type *to)
 {
@@ -289,7 +214,7 @@ static b32 CheckTypeCoercion(Type *from, Type *to)
 
 static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
 {
-    if (!node) return nullptr;
+    ASSERT(node != nullptr);
     switch (node->type)
     {
     case AST_Type_Plain:
@@ -342,7 +267,7 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
     return nullptr;
 }
 
-static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt);
+static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt);
 
 #if 0
 static void CheckFunctionArgs(Sem_Check_Context *ctx,
@@ -384,6 +309,8 @@ static s64 CheckFunctionArgs(Type *ftype, s64 arg_count, Type **arg_types)
     {
         Type *arg_type = arg_types[i];
         Type *param_type = ftype->function_type.parameter_types[i];
+        ASSERT(arg_type);
+        ASSERT(param_type);
 
         score *= 10;
         if (TypesEqual(arg_type, param_type))
@@ -407,15 +334,16 @@ static s64 CheckFunctionArgs(Type *ftype, s64 arg_count, Type **arg_types)
     return score;
 }
 
-static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Node *node)
+static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
 {
-    Ast_Function_Call *function_call = &node->expression.function_call;
+    Ast_Function_Call *function_call = &expr->function_call;
+
     Value_Type vt;
     Type *type = CheckExpression(ctx, function_call->fexpr, &vt);
     if (!type) return nullptr;
     if (type->tag == TYP_Function)
     {
-        Ast_Node *fexpr = function_call->fexpr;
+        Ast_Expr *fexpr = function_call->fexpr;
         ASSERT(fexpr->type == AST_VariableRef);
 
         s64 arg_count = function_call->args.count;
@@ -423,14 +351,14 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Node *node)
         Value_Type vt;
         for (s64 i = 0; i < arg_count && ContinueChecking(ctx); i++)
         {
-            Ast_Node *arg = function_call->args.nodes[i];
+            Ast_Expr *arg = array::At(function_call->args, i);
             arg_types[i] = CheckExpression(ctx, arg, &vt);
         }
 
         if (!ContinueChecking(ctx))
             return nullptr;
 
-        Name func_name = fexpr->expression.variable_ref.name;
+        Name func_name = fexpr->variable_ref.name;
         Symbol *func = LookupSymbol(ctx->env, func_name);
 
         s64 best_score = -1;
@@ -453,38 +381,38 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Node *node)
         }
         if (!best_overload)
         {
-            //Error(ctx, node, "Function call does not match any overload");
-            ErrorFuncCallNoOverload(ctx, node, func_name, arg_count, arg_types);
+            ErrorFuncCallNoOverload(ctx, expr->file_loc,
+                    func_name, arg_count, arg_types);
             return nullptr;
         }
         else if (ambiguous)
         {
-            Error(ctx, node, "Function call is ambiguous");
+            Error(ctx, expr->file_loc, "Function call is ambiguous");
         }
         return best_overload->type->function_type.return_type;
     }
-    Error(ctx, function_call->fexpr, "Expression is not callable");
+    Error(ctx, function_call->fexpr->file_loc, "Expression is not callable");
     return nullptr;
 }
 
-static Type* CheckVariableRef(Sem_Check_Context *ctx, Ast_Node *node)
+static Type* CheckVariableRef(Sem_Check_Context *ctx, Ast_Expr *expr)
 {
-    Symbol *symbol = LookupSymbol(ctx->env, node->expression.variable_ref.name);
+    Symbol *symbol = LookupSymbol(ctx->env, expr->variable_ref.name);
     if (!symbol)
     {
-        ErrorUndefinedReference(ctx, node, node->expression.variable_ref.name);
+        ErrorUndefinedReference(ctx, expr->file_loc, expr->variable_ref.name);
         return nullptr;
     }
     return symbol->type;
 }
 
-static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 {
-    Ast_Node *expr = node->expression.typecast_expr.expr;
-    Ast_Node *type = node->expression.typecast_expr.type;
+    Ast_Expr *oper = expr->typecast_expr.expr;
+    Ast_Node *type = expr->typecast_expr.type;
 
     Value_Type evt;
-    Type *etype = CheckExpression(ctx, expr, &evt);
+    Type *etype = CheckExpression(ctx, oper, &evt);
     Type *ctype = CheckType(ctx, type);
 
     *vt = VT_NonAssignable;
@@ -497,15 +425,15 @@ static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Typ
         return ctype;
     if (TypeIsChar(etype) && TypeIsNumeric(ctype))
         return ctype;
-    ErrorTypecast(ctx, node, etype, ctype);
+    ErrorTypecast(ctx, expr->file_loc, etype, ctype);
     return nullptr;
 }
 
 // TODO: Implement module.member; implement pointer.member
-static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 {
-    Ast_Node *left = node->expression.access_expr.left;
-    Ast_Node *right = node->expression.access_expr.right;
+    Ast_Expr *left = expr->access_expr.left;
+    Ast_Expr *right = expr->access_expr.right;
 
     Value_Type lvt;
     Type *ltype = CheckExpression(ctx, left, &lvt);
@@ -515,7 +443,7 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
 
     if (TypeIsNull(ltype))
     {
-        Error(ctx, node, "Trying to access null with operator .");
+        Error(ctx, expr->file_loc, "Trying to access null with operator .");
         return nullptr;
     }
 
@@ -526,18 +454,18 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
     }
     if (!TypeIsStruct(ltype) && !TypeIsString(ltype))
     {
-        Error(ctx, node, "Left hand side of operator . must be a struct or module");
+        Error(ctx, expr->file_loc, "Left hand side of operator . must be a struct or module");
         return nullptr;
     }
     if (right->type != AST_VariableRef)
     {
-        Error(ctx, node, "Right hand side of operator . must be a member name");
+        Error(ctx, expr->file_loc, "Right hand side of operator . must be a member name");
         return nullptr;
     }
     for (s64 i = 0; i < ltype->struct_type.member_count; i++)
     {
         Struct_Member *member = &ltype->struct_type.members[i];
-        if (member->name == right->expression.variable_ref.name)
+        if (member->name == right->variable_ref.name)
         {
             //fprintf(stderr, "access '");
             //PrintString(stderr, member->name.str);
@@ -547,20 +475,23 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
             return member->type;
         }
     }
-    Error(ctx, right, "Struct member not found");
+    Error(ctx, right->file_loc, "Struct member not found");
     return nullptr;
 }
 
-static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 {
-    Ast_Node *cond_expr = node->expression.ternary_expr.condition_expr;
-    Ast_Node *true_expr = node->expression.ternary_expr.true_expr;
-    Ast_Node *false_expr = node->expression.ternary_expr.false_expr;
+    Ast_Expr *cond_expr = expr->ternary_expr.cond_expr;
+    Ast_Expr *true_expr = expr->ternary_expr.true_expr;
+    Ast_Expr *false_expr = expr->ternary_expr.false_expr;
 
     Value_Type cvt;
     Type *cond_type = CheckExpression(ctx, cond_expr, &cvt);
     if (cond_type && !TypeIsBoolean(cond_type))
-        Error(ctx, cond_expr, "Condition of ternary ?: expression must be boolean");
+    {
+        Error(ctx, cond_expr->file_loc,
+                "Condition of ternary ?: expression must be boolean");
+    }
 
     Value_Type tvt, fvt;
     Type *true_type = CheckExpression(ctx, true_expr, &tvt);
@@ -568,7 +499,8 @@ static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type
     if (!CheckTypeCoercion(true_type, false_type) &&
         !CheckTypeCoercion(false_type, true_type))
     {
-        Error(ctx, node, "Both results of ternary ?: expression must be convertible to same type");
+        Error(ctx, expr->file_loc,
+                "Both results of ternary ?: expression must be convertible to same type");
     }
     if (tvt == VT_NonAssignable || fvt == VT_NonAssignable)
         *vt = VT_NonAssignable;
@@ -577,46 +509,114 @@ static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type
     return true_type;
 }
 
-static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+/* Unary op type conversions/promotions
+ * operators +, ~
+ *  u8,u16,u32 -> u32
+ *  s8,s16,s32 -> s32
+ *  u64 -> u64
+ *  s64 -> s64
+ *  int literal -> u64
+ * operator -
+ *  u8,s8,u16,s16,s32 -> s32
+ *  u32,s64 -> s64
+ *  u64 -> u64
+ *  int literal -> s64
+ */
+static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 {
-    Unary_Op op = node->expression.unary_expr.op;
-    Ast_Node *expr = node->expression.unary_expr.expr;
+    Unary_Op op = expr->unary_expr.op;
+    Ast_Expr *oper = expr->unary_expr.expr;
 
     Value_Type evt;
-    Type *type = CheckExpression(ctx, expr, &evt);
+    Type *type = CheckExpression(ctx, oper, &evt);
 
     *vt = VT_NonAssignable;
     switch (op)
     {
     case UN_OP_Positive:
         {
-            if (TypeIsNumeric(type))
-                break;
-            Error(ctx, expr, "Invalid operand for unary +");
+            if (!TypeIsNumeric(type))
+            {
+                Error(ctx, expr->file_loc, "Invalid operand for unary +");
+            }
+            else
+            {
+                switch (type->tag)
+                {
+                    case TYP_int_lit:
+                        type = GetBuiltinType(TYP_u64); break;
+                    case TYP_u8:
+                    case TYP_u16:
+                    case TYP_u32:
+                        type = GetBuiltinType(TYP_u32); break;
+                    case TYP_s8:
+                    case TYP_s16:
+                    case TYP_s32:
+                        type = GetBuiltinType(TYP_s32); break;
+                    default:
+                        break;
+                }
+            }
         } break;
     case UN_OP_Negative:
         {
-            if (TypeIsNumeric(type))
-                break;
-            Error(ctx, expr, "Invalid operand for unary -");
+            if (!TypeIsNumeric(type))
+            {
+                Error(ctx, expr->file_loc, "Invalid operand for unary -");
+            }
+            else
+            {
+                switch (type->tag)
+                {
+                    case TYP_int_lit:
+                        type = GetBuiltinType(TYP_s64); break;
+                    case TYP_u8: case TYP_s8:
+                    case TYP_u16: case TYP_s16:
+                    case TYP_s32:
+                        type = GetBuiltinType(TYP_s32); break;
+                    case TYP_u32:
+                        type = GetBuiltinType(TYP_s64); break;
+                    default:
+                        break;
+                }
+            }
         } break;
     case UN_OP_Complement:
         {
-            if (TypeIsIntegral(type))
-                break;
-            Error(ctx, expr, "Invalid operand for unary ~");
+            if (!TypeIsIntegral(type))
+            {
+                Error(ctx, expr->file_loc, "Invalid operand for unary ~");
+            }
+            else
+            {
+                switch (type->tag)
+                {
+                    case TYP_int_lit:
+                        type = GetBuiltinType(TYP_u64); break;
+                    case TYP_u8:
+                    case TYP_u16:
+                    case TYP_u32:
+                        type = GetBuiltinType(TYP_u32); break;
+                    case TYP_s8:
+                    case TYP_s16:
+                    case TYP_s32:
+                        type = GetBuiltinType(TYP_s32); break;
+                    default:
+                        break;
+                }
+            }
         } break;
     case UN_OP_Not:
         {
             if (TypeIsBoolean(type))
                 break;
-            Error(ctx, expr, "Invalid operand for logical !");
+            Error(ctx, expr->file_loc, "Invalid operand for logical !");
         } break;
     case UN_OP_Address:
         {
             if (evt != VT_Assignable)
             {
-                Error(ctx, expr, "Taking address of non-l-value");
+                Error(ctx, expr->file_loc, "Taking address of non-l-value");
                 return type;
             }
             type = GetPointerType(ctx->env, type);
@@ -628,20 +628,86 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *
             {
                 type = type->base_type;
                 if (TypeIsVoid(type))
-                    Error(ctx, expr, "Dereferencing void pointer");
+                    Error(ctx, expr->file_loc, "Dereferencing void pointer");
                 break;
             }
-            Error(ctx, expr, "Dereferencing non-pointer type");
+            Error(ctx, expr->file_loc, "Dereferencing non-pointer type");
         } break;
     }
     return type;
 }
 
-static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+static Ast_Expr* MakeTypecast(Sem_Check_Context *ctx,
+        Ast_Expr *oper, Ast_Node *type_node, Type *type)
 {
-    Binary_Op op = node->expression.binary_expr.op;
-    Ast_Node *left = node->expression.binary_expr.left;
-    Ast_Node *right = node->expression.binary_expr.right;
+    Ast_Expr *cast_expr = PushAstExpr(ctx->ast, AST_TypecastExpr, oper->file_loc);
+    cast_expr->typecast_expr.expr = oper;
+    cast_expr->typecast_expr.type = type_node;
+    cast_expr->expr_type = type;
+    return cast_expr;
+}
+
+static Type* CoerceBinaryOpType(Sem_Check_Context *ctx,
+        Ast_Expr *expr, Binary_Op op, Ast_Expr *left, Ast_Expr *right, Type *ltype, Type *rtype)
+{
+    (void)op;
+    // No coercion needed
+    if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
+    {
+        if (TypeIsNull(ltype))
+            Error(ctx, expr->file_loc, "Invalid null operand");
+        return ltype;
+    }
+
+    if (TypeIsNumeric(ltype))
+    {
+        if (!rtype) rtype = ltype;
+    }
+    else if (TypeIsNumeric(rtype))
+    {
+        if (!ltype) ltype = rtype;
+    }
+
+    if (!TypeIsNumeric(ltype) || !TypeIsNumeric(rtype))
+        return nullptr;
+
+    if (ltype->tag == TYP_f64)
+    {
+        if (rtype->tag == TYP_f64)
+        {
+            return ltype;
+        }
+        Ast_Expr *cast_expr = MakeTypecast(ctx, right, nullptr, ltype);
+        expr->binary_expr.right = cast_expr;
+        return ltype;
+    }
+    if (ltype->tag == TYP_f32 || rtype->tag == TYP_f32)
+        return GetBuiltinType(TYP_f64);
+    if (ltype->tag == TYP_u64 || rtype->tag == TYP_u64)
+    {
+        if (TypeIsSigned(ltype) || TypeIsSigned(rtype))
+        {
+            Error(ctx, expr->file_loc,
+                "Invalid operation on unsigned and signed operands");
+        }
+        return GetBuiltinType(TYP_u64);
+    }
+
+    /*
+    switch (op)
+    {
+        case BIN_OP_Add:
+
+    }
+    */
+    return ltype;
+}
+
+static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
+{
+    Binary_Op op = expr->binary_expr.op;
+    Ast_Expr *left = expr->binary_expr.left;
+    Ast_Expr *right = expr->binary_expr.right;
 
     Value_Type lvt, rvt;
     Type *ltype = CheckExpression(ctx, left, &lvt);
@@ -649,6 +715,9 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
 
     *vt = VT_NonAssignable;
     if (!ltype && !rtype) return nullptr;
+
+    Type *type = nullptr;
+    type = ltype;
     switch (op)
     {
     case BIN_OP_Add:
@@ -661,7 +730,19 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
                 break;
-            Error(ctx, node, "Invalid operands for binary +");
+            Error(ctx, expr->file_loc, "Invalid operands for binary +");
+            /*
+            if (!ltype && TypeIsNumeric(rtype))
+                type = CoerceBinaryOpType(ctx, expr, op, left, right, ltype, rtype);
+            else if (!rtype && TypeIsNumeric(ltype))
+                type = CoerceBinaryOpType(ctx, expr, op, left, right, ltype, rtype);
+            else if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
+                type = CoerceBinaryOpType(ctx, expr, op, left, right, ltype, rtype);
+            else if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
+                type = CoerceBinaryOpType(ctx, expr, op, left, right, ltype, rtype);
+            else
+                Error(ctx, expr->file_loc, "Invalid operands for binary +");
+                */
         } break;
     case BIN_OP_Subtract:
         {
@@ -673,7 +754,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
                 break;
-            Error(ctx, node, "Invalid operands for binary -");
+            Error(ctx, expr->file_loc, "Invalid operands for binary -");
         } break;
     case BIN_OP_Multiply:
         {
@@ -683,7 +764,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
                 break;
-            Error(ctx, node, "Operator * expects numeric type for left and right hand side");
+            Error(ctx, expr->file_loc, "Operator * expects numeric type for left and right hand side");
         } break;
     case BIN_OP_Divide:
         {
@@ -693,7 +774,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
                 break;
-            Error(ctx, node, "Operator / expects numeric type for left and right hand side");
+            Error(ctx, expr->file_loc, "Operator / expects numeric type for left and right hand side");
         } break;
     case BIN_OP_Modulo:
         {
@@ -704,7 +785,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 break;
-            Error(ctx, node, "Operator \% expects numeric type for left and right hand side");
+            Error(ctx, expr->file_loc, "Operator \% expects numeric type for left and right hand side");
         } break;
 
     case BIN_OP_BitAnd:
@@ -715,7 +796,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 break;
-            Error(ctx, node, "Bitwise & expects integral type for left and right hand side");
+            Error(ctx, expr->file_loc, "Bitwise & expects integral type for left and right hand side");
         } break;
     case BIN_OP_BitOr:
         {
@@ -725,7 +806,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 break;
-            Error(ctx, node, "Bitwise | expects integral type for left and right hand side");
+            Error(ctx, expr->file_loc, "Bitwise | expects integral type for left and right hand side");
         } break;
     case BIN_OP_BitXor:
         {
@@ -735,7 +816,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 break;
-            Error(ctx, node, "Bitwise ^ expects integral type for left and right hand side");
+            Error(ctx, expr->file_loc, "Bitwise ^ expects integral type for left and right hand side");
         } break;
 
     case BIN_OP_And:
@@ -746,7 +827,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsBoolean(ltype) && TypeIsBoolean(rtype))
                 break;
-            Error(ctx, node, "Logical && expects boolean type for left and right hand side");
+            Error(ctx, expr->file_loc, "Logical && expects boolean type for left and right hand side");
         } break;
     case BIN_OP_Or:
         {
@@ -756,49 +837,49 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
                 break;
             if (TypeIsBoolean(ltype) && TypeIsBoolean(rtype))
                 break;
-            Error(ctx, node, "Logical || expects boolean type for left and right hand side");
+            Error(ctx, expr->file_loc, "Logical || expects boolean type for left and right hand side");
         } break;
 
     case BIN_OP_Equal:
         {
             if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
             else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, node, "Invalid operands for == operator"); }
+            else { Error(ctx, expr->file_loc, "Invalid operands for == operator"); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_NotEqual:
         {
             if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
             else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, node, "Invalid operands for != operator"); }
+            else { Error(ctx, expr->file_loc, "Invalid operands for != operator"); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_Less:
         {
             if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
             else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, node, "Invalid operands for < operator"); }
+            else { Error(ctx, expr->file_loc, "Invalid operands for < operator"); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_LessEq:
         {
             if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
             else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, node, "Invalid operands for <= operator"); }
+            else { Error(ctx, expr->file_loc, "Invalid operands for <= operator"); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_Greater:
         {
             if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
             else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, node, "Invalid operands for > operator"); }
+            else { Error(ctx, expr->file_loc, "Invalid operands for > operator"); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_GreaterEq:
         {
             if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
             else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, node, "Invalid operands for >= operator"); }
+            else { Error(ctx, expr->file_loc, "Invalid operands for >= operator"); }
             return GetBuiltinType(TYP_bool);
         } break;
 
@@ -810,14 +891,14 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type 
         NOT_IMPLEMENTED("Binary expression ops");
         break;
     }
-    return ltype;
+    return type;
 }
 
-static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 {
-    Assignment_Op op = node->expression.assignment.op;
-    Ast_Node *left = node->expression.assignment.left;
-    Ast_Node *right = node->expression.assignment.right;
+    Assignment_Op op = expr->assignment.op;
+    Ast_Expr *left = expr->assignment.left;
+    Ast_Expr *right = expr->assignment.right;
 
     Value_Type lvt, rvt;
     Type *ltype = CheckExpression(ctx, left, &lvt);
@@ -827,7 +908,7 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_T
 
     if (lvt != VT_Assignable)
     {
-        Error(ctx, left, "Assignment to non-l-value expression");
+        Error(ctx, left->file_loc, "Assignment to non-l-value expression");
     }
     else
     {
@@ -836,7 +917,7 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_T
         case AS_OP_Assign:
             {
                 if (!CheckTypeCoercion(rtype, ltype))
-                    Error(ctx, node, "Operands of assignment are incompatible");
+                    Error(ctx, expr->file_loc, "Operands of assignment are incompatible");
             } break;
         case AS_OP_AddAssign:
             {
@@ -844,7 +925,7 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_T
                     break;
                 else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
                     break;
-                Error(ctx, node, "Operands of += are incompatible");
+                Error(ctx, expr->file_loc, "Operands of += are incompatible");
             } break;
         case AS_OP_SubtractAssign:
             {
@@ -852,45 +933,45 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_T
                     break;
                 else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
                     break;
-                Error(ctx, node, "Operands of -= are incompatible");
+                Error(ctx, expr->file_loc, "Operands of -= are incompatible");
             } break;
         case AS_OP_MultiplyAssign:
             {
                 if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
                     break;
-                Error(ctx, node, "Operands of *= are incompatible");
+                Error(ctx, expr->file_loc, "Operands of *= are incompatible");
             } break;
         case AS_OP_DivideAssign:
             {
                 if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
                     break;
-                Error(ctx, node, "Operands of /= are incompatible");
+                Error(ctx, expr->file_loc, "Operands of /= are incompatible");
             } break;
         case AS_OP_ModuloAssign:
             {
                 // TODO(henrik): Should modulo work for floats too?
                 if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                     break;
-                Error(ctx, node, "Operands of %= are incompatible");
+                Error(ctx, expr->file_loc, "Operands of %= are incompatible");
             } break;
 
         case AS_OP_BitAndAssign:
             {
                 if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                     break;
-                Error(ctx, node, "Operands of &= must be integral");
+                Error(ctx, expr->file_loc, "Operands of &= must be integral");
             } break;
         case AS_OP_BitOrAssign:
             {
                 if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                     break;
-                Error(ctx, node, "Operands of |= must be integral");
+                Error(ctx, expr->file_loc, "Operands of |= must be integral");
             } break;
         case AS_OP_BitXorAssign:
             {
                 if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                     break;
-                Error(ctx, node, "Operands of ^= must be integral");
+                Error(ctx, expr->file_loc, "Operands of ^= must be integral");
             } break;
         }
     }
@@ -899,66 +980,85 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Node *node, Value_T
     return ltype;
 }
 
-static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Node *node, Value_Type *vt)
+static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 {
-    switch (node->type)
+    Type *result_type = nullptr;
+    switch (expr->type)
     {
         case AST_Null:
             *vt = VT_NonAssignable;
-            return GetBuiltinType(TYP_null);
+            result_type = GetBuiltinType(TYP_null);
+            break;
         case AST_BoolLiteral:
             *vt = VT_NonAssignable;
-            return GetBuiltinType(TYP_bool);
+            result_type = GetBuiltinType(TYP_bool);
+            break;
         case AST_CharLiteral:
             *vt = VT_NonAssignable;
-            return GetBuiltinType(TYP_char);
+            result_type = GetBuiltinType(TYP_char);
+            break;
         case AST_IntLiteral:
             *vt = VT_NonAssignable;
-            return GetBuiltinType(TYP_int_lit);
+            result_type = GetBuiltinType(TYP_int_lit);
+            break;
         case AST_Float32Literal:
             *vt = VT_NonAssignable;
-            return GetBuiltinType(TYP_f32);
+            result_type = GetBuiltinType(TYP_f32);
+            break;
         case AST_Float64Literal:
             *vt = VT_NonAssignable;
-            return GetBuiltinType(TYP_f64);
+            result_type = GetBuiltinType(TYP_f64);
+            break;
         case AST_StringLiteral:
             *vt = VT_NonAssignable;
-            return GetBuiltinType(TYP_string);
+            result_type = GetBuiltinType(TYP_string);
+            break;
 
         case AST_VariableRef:
             *vt = VT_Assignable;
-            return CheckVariableRef(ctx, node);
+            result_type = CheckVariableRef(ctx, expr);
+            break;
         case AST_FunctionCall:
             *vt = VT_NonAssignable;
-            return CheckFunctionCall(ctx, node);
+            result_type = CheckFunctionCall(ctx, expr);
+            break;
 
         case AST_AssignmentExpr:
-            return CheckAssignmentExpr(ctx, node, vt);
+            result_type = CheckAssignmentExpr(ctx, expr, vt);
+            break;
         case AST_BinaryExpr:
-            return CheckBinaryExpr(ctx, node, vt);
+            result_type = CheckBinaryExpr(ctx, expr, vt);
+            break;
         case AST_UnaryExpr:
-            return CheckUnaryExpr(ctx, node, vt);
+            result_type = CheckUnaryExpr(ctx, expr, vt);
+            break;
         case AST_TernaryExpr:
-            return CheckTernaryExpr(ctx, node, vt);
+            result_type = CheckTernaryExpr(ctx, expr, vt);
+            break;
         case AST_AccessExpr:
-            return CheckAccessExpr(ctx, node, vt);
+            result_type = CheckAccessExpr(ctx, expr, vt);
+            break;
         case AST_TypecastExpr:
-            return CheckTypecastExpr(ctx, node, vt);
-        default:
-            INVALID_CODE_PATH;
+            result_type = CheckTypecastExpr(ctx, expr, vt);
+            break;
     }
-    return nullptr;
+    expr->expr_type = result_type;
+    return result_type;
 }
 
 static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
 {
-    Type *type = CheckType(ctx, node->variable_decl.type);
+    Type *type = nullptr;
+    if (node->variable_decl.type)
+    {
+        type = CheckType(ctx, node->variable_decl.type);
+    }
 
     Type *init_type = nullptr;
-    if (node->variable_decl.init)
+    if (node->variable_decl.init_expr)
     {
         Value_Type vt;
-        init_type = CheckExpression(ctx, node->variable_decl.init, &vt);
+        init_type = CheckExpression(ctx, node->variable_decl.init_expr, &vt);
         if (init_type && init_type->tag == TYP_int_lit)
             init_type = GetBuiltinType(TYP_s64);
     }
@@ -966,20 +1066,20 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
     if (!type)
     {
         if (TypeIsNull(init_type))
-            Error(ctx, node, "Variable type cannot be inferred from null");
+            Error(ctx, node->file_loc, "Variable type cannot be inferred from null");
         else
             type = init_type;
     }
     else if (TypeIsVoid(type))
     {
-        Error(ctx, node, "Cannot declare variable of type void");
+        Error(ctx, node->file_loc, "Cannot declare variable of type void");
     }
 
     if (type && init_type)
     {
         if (!CheckTypeCoercion(init_type, type))
         {
-            Error(ctx, node, "Variable initializer expression is incompatible");
+            Error(ctx, node->file_loc, "Variable initializer expression is incompatible");
         }
     }
 
@@ -1002,37 +1102,37 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node);
 
 static void CheckIfStatement(Sem_Check_Context *ctx, Ast_Node *node)
 {
-    Ast_Node *cond_expr = node->if_stmt.condition_expr;
-    Ast_Node *true_stmt = node->if_stmt.true_stmt;
-    Ast_Node *false_stmt = node->if_stmt.false_stmt;
+    Ast_Expr *cond_expr = node->if_stmt.cond_expr;
+    Ast_Node *then_stmt = node->if_stmt.then_stmt;
+    Ast_Node *else_stmt = node->if_stmt.else_stmt;
 
     Value_Type vt;
     Type *cond_type = CheckExpression(ctx, cond_expr, &vt);
 
     if (!TypeIsBoolean(cond_type))
-        Error(ctx, cond_expr, "If condition must be boolean");
-    CheckStatement(ctx, true_stmt);
-    if (false_stmt)
-        CheckStatement(ctx, false_stmt);
+        Error(ctx, cond_expr->file_loc, "If condition must be boolean");
+    CheckStatement(ctx, then_stmt);
+    if (else_stmt)
+        CheckStatement(ctx, else_stmt);
 }
 
 static void CheckWhileStatement(Sem_Check_Context *ctx, Ast_Node *node)
 {
-    Ast_Node *cond_expr = node->while_stmt.condition_expr;
+    Ast_Expr *cond_expr = node->while_stmt.cond_expr;
     Ast_Node *loop_stmt = node->while_stmt.loop_stmt;
 
     Value_Type vt;
     Type *cond_type = CheckExpression(ctx, cond_expr, &vt);
 
     if (!TypeIsBoolean(cond_type))
-        Error(ctx, cond_expr, "While condition must be boolean");
+        Error(ctx, cond_expr->file_loc, "While condition must be boolean");
     CheckStatement(ctx, loop_stmt);
 }
 
 static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
 {
     IncReturnStatements(ctx->env);
-    Ast_Node *rexpr = node->return_stmt.expression;
+    Ast_Expr *rexpr = node->return_stmt.expr;
 
     Type *rtype = nullptr;
     if (rexpr)
@@ -1052,7 +1152,7 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     {
         if (!rexpr && !TypeIsVoid(cur_return_type))
         {
-            Error(ctx, node, "Return value expected");
+            Error(ctx, node->file_loc, "Return value expected");
             return;
         }
         // Coerce int literal type to current return type or default to s64
@@ -1075,7 +1175,8 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
         if (!CheckTypeCoercion(rtype, cur_return_type))
         {
             Ast_Node *infer_loc = GetCurrentReturnTypeInferLoc(ctx->env);
-            ErrorReturnTypeMismatch(ctx, rexpr, rtype, cur_return_type, infer_loc);
+            ErrorReturnTypeMismatch(ctx, rexpr->file_loc,
+                    rtype, cur_return_type, infer_loc);
         }
     }
     else
@@ -1113,15 +1214,19 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
             //CheckForStatement(ctx, node);
             NOT_IMPLEMENTED("For statement");
             break;
+        case AST_RangeForStmt:
+            //CheckRangeForStatement(ctx, node);
+            NOT_IMPLEMENTED("Range for statement");
+            break;
         case AST_ReturnStmt:
             CheckReturnStatement(ctx, node);
             break;
         case AST_VariableDecl:
             CheckVariableDecl(ctx, node);
             break;
-        default:
+        case AST_ExpressionStmt:
             Value_Type vt;
-            CheckExpression(ctx, node, &vt);
+            CheckExpression(ctx, node->expr_stmt.expr, &vt);
             break;
 
         case AST_TopLevel:
@@ -1129,7 +1234,11 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
         case AST_ForeignBlock:
         case AST_FunctionDef:
         case AST_StructDef:
+        case AST_StructMember:
         case AST_Parameter:
+        case AST_Type_Plain:
+        case AST_Type_Pointer:
+        case AST_Type_Array:
             INVALID_CODE_PATH;
     }
 }
@@ -1137,10 +1246,10 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
 static void CheckBlockStatement(Sem_Check_Context *ctx, Ast_Node *node)
 {
     OpenScope(ctx->env);
-    s64 count = node->block.statements.count;
+    s64 count = node->block_stmt.statements.count;
     for (s64 i = 0; i < count && ContinueChecking(ctx); i++)
     {
-        Ast_Node *stmt = node->block.statements.nodes[i];
+        Ast_Node *stmt = array::At(node->block_stmt.statements, i);
         CheckStatement(ctx, stmt);
     }
     CloseScope(ctx->env);
@@ -1151,14 +1260,14 @@ static void CheckForeignFunctionParameters(Sem_Check_Context *ctx, Ast_Node *nod
     s64 count = node->function.parameters.count;
     for (s64 i = 0; i < count && ContinueChecking(ctx); i++)
     {
-        Ast_Node *param = node->function.parameters.nodes[i];
+        Ast_Node *param = array::At(node->function.parameters, i);
         Symbol *old_sym = LookupSymbolInCurrentScope(
                             ctx->env,
                             param->parameter.name);
         if (old_sym)
         {
             ASSERT(old_sym->sym_type == SYM_Parameter);
-            Error(ctx, param, "Parameter already declared");
+            Error(ctx, param->file_loc, "Parameter already declared");
         }
 
         Type *param_type = CheckType(ctx, param->parameter.type);
@@ -1171,17 +1280,18 @@ static void CheckParameters(Sem_Check_Context *ctx, Ast_Node *node, Type *ftype)
     s64 count = node->function.parameters.count;
     for (s64 i = 0; i < count && ContinueChecking(ctx); i++)
     {
-        Ast_Node *param = node->function.parameters.nodes[i];
+        Ast_Node *param = array::At(node->function.parameters, i);
         Symbol *old_sym = LookupSymbolInCurrentScope(
                             ctx->env,
                             param->parameter.name);
         if (old_sym)
         {
             ASSERT(old_sym->sym_type == SYM_Parameter);
-            Error(ctx, param, "Parameter already declared");
+            Error(ctx, param->file_loc, "Parameter already declared");
         }
 
         Type *param_type = CheckType(ctx, param->parameter.type);
+        ASSERT(param_type);
         AddSymbol(ctx->env, SYM_Parameter, param->parameter.name, param_type);
 
         ftype->function_type.parameter_types[i] = param_type;
@@ -1217,7 +1327,11 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     ftype->function_type.parameter_count = param_count;
     ftype->function_type.parameter_types = PushArray<Type*>(&ctx->env->arena, param_count);
 
-    Type *return_type = CheckType(ctx, node->function.return_type);
+    Type *return_type = nullptr;
+    if (node->function.return_type)
+    {
+        return_type = CheckType(ctx, node->function.return_type);
+    }
     ftype->function_type.return_type = return_type;
 
     // TODO(henrik): Should the names be copied to env->arena?
@@ -1243,7 +1357,7 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     {
         if (FunctionTypesAmbiguous(overload->type, symbol->type))
         {
-            Error(ctx, node, "Ambiguous function definition");
+            Error(ctx, node->file_loc, "Ambiguous function definition");
             break;
         }
         overload = overload->next_overload;
@@ -1260,11 +1374,11 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 
     if (!inferred_return_type)
     {
-        Error(ctx, node, "Could not infer return type for function");
+        Error(ctx, node->file_loc, "Could not infer return type for function");
     }
     else if (TypeIsNull(inferred_return_type))
     {
-        Error(ctx, infer_loc, "Function type cannot be inferred from null");
+        Error(ctx, infer_loc->file_loc, "Function type cannot be inferred from null");
     }
     ftype->function_type.return_type = inferred_return_type;
 }
@@ -1296,7 +1410,7 @@ static void CheckStruct(Sem_Check_Context *ctx, Ast_Node *node)
     {
         CheckStructMember(ctx,
                 &type->struct_type.members[i],
-                struct_def->members.nodes[i]);
+                array::At(struct_def->members, i));
     }
 }
 
@@ -1317,7 +1431,7 @@ static void CheckForeignFunction(Sem_Check_Context *ctx, Ast_Node *node)
     {
         if (old_symbol->sym_type == SYM_ForeignFunction)
         {
-            Error(ctx, node, "Foreign functions cannot have overloads");
+            Error(ctx, node->file_loc, "Foreign functions cannot have overloads");
         }
         else
         {
@@ -1350,9 +1464,23 @@ static void CheckForeignBlock(Sem_Check_Context *ctx, Ast_Node *node)
     s64 count = node->foreign.statements.count;
     for (s64 i = 0; i < count && ContinueChecking(ctx); i++)
     {
-        Ast_Node *stmt = node->foreign.statements.nodes[i];
+        Ast_Node *stmt = array::At(node->foreign.statements, i);
         CheckForeignBlockStmt(ctx, stmt);
     }
+}
+
+static void CheckImport(Sem_Check_Context *ctx, Ast_Node *node)
+{
+    ASSERT(node->import.module_name.data);
+    String module_filename = { };
+    Open_File *open_file = OpenModule(ctx->comp_ctx,
+            ctx->open_file, node->import.module_name, &module_filename);
+    if (!open_file)
+    {
+        ErrorImport(ctx, node, module_filename);
+        return;
+    }
+    CompileModule(ctx->comp_ctx, open_file);
 }
 
 static void CheckTopLevelStmt(Sem_Check_Context *ctx, Ast_Node *node)
@@ -1379,7 +1507,7 @@ b32 Check(Sem_Check_Context *ctx)
         index < statements->count && ContinueChecking(ctx);
         index++)
     {
-        Ast_Node *node = statements->nodes[index];
+        Ast_Node *node = array::At(*statements, index);
         CheckTopLevelStmt(ctx, node);
     }
     return HasError(ctx->comp_ctx);

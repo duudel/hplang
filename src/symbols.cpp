@@ -7,6 +7,57 @@
 namespace hplang
 {
 
+Type builtin_types[] = {
+    // tag,      size, align, union{}, pointer_type
+    {TYP_null,      0, 1, { }, nullptr},
+    {TYP_int_lit,   8, 8, { }, nullptr},
+    {TYP_pointer,   8, 8, { }, nullptr},
+    {TYP_void,      0, 1, { }, nullptr},
+    {TYP_bool,      1, 1, { }, nullptr},
+    {TYP_char,      1, 1, { }, nullptr},
+    {TYP_u8,        1, 1, { }, nullptr},
+    {TYP_s8,        1, 1, { }, nullptr},
+    {TYP_u16,       2, 2, { }, nullptr},
+    {TYP_s16,       2, 2, { }, nullptr},
+    {TYP_u32,       4, 4, { }, nullptr},
+    {TYP_s32,       4, 4, { }, nullptr},
+    {TYP_u64,       8, 8, { }, nullptr},
+    {TYP_s64,       8, 8, { }, nullptr},
+    {TYP_f32,       4, 4, { }, nullptr},
+    {TYP_f64,       8, 8, { }, nullptr},
+    {TYP_string,    16, 8, { }, nullptr},
+};
+
+struct Type_Info
+{
+    Symbol_Type sym_type;
+    const char *name;
+};
+
+static Type_Info builtin_type_infos[] = {
+    /*TYP_null,*/       (Type_Info){SYM_PrimitiveType,   "null_type"},
+    /*TYP_int_lit,*/    (Type_Info){SYM_PrimitiveType,   "int_lit_type"},
+    /*TYP_pointer,*/    (Type_Info){SYM_PrimitiveType,   "pointer_type"},
+    /*TYP_void,*/       (Type_Info){SYM_PrimitiveType,   "void"},
+    /*TYP_bool,*/       (Type_Info){SYM_PrimitiveType,   "bool"},
+    /*TYP_char,*/       (Type_Info){SYM_PrimitiveType,   "char"},
+    /*TYP_u8,*/         (Type_Info){SYM_PrimitiveType,   "u8"},
+    /*TYP_s8,*/         (Type_Info){SYM_PrimitiveType,   "s8"},
+    /*TYP_u16,*/        (Type_Info){SYM_PrimitiveType,   "u16"},
+    /*TYP_s16,*/        (Type_Info){SYM_PrimitiveType,   "s16"},
+    /*TYP_u32,*/        (Type_Info){SYM_PrimitiveType,   "u32"},
+    /*TYP_s32,*/        (Type_Info){SYM_PrimitiveType,   "s32"},
+    /*TYP_u64,*/        (Type_Info){SYM_PrimitiveType,   "u64"},
+    /*TYP_s64,*/        (Type_Info){SYM_PrimitiveType,   "s64"},
+    /*TYP_f32,*/        (Type_Info){SYM_PrimitiveType,   "f32"},
+    /*TYP_f64,*/        (Type_Info){SYM_PrimitiveType,   "f64"},
+    /*TYP_string,*/     (Type_Info){SYM_Struct,          "string"},
+
+    /*TYP_Function,*/
+    /*TYP_Struct,*/
+    //TYP_Enum,
+};
+
 b32 TypeIsNull(Type *t)
 {
     if (!t) return false;
@@ -77,6 +128,38 @@ b32 TypeIsStruct(Type *t)
     return t->tag == TYP_Struct;
 }
 
+b32 TypeIsSigned(Type *t)
+{
+    if (!t) return false;
+    switch (t->tag)
+    {
+        case TYP_s8:
+        case TYP_s16:
+        case TYP_s32:
+        case TYP_s64:
+            return true;
+        default:
+            return false;
+    }
+    return false;
+}
+
+b32 TypeIsUnsigned(Type *t)
+{
+    if (!t) return false;
+    switch (t->tag)
+    {
+        case TYP_u8:
+        case TYP_u16:
+        case TYP_u32:
+        case TYP_u64:
+            return true;
+        default:
+            return false;
+    }
+    return false;
+}
+
 b32 TypesEqual(Type *a, Type *b)
 {
     if (a == b) return true;
@@ -143,67 +226,68 @@ b32 TypesEqual(Type *a, Type *b)
     return false;
 }
 
-Type builtin_types[] = {
-    // tag,      size, align, union{}, pointer_type
-    {TYP_null,      0, 1, { }, nullptr},
-    {TYP_int_lit,   8, 8, { }, nullptr},
-    {TYP_pointer,   8, 8, { }, nullptr},
-    {TYP_void,      0, 1, { }, nullptr},
-    {TYP_bool,      1, 1, { }, nullptr},
-    {TYP_char,      1, 1, { }, nullptr},
-    {TYP_u8,        1, 1, { }, nullptr},
-    {TYP_s8,        1, 1, { }, nullptr},
-    {TYP_u16,       2, 2, { }, nullptr},
-    {TYP_s16,       2, 2, { }, nullptr},
-    {TYP_u32,       4, 4, { }, nullptr},
-    {TYP_s32,       4, 4, { }, nullptr},
-    {TYP_u64,       8, 8, { }, nullptr},
-    {TYP_s64,       8, 8, { }, nullptr},
-    {TYP_f32,       4, 4, { }, nullptr},
-    {TYP_f64,       8, 8, { }, nullptr},
-    {TYP_string,    16, 8, { }, nullptr},
-};
-
 Type* GetBuiltinType(Type_Tag tt)
 {
     ASSERT(tt <= TYP_LAST_BUILTIN);
     return &builtin_types[tt];
 }
 
-struct Type_Info
+void PrintFunctionType(IoFile *file, Type *return_type, s64 param_count, Type **param_types)
 {
-    Symbol_Type sym_type;
-    const char *name;
-};
-
-static Type_Info builtin_type_infos[] = {
-    /*TYP_null,*/       (Type_Info){SYM_PrimitiveType,   "null_type"},
-    /*TYP_int_lit,*/    (Type_Info){SYM_PrimitiveType,   "int_lit_type"},
-    /*TYP_pointer,*/    (Type_Info){SYM_PrimitiveType,   "pointer_type"},
-    /*TYP_void,*/       (Type_Info){SYM_PrimitiveType,   "void"},
-    /*TYP_bool,*/       (Type_Info){SYM_PrimitiveType,   "bool"},
-    /*TYP_char,*/       (Type_Info){SYM_PrimitiveType,   "char"},
-    /*TYP_u8,*/         (Type_Info){SYM_PrimitiveType,   "u8"},
-    /*TYP_s8,*/         (Type_Info){SYM_PrimitiveType,   "s8"},
-    /*TYP_u16,*/        (Type_Info){SYM_PrimitiveType,   "u16"},
-    /*TYP_s16,*/        (Type_Info){SYM_PrimitiveType,   "s16"},
-    /*TYP_u32,*/        (Type_Info){SYM_PrimitiveType,   "u32"},
-    /*TYP_s32,*/        (Type_Info){SYM_PrimitiveType,   "s32"},
-    /*TYP_u64,*/        (Type_Info){SYM_PrimitiveType,   "u64"},
-    /*TYP_s64,*/        (Type_Info){SYM_PrimitiveType,   "s64"},
-    /*TYP_f32,*/        (Type_Info){SYM_PrimitiveType,   "f32"},
-    /*TYP_f64,*/        (Type_Info){SYM_PrimitiveType,   "f64"},
-    /*TYP_string,*/     (Type_Info){SYM_Struct,          "string"},
-
-    /*TYP_Function,*/
-    /*TYP_Struct,*/
-    //TYP_Enum,
-};
-
-static void FreeScope(Scope *scope)
-{
-    array::Free(scope->table);
+    fprintf((FILE*)file, "(");
+    for (s64 i = 0; i < param_count; i++)
+    {
+        if (i > 0) fprintf((FILE*)file, ", ");
+        PrintType(file, param_types[i]);
+    }
+    fprintf((FILE*)file, ")");
+    fprintf((FILE*)file, " : ");
+    if (return_type)
+        PrintType(file, return_type);
+    else
+        fprintf((FILE*)file, "*");
 }
+
+void PrintType(IoFile *file, Type *type)
+{
+    switch (type->tag)
+    {
+    case TYP_string:
+    case TYP_Struct:
+        PrintString(file, type->struct_type.name.str);
+        break;
+    case TYP_Function:
+        {
+            PrintFunctionType(file, type->function_type.return_type,
+                    type->function_type.parameter_count,
+                    type->function_type.parameter_types);
+        } break;
+    case TYP_pointer:
+        {
+            PrintType(file, type->base_type);
+            fprintf((FILE*)file, "*");
+        } break;
+
+    // These should not appear in any normal case
+    case TYP_null:
+        NOT_IMPLEMENTED("null type printing");
+        break;
+    case TYP_int_lit:
+        NOT_IMPLEMENTED("int literal type printing");
+        break;
+
+    default:
+        if (type->tag <= TYP_LAST_BUILTIN)
+        {
+            PrintString(file, type->type_name.str);
+        }
+        else
+        {
+            INVALID_CODE_PATH;
+        }
+    }
+}
+
 
 static void AddBuiltinTypes(Environment *env)
 {
@@ -240,6 +324,11 @@ Environment NewEnvironment()
     OpenScope(&result);
     AddBuiltinTypes(&result);
     return result;
+}
+
+static void FreeScope(Scope *scope)
+{
+    array::Free(scope->table);
 }
 
 void FreeEnvironment(Environment *env)

@@ -5,6 +5,7 @@
 #include "assert.h"
 
 #include <cstdlib>
+#include <cstdio>
 #include <cerrno>
 
 #if 0
@@ -47,7 +48,7 @@ static void Error(Parser_Context *ctx, const Token *token, const char *message)
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, token->file_loc);
     PrintFileLocation(err_ctx->file, token->file_loc);
-    fprintf(err_ctx->file, "%s\n", message);
+    fprintf((FILE*)err_ctx->file, "%s\n", message);
     PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
@@ -56,9 +57,9 @@ static void ErrorInvalidToken(Parser_Context *ctx, const Token *token)
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, token->file_loc);
     PrintFileLocation(err_ctx->file, token->file_loc);
-    fprintf(err_ctx->file, "Invalid token ");
+    fprintf((FILE*)err_ctx->file, "Invalid token ");
     PrintTokenValue(err_ctx->file, token);
-    fprintf(err_ctx->file, "\n");
+    fprintf((FILE*)err_ctx->file, "\n");
     PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
@@ -69,7 +70,7 @@ static void ErrorExpected(Parser_Context *ctx,
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, token->file_loc);
     PrintFileLocation(err_ctx->file, token->file_loc);
-    fprintf(err_ctx->file, "Expecting %s\n", expected_token);
+    fprintf((FILE*)err_ctx->file, "Expecting %s\n", expected_token);
     PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
@@ -88,7 +89,7 @@ static void ErrorExpectedAtEnd(Parser_Context *ctx,
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, file_loc);
     PrintFileLocation(err_ctx->file, file_loc);
-    fprintf(err_ctx->file, "Expecting %s\n", expected_token);
+    fprintf((FILE*)err_ctx->file, "Expecting %s\n", expected_token);
     PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
@@ -131,7 +132,7 @@ static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Binary_O
         // need to have them here to suppress warnings.
         case BIN_OP_Subscript:  op_str = "[]"; break;
     }
-    fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
+    fprintf((FILE*)err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
     PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
@@ -153,7 +154,7 @@ static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Assi
         case AS_OP_BitOrAssign:        op_str = "|="; break;
         case AS_OP_BitXorAssign:       op_str = "^="; break;
     }
-    fprintf(err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
+    fprintf((FILE*)err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
     PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
 }
 
@@ -243,6 +244,12 @@ static Ast_Node* PushNode(Parser_Context *ctx,
         Ast_Node_Type node_type, const Token *token)
 {
     return PushAstNode(ctx->ast, node_type, token);
+}
+
+static Ast_Expr* PushExpr(Parser_Context *ctx,
+        Ast_Expr_Type expr_type, const Token *token)
+{
+    return PushAstExpr(ctx->ast, expr_type, token);
 }
 
 
@@ -459,67 +466,67 @@ static String ConvertString(Parser_Context *ctx, const char *s, const char *end)
     return result;
 }
 
-static Ast_Node* ParseLiteralExpr(Parser_Context *ctx)
+static Ast_Expr* ParseLiteralExpr(Parser_Context *ctx)
 {
     const Token *token = Accept(ctx, TOK_Null);
     if (token)
     {
-        return PushNode(ctx, AST_Null, token);
+        return PushExpr(ctx, AST_Null, token);
     }
     token = Accept(ctx, TOK_TrueLit);
     if (token)
     {
-        Ast_Node *literal = PushNode(ctx, AST_BoolLiteral, token);
-        literal->expression.bool_literal.value = true;
+        Ast_Expr *literal = PushExpr(ctx, AST_BoolLiteral, token);
+        literal->bool_literal.value = true;
         return literal;
     }
     token = Accept(ctx, TOK_FalseLit);
     if (token)
     {
-        Ast_Node *literal = PushNode(ctx, AST_BoolLiteral, token);
-        literal->expression.bool_literal.value = false;
+        Ast_Expr *literal = PushExpr(ctx, AST_BoolLiteral, token);
+        literal->bool_literal.value = false;
         return literal;
     }
     token = Accept(ctx, TOK_IntegerLit);
     if (token)
     {
-        Ast_Node *literal = PushNode(ctx, AST_IntLiteral, token);
-        literal->expression.int_literal.value = ConvertInt(token->value, token->value_end);
+        Ast_Expr *literal = PushExpr(ctx, AST_IntLiteral, token);
+        literal->int_literal.value = ConvertInt(token->value, token->value_end);
         return literal;
     }
     token = Accept(ctx, TOK_Float32Lit);
     if (token)
     {
-        Ast_Node *literal = PushNode(ctx, AST_Float32Literal, token);
-        literal->expression.float32_literal.value = ConvertFloat(ctx, token);
+        Ast_Expr *literal = PushExpr(ctx, AST_Float32Literal, token);
+        literal->float32_literal.value = ConvertFloat(ctx, token);
         return literal;
     }
     token = Accept(ctx, TOK_Float64Lit);
     if (token)
     {
-        Ast_Node *literal = PushNode(ctx, AST_Float64Literal, token);
-        literal->expression.float64_literal.value = ConvertFloat(ctx, token);
+        Ast_Expr *literal = PushExpr(ctx, AST_Float64Literal, token);
+        literal->float64_literal.value = ConvertFloat(ctx, token);
         return literal;
     }
     token = Accept(ctx, TOK_CharLit);
     if (token)
     {
-        Ast_Node *literal = PushNode(ctx, AST_CharLiteral, token);
-        literal->expression.char_literal.value = ConvertChar(ctx, token->value, token->value_end);
+        Ast_Expr *literal = PushExpr(ctx, AST_CharLiteral, token);
+        literal->char_literal.value = ConvertChar(ctx, token->value, token->value_end);
         return literal;
     }
     token = Accept(ctx, TOK_StringLit);
     if (token)
     {
-        Ast_Node *literal = PushNode(ctx, AST_StringLiteral, token);
-        literal->expression.string_literal.value = ConvertString(ctx, token->value, token->value_end);
+        Ast_Expr *literal = PushExpr(ctx, AST_StringLiteral, token);
+        literal->string_literal.value = ConvertString(ctx, token->value, token->value_end);
         return literal;
     }
     TRACE(ParseLiteralExpr_not_literal);
     return nullptr;
 }
 
-static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
+static Ast_Expr* ParsePrefixOperator(Parser_Context *ctx)
 {
     TRACE(ParsePrefixOperator);
     const Token *op_token = Accept(ctx, TOK_Plus);
@@ -530,7 +537,7 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
     if (!op_token) op_token = Accept(ctx, TOK_At);
     if (!op_token) return nullptr;
 
-    Ast_Node *pre_op = PushNode(ctx, AST_UnaryExpr, op_token);
+    Ast_Expr *pre_op = PushExpr(ctx, AST_UnaryExpr, op_token);
 
     Unary_Op op;
     switch (op_token->type)
@@ -543,51 +550,51 @@ static Ast_Node* ParsePrefixOperator(Parser_Context *ctx)
         case TOK_At:        op = UN_OP_Deref; break;
         default: INVALID_CODE_PATH;
     }
-    pre_op->expression.unary_expr.op = op;
-    pre_op->expression.unary_expr.expr = nullptr;
+    pre_op->unary_expr.op = op;
+    pre_op->unary_expr.expr = nullptr;
     return pre_op;
 }
 
-static Ast_Node* ParseExpression(Parser_Context *ctx);
+static Ast_Expr* ParseExpression(Parser_Context *ctx);
 
 static void ParseFunctionArgs(Parser_Context *ctx, Ast_Function_Call *function_call)
 {
     TRACE(ParseFunctionArgs);
-    Ast_Node *arg = ParseExpression(ctx);
+    Ast_Expr *arg = ParseExpression(ctx);
     if (arg)
     {
-        PushNodeList(&function_call->args, arg);
+        PushExprList(&function_call->args, arg);
         while (Accept(ctx, TOK_Comma) && ContinueParsing(ctx))
         {
-            Ast_Node *arg = ParseExpression(ctx);
+            Ast_Expr *arg = ParseExpression(ctx);
             if (!arg)
             {
                 Error(ctx, "Expecting function argument after comma");
                 break;
             }
-            PushNodeList(&function_call->args, arg);
+            PushExprList(&function_call->args, arg);
         }
     }
 }
 
-static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
+static Ast_Expr* ParsePostfixOperator(Parser_Context *ctx, Ast_Expr *factor)
 {
     TRACE(ParsePostfixOperator);
     const Token *op_token = Accept(ctx, TOK_Period);
     if (op_token)
     {
-        Ast_Node *access_expr = PushNode(ctx, AST_AccessExpr, op_token);
+        Ast_Expr *access_expr = PushExpr(ctx, AST_AccessExpr, op_token);
 
         const Token *ident_tok = Accept(ctx, TOK_Identifier);
         if (ident_tok)
         {
-            Ast_Node *member_ref  = PushNode(ctx, AST_VariableRef, ident_tok);
+            Ast_Expr *member_ref  = PushExpr(ctx, AST_VariableRef, ident_tok);
             Name name = PushName(&ctx->ast->arena,
                     ident_tok->value, ident_tok->value_end);
-            member_ref->expression.variable_ref.name = name;
+            member_ref->variable_ref.name = name;
 
-            access_expr->expression.access_expr.left = factor;
-            access_expr->expression.access_expr.right = member_ref;
+            access_expr->access_expr.left = factor;
+            access_expr->access_expr.right = member_ref;
         }
         else
         {
@@ -598,11 +605,11 @@ static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
     op_token = Accept(ctx, TOK_OpenBracket);
     if (op_token)
     {
-        Ast_Node *subscript_expr = PushNode(ctx, AST_BinaryExpr, op_token);
-        subscript_expr->expression.binary_expr.op = BIN_OP_Subscript;
-        subscript_expr->expression.binary_expr.left = factor;
-        subscript_expr->expression.binary_expr.right = ParseExpression(ctx);
-        if (!subscript_expr->expression.binary_expr.right)
+        Ast_Expr *subscript_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        subscript_expr->binary_expr.op = BIN_OP_Subscript;
+        subscript_expr->binary_expr.left = factor;
+        subscript_expr->binary_expr.right = ParseExpression(ctx);
+        if (!subscript_expr->binary_expr.right)
             Error(ctx, "Expecting subscript expression");
         Expect(ctx, TOK_CloseBracket);
         return subscript_expr;
@@ -610,17 +617,17 @@ static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
     op_token = Accept(ctx, TOK_OpenParent);
     if (op_token)
     {
-        Ast_Node *fcall_expr = PushNode(ctx, AST_FunctionCall, op_token);
-        fcall_expr->expression.function_call.fexpr = factor;
-        ParseFunctionArgs(ctx, &fcall_expr->expression.function_call);
+        Ast_Expr *fcall_expr = PushExpr(ctx, AST_FunctionCall, op_token);
+        fcall_expr->function_call.fexpr = factor;
+        ParseFunctionArgs(ctx, &fcall_expr->function_call);
         ExpectAfterLast(ctx, TOK_CloseParent);
         return fcall_expr;
     }
     op_token = Accept(ctx, TOK_Arrow);
     if (op_token)
     {
-        Ast_Node *cast_expr = PushNode(ctx, AST_TypecastExpr, op_token);
-        cast_expr->expression.typecast_expr.expr = factor;
+        Ast_Expr *cast_expr = PushExpr(ctx, AST_TypecastExpr, op_token);
+        cast_expr->typecast_expr.expr = factor;
         Ast_Node *type = ParseType(ctx);
         if (!type)
         {
@@ -634,18 +641,18 @@ static Ast_Node* ParsePostfixOperator(Parser_Context *ctx, Ast_Node *factor)
             if (!type)
                 Error(ctx, op_token, "Expecting type after typecast operator ->");
         }
-        cast_expr->expression.typecast_expr.type = type;
+        cast_expr->typecast_expr.type = type;
         return cast_expr;
     }
     return nullptr;
 }
 
-static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
+static Ast_Expr* ParseFactorExpr(Parser_Context *ctx)
 {
     TRACE(ParseFactor);
-    Ast_Node *pre_op = ParsePrefixOperator(ctx);
+    Ast_Expr *pre_op = ParsePrefixOperator(ctx);
 
-    Ast_Node *factor = ParseLiteralExpr(ctx);
+    Ast_Expr *factor = ParseLiteralExpr(ctx);
 
     if (!factor)
     {
@@ -654,8 +661,8 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
         {
             TRACE(ParseFactor_identifier);
             Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
-            factor = PushNode(ctx, AST_VariableRef, ident_tok);
-            factor->expression.variable_ref.name = name;
+            factor = PushExpr(ctx, AST_VariableRef, ident_tok);
+            factor->variable_ref.name = name;
         }
     }
 
@@ -693,7 +700,7 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
     }
 
     // TODO(henrik): post ops
-    Ast_Node *post_op = ParsePostfixOperator(ctx, factor);
+    Ast_Expr *post_op = ParsePostfixOperator(ctx, factor);
     if (post_op)
     {
         factor = post_op;
@@ -708,7 +715,7 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
     if (pre_op)
     {
         TRACE(ParseFactor_pre_op);
-        pre_op->expression.unary_expr.expr = factor;
+        pre_op->unary_expr.expr = factor;
         factor = pre_op;
     }
 
@@ -716,10 +723,10 @@ static Ast_Node* ParseFactorExpr(Parser_Context *ctx)
     return factor;
 }
 
-static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
+static Ast_Expr* ParseMultDivExpr(Parser_Context *ctx)
 {
     TRACE(ParseMultDivExpr);
-    Ast_Node *expr = ParseFactorExpr(ctx);
+    Ast_Expr *expr = ParseFactorExpr(ctx);
     if (!expr) return nullptr;
 
     while (ContinueParsing(ctx))
@@ -738,12 +745,12 @@ static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
-        bin_expr->expression.binary_expr.op = op;
-        bin_expr->expression.binary_expr.left = expr;
-        bin_expr->expression.binary_expr.right = ParseFactorExpr(ctx);
+        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        bin_expr->binary_expr.op = op;
+        bin_expr->binary_expr.left = expr;
+        bin_expr->binary_expr.right = ParseFactorExpr(ctx);
 
-        if (!bin_expr->expression.binary_expr.right)
+        if (!bin_expr->binary_expr.right)
             ErrorBinaryExprRHS(ctx, op_token, op);
 
         expr = bin_expr;
@@ -751,10 +758,10 @@ static Ast_Node* ParseMultDivExpr(Parser_Context *ctx)
     return expr;
 }
 
-static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
+static Ast_Expr* ParseAddSubExpr(Parser_Context *ctx)
 {
     TRACE(ParseAddSubExpr);
-    Ast_Node *expr = ParseMultDivExpr(ctx);
+    Ast_Expr *expr = ParseMultDivExpr(ctx);
     if (!expr) return nullptr;
 
     while (ContinueParsing(ctx))
@@ -777,12 +784,12 @@ static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
-        bin_expr->expression.binary_expr.op = op;
-        bin_expr->expression.binary_expr.left = expr;
-        bin_expr->expression.binary_expr.right = ParseMultDivExpr(ctx);
+        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        bin_expr->binary_expr.op = op;
+        bin_expr->binary_expr.left = expr;
+        bin_expr->binary_expr.right = ParseMultDivExpr(ctx);
 
-        if (!bin_expr->expression.binary_expr.right)
+        if (!bin_expr->binary_expr.right)
             ErrorBinaryExprRHS(ctx, op_token, op);
 
         expr = bin_expr;
@@ -790,9 +797,9 @@ static Ast_Node* ParseAddSubExpr(Parser_Context *ctx)
     return expr;
 }
 
-static Ast_Node* ParseRangeExpr(Parser_Context *ctx)
+static Ast_Expr* ParseRangeExpr(Parser_Context *ctx)
 {
-    Ast_Node *expr = ParseAddSubExpr(ctx);
+    Ast_Expr *expr = ParseAddSubExpr(ctx);
     if (!expr) return nullptr;
 
     if (ContinueParsing(ctx))
@@ -800,12 +807,12 @@ static Ast_Node* ParseRangeExpr(Parser_Context *ctx)
         const Token *op_token = Accept(ctx, TOK_PeriodPeriod);
         if (!op_token) return expr;
 
-        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
-        bin_expr->expression.binary_expr.op = BIN_OP_Range;
-        bin_expr->expression.binary_expr.left = expr;
-        bin_expr->expression.binary_expr.right = ParseAddSubExpr(ctx);
+        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        bin_expr->binary_expr.op = BIN_OP_Range;
+        bin_expr->binary_expr.left = expr;
+        bin_expr->binary_expr.right = ParseAddSubExpr(ctx);
 
-        if (!bin_expr->expression.binary_expr.right)
+        if (!bin_expr->binary_expr.right)
             ErrorBinaryExprRHS(ctx, op_token, BIN_OP_Range);
 
         expr = bin_expr;
@@ -813,11 +820,11 @@ static Ast_Node* ParseRangeExpr(Parser_Context *ctx)
     return expr;
 }
 
-static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
+static Ast_Expr* ParseLogicalExpr(Parser_Context *ctx)
 {
-    //Ast_Node *expr = ParseShiftExpr(ctx);
-    //Ast_Node *expr = ParseAddSubExpr(ctx);
-    Ast_Node *expr = ParseRangeExpr(ctx);
+    //Ast_Expr *expr = ParseShiftExpr(ctx);
+    //Ast_Expr *expr = ParseAddSubExpr(ctx);
+    Ast_Expr *expr = ParseRangeExpr(ctx);
     if (!expr) return nullptr;
 
     while (ContinueParsing(ctx))
@@ -834,12 +841,12 @@ static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
-        bin_expr->expression.binary_expr.op = op;
-        bin_expr->expression.binary_expr.left = expr;
-        bin_expr->expression.binary_expr.right = ParseAddSubExpr(ctx);
+        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        bin_expr->binary_expr.op = op;
+        bin_expr->binary_expr.left = expr;
+        bin_expr->binary_expr.right = ParseAddSubExpr(ctx);
 
-        if (!bin_expr->expression.binary_expr.right)
+        if (!bin_expr->binary_expr.right)
             ErrorBinaryExprRHS(ctx, op_token, op);
 
         expr = bin_expr;
@@ -847,9 +854,9 @@ static Ast_Node* ParseLogicalExpr(Parser_Context *ctx)
     return expr;
 }
 
-static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
+static Ast_Expr* ParseComparisonExpr(Parser_Context *ctx)
 {
-    Ast_Node *expr = ParseLogicalExpr(ctx);
+    Ast_Expr *expr = ParseLogicalExpr(ctx);
     if (!expr) return nullptr;
 
     while (ContinueParsing(ctx))
@@ -874,12 +881,12 @@ static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Node *bin_expr = PushNode(ctx, AST_BinaryExpr, op_token);
-        bin_expr->expression.binary_expr.op = op;
-        bin_expr->expression.binary_expr.left = expr;
-        bin_expr->expression.binary_expr.right = ParseLogicalExpr(ctx);
+        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        bin_expr->binary_expr.op = op;
+        bin_expr->binary_expr.left = expr;
+        bin_expr->binary_expr.right = ParseLogicalExpr(ctx);
 
-        if (!bin_expr->expression.binary_expr.right)
+        if (!bin_expr->binary_expr.right)
             ErrorBinaryExprRHS(ctx, op_token, op);
 
         expr = bin_expr;
@@ -887,35 +894,35 @@ static Ast_Node* ParseComparisonExpr(Parser_Context *ctx)
     return expr;
 }
 
-static Ast_Node* ParseTernaryExpr(Parser_Context *ctx)
+static Ast_Expr* ParseTernaryExpr(Parser_Context *ctx)
 {
-    Ast_Node *expr = ParseComparisonExpr(ctx);
+    Ast_Expr *expr = ParseComparisonExpr(ctx);
     if (!expr) return nullptr;
 
     const Token *qmark_tok = Accept(ctx, TOK_QuestionMark);
     if (!qmark_tok) return expr;
 
-    Ast_Node *true_expr = ParseComparisonExpr(ctx);
+    Ast_Expr *true_expr = ParseComparisonExpr(ctx);
     if (!true_expr)
         Error(ctx, qmark_tok, "Expecting expression after ternary ?");
 
     const Token *colon_tok = ExpectAfterLast(ctx, TOK_Colon);
 
-    Ast_Node *false_expr = ParseComparisonExpr(ctx);
+    Ast_Expr *false_expr = ParseComparisonExpr(ctx);
     if (!false_expr)
         Error(ctx, colon_tok, "Expecting expression after ternary :");
 
-    Ast_Node *ternary_expr = PushNode(ctx, AST_TernaryExpr, qmark_tok);
-    ternary_expr->expression.ternary_expr.condition_expr = expr;
-    ternary_expr->expression.ternary_expr.true_expr = true_expr;
-    ternary_expr->expression.ternary_expr.false_expr = false_expr;
+    Ast_Expr *ternary_expr = PushExpr(ctx, AST_TernaryExpr, qmark_tok);
+    ternary_expr->ternary_expr.cond_expr = expr;
+    ternary_expr->ternary_expr.true_expr = true_expr;
+    ternary_expr->ternary_expr.false_expr = false_expr;
 
     return ternary_expr;
 }
 
-static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
+static Ast_Expr* ParseAssignmentExpr(Parser_Context *ctx)
 {
-    Ast_Node *expr = ParseTernaryExpr(ctx);
+    Ast_Expr *expr = ParseTernaryExpr(ctx);
     if (!expr) return nullptr;
 
     if (ContinueParsing(ctx))
@@ -946,12 +953,12 @@ static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Node *bin_expr = PushNode(ctx, AST_AssignmentExpr, op_token);
-        bin_expr->expression.assignment.op = op;
-        bin_expr->expression.assignment.left = expr;
-        bin_expr->expression.assignment.right = ParseAssignmentExpr(ctx);
+        Ast_Expr *bin_expr = PushExpr(ctx, AST_AssignmentExpr, op_token);
+        bin_expr->assignment.op = op;
+        bin_expr->assignment.left = expr;
+        bin_expr->assignment.right = ParseAssignmentExpr(ctx);
 
-        if (!bin_expr->expression.binary_expr.right)
+        if (!bin_expr->binary_expr.right)
             ErrorAssignmentExprRHS(ctx, op_token, op);
 
         expr = bin_expr;
@@ -959,7 +966,7 @@ static Ast_Node* ParseAssignmentExpr(Parser_Context *ctx)
     return expr;
 }
 
-static Ast_Node* ParseExpression(Parser_Context *ctx)
+static Ast_Expr* ParseExpression(Parser_Context *ctx)
 {
     TRACE(ParseExpression);
     /*
@@ -972,7 +979,7 @@ static Ast_Node* ParseExpression(Parser_Context *ctx)
      * LR: * / %                mult, div, mod
      * LR: + - ~                unary pos/neg, bit complement
      */
-    Ast_Node *expr = ParseAssignmentExpr(ctx);
+    Ast_Expr *expr = ParseAssignmentExpr(ctx);
     TRACE(ParseExpression_end);
     return expr;
 }
@@ -995,7 +1002,7 @@ static Ast_Node* ParseBlockStatement(Parser_Context *ctx)
         Ast_Node *stmt_node = ParseStatement(ctx);
         if (stmt_node)
         {
-            PushNodeList(&block_node->block.statements, stmt_node);
+            PushNodeList(&block_node->block_stmt.statements, stmt_node);
         }
         else
         {
@@ -1013,30 +1020,30 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx)
     if (!if_tok) return nullptr;
 
     Ast_Node *if_node = PushNode(ctx, AST_IfStmt, if_tok);
-    Ast_Node *expr = ParseExpression(ctx);
-    if (!expr)
+    Ast_Expr *cond_expr = ParseExpression(ctx);
+    if (!cond_expr)
     {
         Error(ctx, "Expecting condition expression for if statement");
         GetNextToken(ctx);
     }
-    Ast_Node *true_stmt = ParseStatement(ctx);
-    if (!true_stmt)
+    Ast_Node *then_stmt = ParseStatement(ctx);
+    if (!then_stmt)
     {
         Error(ctx, "Expecting statement after if");
     }
 
-    Ast_Node *false_stmt = nullptr;
+    Ast_Node *else_stmt = nullptr;
     if (Accept(ctx, TOK_Else))
     {
-        false_stmt = ParseStatement(ctx);
-        if (!false_stmt)
+        else_stmt = ParseStatement(ctx);
+        if (!else_stmt)
         {
             Error(ctx, "Expecting statement after else");
         }
     }
-    if_node->if_stmt.condition_expr = expr;
-    if_node->if_stmt.true_stmt = true_stmt;
-    if_node->if_stmt.false_stmt = false_stmt;
+    if_node->if_stmt.cond_expr = cond_expr;
+    if_node->if_stmt.then_stmt = then_stmt;
+    if_node->if_stmt.else_stmt = else_stmt;
     return if_node;
 }
 
@@ -1052,7 +1059,7 @@ static Ast_Node* ParseWhileStatement(Parser_Context *ctx)
     // be interpreted differently by a human and the parser.
 
     Ast_Node *while_node = PushNode(ctx, AST_WhileStmt, while_tok);
-    Ast_Node *cond_expr = ParseExpression(ctx);
+    Ast_Expr *cond_expr = ParseExpression(ctx);
     if (!cond_expr)
         Error(ctx, "Expecting condition expression after while");
 
@@ -1062,7 +1069,7 @@ static Ast_Node* ParseWhileStatement(Parser_Context *ctx)
         Error(ctx, "Expecting statement after while");
     }
 
-    while_node->while_stmt.condition_expr = cond_expr;
+    while_node->while_stmt.cond_expr = cond_expr;
     while_node->while_stmt.loop_stmt = loop_stmt;
 
     return while_node;
@@ -1074,49 +1081,67 @@ static Ast_Node* ParseForStatement(Parser_Context *ctx)
     const Token *for_tok = Accept(ctx, TOK_For);
     if (!for_tok) return nullptr;
 
-    Ast_Node *for_node = PushNode(ctx, AST_ForStmt, for_tok);
     if (Accept(ctx, TOK_OpenParent))
     {
-        TRACE(ParseForStatement_three_part);
-        Ast_Node *init = ParseVarDeclStatement(ctx);
-        if (!init)
+        Ast_Node *for_node = PushNode(ctx, AST_ForStmt, for_tok);
+
+        Ast_Node *init_stmt = ParseVarDeclStatement(ctx);
+        Ast_Expr *init_expr = nullptr;
+        if (!init_stmt)
         {
-            init = ParseExpression(ctx);
+            init_expr = ParseExpression(ctx);
             Expect(ctx, TOK_Semicolon);
+            if (!init_expr)
+            {
+                Error(ctx, "Expecting for init expression");
+                GetNextToken(ctx);
+            }
         }
-        if (!init)
-        {
-            Error(ctx, "Expecting for init expression");
-            GetNextToken(ctx);
-        }
-        Ast_Node *cond = ParseExpression(ctx);
+        Ast_Expr *cond_expr = ParseExpression(ctx);
         Expect(ctx, TOK_Semicolon);
 
-        Ast_Node *increment = ParseExpression(ctx);
+        Ast_Expr *incr_expr = ParseExpression(ctx);
         ExpectAfterLast(ctx, TOK_CloseParent);
 
-        for_node->for_stmt.init_expr = init;
-        for_node->for_stmt.condition_expr = cond;
-        for_node->for_stmt.increment_expr = increment;
+        Ast_Node *loop_stmt = ParseStatement(ctx);
+        if (!loop_stmt)
+        {
+            Error(ctx, "Expecting statement after for");
+        }
+
+        for_node->for_stmt.init_stmt = init_stmt;
+        for_node->for_stmt.init_expr = init_expr;
+        for_node->for_stmt.cond_expr = cond_expr;
+        for_node->for_stmt.incr_expr = incr_expr;
+        for_node->for_stmt.loop_stmt = loop_stmt;
+        return for_node;
     }
     else
     {
-        TRACE(ParseForStatement_range);
-        Ast_Node *range_expr = ParseVarDeclExpr(ctx);
-        if (!range_expr) range_expr = ParseExpression(ctx);
-        if (!range_expr)
+        Ast_Node *for_node = PushNode(ctx, AST_RangeForStmt, for_tok);
+
+        Ast_Node *init_stmt = ParseVarDeclExpr(ctx);
+        Ast_Expr *init_expr = nullptr;
+        if (!init_stmt)
         {
-            Error(ctx, "Expecting range expression after for");
+            init_expr = ParseExpression(ctx);
+            if (!init_expr)
+            {
+                Error(ctx, "Expecting range expression after for");
+            }
         }
-        for_node->for_stmt.range_expr = range_expr;
+        Ast_Node *loop_stmt = ParseStatement(ctx);
+        if (!loop_stmt)
+        {
+            Error(ctx, "Expecting statement after for");
+        }
+
+        for_node->range_for_stmt.init_stmt = init_stmt;
+        for_node->range_for_stmt.init_expr = init_expr;
+        for_node->range_for_stmt.loop_stmt = loop_stmt;
+        return for_node;
     }
-    Ast_Node *loop_stmt = ParseStatement(ctx);
-    if (!loop_stmt)
-    {
-        Error(ctx, "Expecting statement after for");
-    }
-    for_node->for_stmt.loop_stmt = loop_stmt;
-    return for_node;
+    return nullptr;
 }
 
 static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
@@ -1126,8 +1151,8 @@ static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
     if (!return_tok) return nullptr;
 
     Ast_Node *return_node = PushNode(ctx, AST_ReturnStmt, return_tok);
-    Ast_Node *expr = ParseExpression(ctx);
-    return_node->return_stmt.expression = expr;
+    Ast_Expr *expr = ParseExpression(ctx);
+    return_node->return_stmt.expr = expr;
     ExpectAfterLast(ctx, TOK_Semicolon);
     return return_node;
 }
@@ -1150,7 +1175,7 @@ static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
     var_decl->variable_decl.name = name;
 
     Ast_Node *type = nullptr;
-    Ast_Node *init = nullptr;
+    Ast_Expr *init_expr = nullptr;
     if (Accept(ctx, TOK_Colon))
     {
         type = ParseType(ctx);
@@ -1161,8 +1186,8 @@ static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
 
         if (Accept(ctx, TOK_Eq))
         {
-            init = ParseExpression(ctx);
-            if (!init)
+            init_expr = ParseExpression(ctx);
+            if (!init_expr)
             {
                 Error(ctx, "Expecting initializing expression for variable");
             }
@@ -1171,14 +1196,14 @@ static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
     else
     {
         Expect(ctx, TOK_ColonEq);
-        init = ParseExpression(ctx);
-        if (!init)
+        init_expr = ParseExpression(ctx);
+        if (!init_expr)
         {
             Error(ctx, "Expecting initializing expression for variable");
         }
     }
     var_decl->variable_decl.type = type;
-    var_decl->variable_decl.init = init;
+    var_decl->variable_decl.init_expr = init_expr;
     return var_decl;
 }
 
@@ -1193,6 +1218,18 @@ static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx)
     return var_decl;
 }
 
+static Ast_Node* ParseExprStatement(Parser_Context *ctx)
+{
+    const Token *tok = GetCurrentToken(ctx);
+    Ast_Expr *expr = ParseExpression(ctx);
+    if (!expr) return nullptr;
+
+    ExpectAfterLast(ctx, TOK_Semicolon);
+    Ast_Node *stmt = PushNode(ctx, AST_ExpressionStmt, tok);
+    stmt->expr_stmt.expr = expr;
+    return stmt;
+}
+
 static Ast_Node* ParseStatement(Parser_Context *ctx)
 {
     TRACE(ParseStatement);
@@ -1202,15 +1239,7 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
     if (!stmt) stmt = ParseForStatement(ctx);
     if (!stmt) stmt = ParseReturnStatement(ctx);
     if (!stmt) stmt = ParseVarDeclStatement(ctx);
-    if (!stmt)
-    {
-        Ast_Node *expression = ParseExpression(ctx);
-        if (expression)
-        {
-            ExpectAfterLast(ctx, TOK_Semicolon);
-        }
-        stmt = expression;
-    }
+    if (!stmt) stmt = ParseExprStatement(ctx);
     return stmt;
 }
 

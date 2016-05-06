@@ -2,6 +2,7 @@
 
 #include "types.h"
 #include "memory.h"
+#include "array.h"
 
 namespace hplang
 {
@@ -26,10 +27,15 @@ enum Ast_Node_Type
 
     AST_BlockStmt,
     AST_IfStmt,
-    AST_ForStmt,
     AST_WhileStmt,
+    AST_ForStmt,
+    AST_RangeForStmt,
     AST_ReturnStmt,
+    AST_ExpressionStmt,
+};
 
+enum Ast_Expr_Type
+{
     AST_Null,
     AST_BoolLiteral,
     AST_CharLiteral,
@@ -108,16 +114,13 @@ enum Assignment_Op
 };
 
 
-struct Token;
 struct Ast_Node;
+struct Ast_Expr;
 struct Symbol;
 
-struct Ast_Node_List
-{
-    s64 capacity;
-    s64 count;
-    Ast_Node **nodes;
-};
+typedef Array<Ast_Node*> Ast_Node_List;
+typedef Array<Ast_Expr*> Ast_Expr_List;
+
 
 struct Ast_Bool_Literal
 { bool value; };
@@ -140,30 +143,30 @@ struct Ast_String_Literal
 struct Ast_Binary_Expr
 {
     Binary_Op op;
-    Ast_Node *left, *right;
+    Ast_Expr *left, *right;
 };
 
 struct Ast_Unary_Expr
 {
     Unary_Op op;
-    Ast_Node *expr;
+    Ast_Expr *expr;
 };
 
 struct Ast_Ternary_Expr
 {
-    Ast_Node *condition_expr;
-    Ast_Node *true_expr;
-    Ast_Node *false_expr;
+    Ast_Expr *cond_expr;
+    Ast_Expr *true_expr;
+    Ast_Expr *false_expr;
 };
 
 struct Ast_Access_Expr
 {
-    Ast_Node *left, *right;
+    Ast_Expr *left, *right;
 };
 
 struct Ast_Typecast_Expr
 {
-    Ast_Node *expr;
+    Ast_Expr *expr;
     Ast_Node *type;
 };
 
@@ -174,19 +177,22 @@ struct Ast_Variable_Ref
 
 struct Ast_Function_Call
 {
-    Ast_Node *fexpr;
-    Ast_Node_List args;
+    Ast_Expr *fexpr;
+    Ast_Expr_List args;
 };
 
 struct Ast_Assignment
 {
     Assignment_Op op;
-    Ast_Node *left;
-    Ast_Node *right;
+    Ast_Expr *left;
+    Ast_Expr *right;
 };
 
-struct Ast_Expression
+struct Type;
+
+struct Ast_Expr
 {
+    Ast_Expr_Type type;
     union {
         Ast_Bool_Literal    bool_literal;
         Ast_Int_Literal     int_literal;
@@ -203,6 +209,8 @@ struct Ast_Expression
         Ast_Function_Call   function_call;
         Ast_Assignment      assignment;
     };
+    Type *expr_type;
+    File_Location file_loc;
 };
 
 struct Ast_Type_Node
@@ -275,41 +283,54 @@ struct Ast_Struct_Member
 struct Ast_Variable_Decl
 {
     Name name;
-    Ast_Node *type; // NOTE(henrik): type can be null (type will be inferred)
-    Ast_Node *init; // NOTE(henrik): init_expr can be null
+    Ast_Node *type;         // NOTE(henrik): type can be null (type will be inferred)
+    Ast_Expr *init_expr;    // NOTE(henrik): init_expr can be null
 };
 
 struct Ast_If_Stmt
 {
-    Ast_Node *condition_expr;
-    Ast_Node *true_stmt;
-    Ast_Node *false_stmt;
+    Ast_Expr *cond_expr;
+    Ast_Node *then_stmt;
+    Ast_Node *else_stmt;
 };
 
 struct Ast_While_Stmt
 {
-    Ast_Node *condition_expr;
+    Ast_Expr *cond_expr;
     Ast_Node *loop_stmt;
 };
 
 struct Ast_For_Stmt
 {
-    Ast_Node *range_expr;
+    Ast_Node *init_stmt;
+    Ast_Expr *init_expr;
+    Ast_Expr *cond_expr;
+    Ast_Expr *incr_expr;
 
-    Ast_Node *init_expr;
-    Ast_Node *condition_expr;
-    Ast_Node *increment_expr;
+    Ast_Node *loop_stmt;
+};
+
+struct Ast_Range_For_Stmt
+{
+    Ast_Node *init_stmt;
+    Ast_Expr *init_expr;
+
     Ast_Node *loop_stmt;
 };
 
 struct Ast_Return_Stmt
 {
-    Ast_Node *expression;
+    Ast_Expr *expr;
 };
 
 struct Ast_Block_Stmt
 {
     Ast_Node_List statements;
+};
+
+struct Ast_Expr_Stmt
+{
+    Ast_Expr *expr;
 };
 
 struct Ast_Node
@@ -324,19 +345,22 @@ struct Ast_Node
         Ast_Struct_Def      struct_def;
         Ast_Struct_Member   struct_member;
         Ast_Variable_Decl   variable_decl;
+        Ast_Type_Node       type_node;
         Ast_If_Stmt         if_stmt;
         Ast_While_Stmt      while_stmt;
         Ast_For_Stmt        for_stmt;
+        Ast_Range_For_Stmt  range_for_stmt;
         Ast_Return_Stmt     return_stmt;
-        Ast_Block_Stmt      block;
-        Ast_Expression      expression;
-        Ast_Type_Node       type_node;
+        Ast_Block_Stmt      block_stmt;
+        Ast_Expr_Stmt       expr_stmt;
     };
     File_Location file_loc;
 };
 
 b32 PushNodeList(Ast_Node_List *nodes, Ast_Node *node);
 void FreeNodeList(Ast_Node_List *nodes);
+b32 PushExprList(Ast_Expr_List *exprs, Ast_Expr *expr);
+void FreeExprList(Ast_Expr_List *exprs);
 
 struct Ast
 {
@@ -344,7 +368,12 @@ struct Ast
     Ast_Node *root;
 };
 
+struct Token;
+
+Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, File_Location file_loc);
 Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token);
+Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, File_Location file_loc);
+Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, const Token *token);
 void FreeAst(Ast *ast);
 
 } // hplang

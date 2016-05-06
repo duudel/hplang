@@ -7,58 +7,67 @@
 namespace hplang
 {
 
-static b32 GrowNodeList(Ast_Node_List *nodes)
-{
-    ASSERT(nodes->capacity >= 0);
-    s64 old_capacity = nodes->capacity;
-    s64 new_capacity = old_capacity + old_capacity / 2;
-    if (new_capacity < 8) new_capacity = 8;
-
-    Pointer nodes_p;
-    nodes_p.ptr = nodes->nodes;
-    nodes_p.size = nodes->capacity * sizeof(Ast_Node*);
-    nodes_p = Realloc(nodes_p, new_capacity * sizeof(Ast_Node*));
-    if (nodes_p.ptr)
-    {
-        nodes->capacity = new_capacity;
-        nodes->nodes = (Ast_Node**)nodes_p.ptr;
-        return true;
-    }
-    ASSERT(0 && "SHOULD NOT HAPPEN IN NORMAL USE");
-    return false;
-}
-
 void FreeNodeList(Ast_Node_List *nodes)
 {
-    if (!nodes->nodes) return;
-    Pointer nodes_p;
-    nodes_p.ptr = nodes->nodes;
-    nodes_p.size = nodes->capacity * sizeof(Ast_Node*);
-    Free(nodes_p);
+    array::Free(*nodes);
 }
 
 b32 PushNodeList(Ast_Node_List *nodes, Ast_Node *node)
 {
-    if (nodes->count >= nodes->capacity)
-    {
-        if (!GrowNodeList(nodes))
-            return false;
-    }
-    nodes->nodes[nodes->count++] = node;
-    return true;
+    return array::Push(*nodes, node);
+}
+
+void FreeExprList(Ast_Expr_List *exprs)
+{
+    array::Free(*exprs);
+}
+
+b32 PushExprList(Ast_Expr_List *exprs, Ast_Expr *expr)
+{
+    return array::Push(*exprs, expr);
 }
 
 // AST
 // ---
 
-Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token)
+Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, File_Location file_loc)
 {
     Ast_Node *node = PushStruct<Ast_Node>(&ast->arena);
     *node = { };
     node->type = node_type;
-    //node->token = token;
-    node->file_loc = token->file_loc;
+    node->file_loc = file_loc;
     return node;
+}
+
+Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token)
+{
+    return PushAstNode(ast, node_type, token->file_loc);
+}
+
+Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, File_Location file_loc)
+{
+    Ast_Expr *expr = PushStruct<Ast_Expr>(&ast->arena);
+    *expr = { };
+    expr->type = expr_type;
+    expr->file_loc = file_loc;
+    return expr;
+}
+
+Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, const Token *token)
+{
+    return PushAstExpr(ast, expr_type, token->file_loc);
+}
+
+static void FreeAstExpr(Ast_Expr *expr);
+
+static void FreeAstExprList(Ast_Expr_List *expr_list)
+{
+    for (s64 i = 0; i < expr_list->count; i++)
+    {
+        Ast_Expr *expr = array::At(*expr_list, i);
+        FreeAstExpr(expr);
+    }
+    FreeExprList(expr_list);
 }
 
 static void FreeAstNode(Ast_Node *node);
@@ -67,7 +76,7 @@ static void FreeAstNodeList(Ast_Node_List *node_list)
 {
     for (s64 i = 0; i < node_list->count; i++)
     {
-        Ast_Node *node = node_list->nodes[i];
+        Ast_Node *node = array::At(*node_list, i);
         FreeAstNode(node);
     }
     FreeNodeList(node_list);
@@ -91,7 +100,7 @@ static void FreeAstNode(Ast_Node *node)
 
         case AST_VariableDecl:
             FreeAstNode(node->variable_decl.type);
-            FreeAstNode(node->variable_decl.init);
+            FreeAstExpr(node->variable_decl.init_expr);
             break;
 
         case AST_FunctionDef:
@@ -121,32 +130,49 @@ static void FreeAstNode(Ast_Node *node)
             break;
 
         case AST_BlockStmt:
-            FreeAstNodeList(&node->block.statements);
+            FreeAstNodeList(&node->block_stmt.statements);
             break;
 
         case AST_IfStmt:
-            FreeAstNode(node->if_stmt.condition_expr);
-            FreeAstNode(node->if_stmt.true_stmt);
-            FreeAstNode(node->if_stmt.false_stmt);
-            break;
-
-        case AST_ForStmt:
-            FreeAstNode(node->for_stmt.range_expr);
-            FreeAstNode(node->for_stmt.init_expr);
-            FreeAstNode(node->for_stmt.condition_expr);
-            FreeAstNode(node->for_stmt.increment_expr);
-            FreeAstNode(node->for_stmt.loop_stmt);
+            FreeAstExpr(node->if_stmt.cond_expr);
+            FreeAstNode(node->if_stmt.then_stmt);
+            FreeAstNode(node->if_stmt.else_stmt);
             break;
 
         case AST_WhileStmt:
-            FreeAstNode(node->while_stmt.condition_expr);
+            FreeAstExpr(node->while_stmt.cond_expr);
             FreeAstNode(node->while_stmt.loop_stmt);
             break;
 
-        case AST_ReturnStmt:
-            FreeAstNode(node->return_stmt.expression);
+        case AST_ForStmt:
+            FreeAstNode(node->for_stmt.init_stmt);
+            FreeAstExpr(node->for_stmt.init_expr);
+            FreeAstExpr(node->for_stmt.cond_expr);
+            FreeAstExpr(node->for_stmt.incr_expr);
+            FreeAstNode(node->for_stmt.loop_stmt);
             break;
 
+        case AST_RangeForStmt:
+            FreeAstNode(node->range_for_stmt.init_stmt);
+            FreeAstExpr(node->range_for_stmt.init_expr);
+            FreeAstNode(node->range_for_stmt.loop_stmt);
+            break;
+
+        case AST_ReturnStmt:
+            FreeAstExpr(node->return_stmt.expr);
+            break;
+
+        case AST_ExpressionStmt:
+            FreeAstExpr(node->expr_stmt.expr);
+            break;
+    }
+}
+
+void FreeAstExpr(Ast_Expr *expr)
+{
+    if (!expr) return;
+    switch (expr->type)
+    {
         case AST_Null:
         case AST_BoolLiteral:
         case AST_CharLiteral:
@@ -158,33 +184,33 @@ static void FreeAstNode(Ast_Node *node)
             break;
 
         case AST_FunctionCall:
-            FreeAstNode(node->expression.function_call.fexpr);
-            FreeAstNodeList(&node->expression.function_call.args);
+            FreeAstExpr(expr->function_call.fexpr);
+            FreeAstExprList(&expr->function_call.args);
             break;
 
         case AST_AssignmentExpr:
-            FreeAstNode(node->expression.assignment.left);
-            FreeAstNode(node->expression.assignment.right);
+            FreeAstExpr(expr->assignment.left);
+            FreeAstExpr(expr->assignment.right);
             break;
         case AST_BinaryExpr:
-            FreeAstNode(node->expression.binary_expr.left);
-            FreeAstNode(node->expression.binary_expr.right);
+            FreeAstExpr(expr->binary_expr.left);
+            FreeAstExpr(expr->binary_expr.right);
             break;
         case AST_UnaryExpr:
-            FreeAstNode(node->expression.unary_expr.expr);
+            FreeAstExpr(expr->unary_expr.expr);
             break;
         case AST_TernaryExpr:
-            FreeAstNode(node->expression.ternary_expr.condition_expr);
-            FreeAstNode(node->expression.ternary_expr.true_expr);
-            FreeAstNode(node->expression.ternary_expr.false_expr);
+            FreeAstExpr(expr->ternary_expr.cond_expr);
+            FreeAstExpr(expr->ternary_expr.true_expr);
+            FreeAstExpr(expr->ternary_expr.false_expr);
             break;
         case AST_AccessExpr:
-            FreeAstNode(node->expression.access_expr.left);
-            FreeAstNode(node->expression.access_expr.right);
+            FreeAstExpr(expr->access_expr.left);
+            FreeAstExpr(expr->access_expr.right);
             break;
         case AST_TypecastExpr:
-            FreeAstNode(node->expression.typecast_expr.expr);
-            FreeAstNode(node->expression.typecast_expr.type);
+            FreeAstExpr(expr->typecast_expr.expr);
+            FreeAstNode(expr->typecast_expr.type);
             break;
     }
 }

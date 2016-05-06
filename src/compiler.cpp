@@ -14,7 +14,7 @@ namespace hplang
 Compiler_Context NewCompilerContext()
 {
     Compiler_Context result = { };
-    result.error_ctx.file = stderr;
+    result.error_ctx.file = (IoFile*)stderr;
     result.options = DefaultCompilerOptions();
     result.env = NewEnvironment();
     result.result = RES_OK;
@@ -165,10 +165,10 @@ void PrintSourceLineAndArrow(Compiler_Context *ctx, File_Location file_loc)
 {
     if (ctx->error_ctx.error_count <= ctx->options.max_line_arrow_error_count)
     {
-        fprintf(ctx->error_ctx.file, "\n");
+        fprintf((FILE*)ctx->error_ctx.file, "\n");
         PrintFileLine(ctx->error_ctx.file, file_loc);
         PrintFileLocArrow(ctx->error_ctx.file, file_loc);
-        fprintf(ctx->error_ctx.file, "\n");
+        fprintf((FILE*)ctx->error_ctx.file, "\n");
     }
 }
 
