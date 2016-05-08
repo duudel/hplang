@@ -160,6 +160,9 @@ struct Environment
 Environment NewEnvironment();
 void FreeEnvironment(Environment *env);
 
+Scope* CurrentScope(Environment *env);
+void SetCurrentScope(Environment *env, Scope *scope);
+
 void OpenScope(Environment *env);
 void CloseScope(Environment *env);
 

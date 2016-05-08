@@ -342,6 +342,16 @@ void FreeEnvironment(Environment *env)
     array::Free(env->scopes);
 }
 
+Scope* CurrentScope(Environment *env)
+{
+    return env->current;
+}
+
+void SetCurrentScope(Environment *env, Scope *scope)
+{
+    env->current = scope;
+}
+
 //static const s64 INITIAL_SYM_TABLE_SIZE = 1021; // Prime number
 static const s64 INITIAL_SYM_TABLE_SIZE = 127; // Prime number
 

@@ -54,24 +54,38 @@ static Ir_Routine* PushRoutine(Ir_Gen_Context *ctx, Name name)
     return routine;
 }
 
+Ir_Type GetIrType(Type *type)
+{
+    switch (type->tag)
+    {
+        case TYP_pointer:   return IR_TYP_ptr;
+        case TYP_bool:      return IR_TYP_bool;
+        case TYP_char:      return IR_TYP_u8;
+        case TYP_u8:        return IR_TYP_u8;
+        case TYP_s8:        return IR_TYP_s8;
+        case TYP_u16:       return IR_TYP_u16;
+        case TYP_s16:       return IR_TYP_s16;
+        case TYP_u32:       return IR_TYP_u32;
+        case TYP_s32:       return IR_TYP_s32;
+        case TYP_u64:       return IR_TYP_u64;
+        case TYP_s64:       return IR_TYP_s64;
+        case TYP_f32:       return IR_TYP_f32;
+        case TYP_f64:       return IR_TYP_f64;
+        case TYP_string:    return IR_TYP_str;
+        case TYP_Function:  return IR_TYP_ptr;
+        default:
+                            break;
+    }
+    fprintf(stderr, "\ntype->tag = %d\n", type->tag);
+    INVALID_CODE_PATH;
+    return IR_TYP_ptr;
+}
+
 static Ir_Operand NoneOperand()
 {
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_None;
     return oper;
-}
-
-static void PushInstruction(Ir_Routine *routine, Ir_Opcode opcode,
-        Ir_Operand target = NoneOperand(),
-        Ir_Operand oper1 = NoneOperand(),
-        Ir_Operand oper2 = NoneOperand())
-{
-    Ir_Instruction instr = { };
-    instr.opcode = opcode;
-    instr.target = target;
-    instr.oper1 = oper1;
-    instr.oper2 = oper2;
-    array::Push(routine->instructions, instr);
 }
 
 static Ir_Operand NewImmediateNull(Ir_Routine *routine)
@@ -104,12 +118,22 @@ IR_IMM(u8, IR_TYP_u8, imm_u8)
 //IR_IMM(u32, IR_TYP_u32, imm_u32)
 //IR_IMM(s32, IR_TYP_s32, imm_s32)
 //IR_IMM(u64, IR_TYP_u64, imm_u64)
-IR_IMM(s64, IR_TYP_s64, imm_s64)
+//IR_IMM(s64, IR_TYP_s64, imm_s64)
 IR_IMM(f32, IR_TYP_f32, imm_f32)
 IR_IMM(f64, IR_TYP_f64, imm_f64)
 IR_IMM(String, IR_TYP_str, imm_str)
 
 #undef IR_IMM
+
+static Ir_Operand NewImmediateInt(Ir_Routine *routine, u64 value, Type *type)
+{
+    (void)routine;
+    Ir_Operand oper = { };
+    oper.oper_type = IR_OPER_Immediate;
+    oper.type = GetIrType(type);
+    oper.imm_u64 = value;
+    return oper;
+}
 
 static Ir_Operand NewVariable(Ir_Routine *routine, Ir_Type type, Name name)
 {
@@ -141,38 +165,25 @@ static Ir_Operand NewLabel(Ir_Gen_Context *ctx)
     return oper;
 }
 
+static void PushInstruction(Ir_Routine *routine, Ir_Opcode opcode,
+        Ir_Operand target = NoneOperand(),
+        Ir_Operand oper1 = NoneOperand(),
+        Ir_Operand oper2 = NoneOperand())
+{
+    Ir_Instruction instr = { };
+    instr.opcode = opcode;
+    instr.target = target;
+    instr.oper1 = oper1;
+    instr.oper2 = oper2;
+    array::Push(routine->instructions, instr);
+}
+
 static void SetLabelTarget(Ir_Routine *routine, Ir_Operand label_oper)
 {
     s64 target = routine->instructions.count;
     label_oper.label->target_loc = target;
 }
 
-
-Ir_Type GetIrType(Type *type)
-{
-    switch (type->tag)
-    {
-        case TYP_pointer:   return IR_TYP_ptr;
-        case TYP_bool:      return IR_TYP_bool;
-        case TYP_char:      return IR_TYP_u8;
-        case TYP_u8:        return IR_TYP_u8;
-        case TYP_s8:        return IR_TYP_s8;
-        case TYP_u16:       return IR_TYP_u16;
-        case TYP_s16:       return IR_TYP_s16;
-        case TYP_u32:       return IR_TYP_u32;
-        case TYP_s32:       return IR_TYP_s32;
-        case TYP_u64:       return IR_TYP_u64;
-        case TYP_s64:       return IR_TYP_s64;
-        case TYP_f32:       return IR_TYP_f32;
-        case TYP_f64:       return IR_TYP_f64;
-        case TYP_string:    return IR_TYP_str;
-        case TYP_Function:  return IR_TYP_ptr;
-        default:
-                            break;
-    }
-    INVALID_CODE_PATH;
-    return IR_TYP_ptr;
-}
 
 
 static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine);
@@ -558,7 +569,7 @@ static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         case AST_CharLiteral:
             return NewImmediate(routine, (u8)expr->char_literal.value);
         case AST_IntLiteral:
-            return NewImmediate(routine, expr->int_literal.value);
+            return NewImmediateInt(routine, expr->int_literal.value, expr->expr_type);
         case AST_Float32Literal:
             return NewImmediate(routine, expr->float32_literal.value);
         case AST_Float64Literal:
@@ -643,7 +654,10 @@ static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
 
 static void AddVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
-    Symbol *symbol = LookupSymbol(ctx->env, node->variable_decl.name);
+    (void)ctx;
+    (void)node;
+    (void)routine;
+    //Symbol *symbol = LookupSymbol(ctx->env, node->variable_decl.name);
 }
 
 static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)

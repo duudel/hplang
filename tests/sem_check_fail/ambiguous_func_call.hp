@@ -5,5 +5,5 @@ func :: (x : s32, b : bool) { }
 
 test :: ()
 {
-    func(5, false);
+    func(5 -> s64, false);
 }

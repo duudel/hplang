@@ -126,7 +126,7 @@ struct Ast_Bool_Literal
 { bool value; };
 
 struct Ast_Int_Literal
-{ s64 value; };
+{ u64 value; };
 
 struct Ast_Float64_Literal
 { f64 value; };
