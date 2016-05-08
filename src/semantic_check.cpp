@@ -344,6 +344,9 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
     if (type->tag == TYP_Function)
     {
         Ast_Expr *fexpr = function_call->fexpr;
+
+        // At the moment, we only support "direct function call", i.e. through 
+        // the name of the actual function.
         ASSERT(fexpr->type == AST_VariableRef);
 
         s64 arg_count = function_call->args.count;
@@ -651,6 +654,7 @@ static Type* CoerceBinaryOpType(Sem_Check_Context *ctx,
         Ast_Expr *expr, Binary_Op op, Ast_Expr *left, Ast_Expr *right, Type *ltype, Type *rtype)
 {
     (void)op;
+    (void)left;
     // No coercion needed
     if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
     {
@@ -1150,11 +1154,15 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     Type *cur_return_type = GetCurrentReturnType(ctx->env);
     if (cur_return_type)
     {
-        if (!rexpr && !TypeIsVoid(cur_return_type))
+        if (!rexpr)
         {
-            Error(ctx, node->file_loc, "Return value expected");
+            if (!TypeIsVoid(cur_return_type))
+            {
+                Error(ctx, node->file_loc, "Return value expected");
+            }
             return;
         }
+
         // Coerce int literal type to current return type or default to s64
         if (rtype->tag == TYP_int_lit)
         {

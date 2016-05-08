@@ -17,7 +17,7 @@ bottles :: (n : s64)
     print(" of beer");
 }
 
-beer :: (n : s64)
+beer :: (n : s64) : void
 {
     if n <= 0  return;
 

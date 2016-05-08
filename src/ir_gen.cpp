@@ -5,6 +5,8 @@
 #include "ast_types.h"
 #include "assert.h"
 
+#include <cinttypes> // For printf formats
+
 namespace hplang
 {
 
@@ -639,6 +641,11 @@ static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
     GenIr(ctx, node->function.body, func_routine);
 }
 
+static void AddVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
+{
+    Symbol *symbol = LookupSymbol(ctx->env, node->variable_decl.name);
+}
+
 static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
     switch (node->type)
@@ -649,7 +656,7 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
         case AST_ForeignBlock: break;
 
         case AST_VariableDecl:
-            NOT_IMPLEMENTED("IR gen for AST_VariableDecl");
+            AddVariable(ctx, node, routine);
             break;
         case AST_FunctionDef:
             GenFunction(ctx, node);
@@ -765,14 +772,14 @@ static s64 PrintImmediate(FILE *file, Ir_Operand oper)
     {
         case IR_TYP_ptr:    len = fprintf(file, "%p", oper.imm_ptr); break;
         case IR_TYP_bool:   len = fprintf(file, "%s", (oper.imm_bool ? "true" : "false")); break;
-        case IR_TYP_u8:     len = fprintf(file, "%d", oper.imm_u8); break;
+        case IR_TYP_u8:     len = fprintf(file, "%u", oper.imm_u8); break;
         case IR_TYP_s8:     len = fprintf(file, "%d", oper.imm_s8); break;
-        case IR_TYP_u16:    len = fprintf(file, "%d", oper.imm_u16); break;
+        case IR_TYP_u16:    len = fprintf(file, "%u", oper.imm_u16); break;
         case IR_TYP_s16:    len = fprintf(file, "%d", oper.imm_s16); break;
-        case IR_TYP_u32:    len = fprintf(file, "%d", oper.imm_u32); break;
+        case IR_TYP_u32:    len = fprintf(file, "%u", oper.imm_u32); break;
         case IR_TYP_s32:    len = fprintf(file, "%d", oper.imm_s32); break;
-        case IR_TYP_u64:    len = fprintf(file, "%lld", oper.imm_u64); break;
-        case IR_TYP_s64:    len = fprintf(file, "%lld", oper.imm_s64); break;
+        case IR_TYP_u64:    len = fprintf(file, "%" PRIu64, oper.imm_u64); break;
+        case IR_TYP_s64:    len = fprintf(file, "%" PRId64, oper.imm_s64); break;
         case IR_TYP_f32:    len = fprintf(file, "%ff", oper.imm_f32); break;
         case IR_TYP_f64:    len = fprintf(file, "%fd", oper.imm_f64); break;
         case IR_TYP_str:
@@ -786,7 +793,7 @@ static s64 PrintImmediate(FILE *file, Ir_Operand oper)
 
 static s64 PrintLabel(FILE *file, Ir_Operand label_oper)
 {
-    return fprintf(file, "L:%lld", label_oper.label->target_loc);
+    return fprintf(file, "L:%" PRId64, label_oper.label->target_loc);
 }
 
 static void PrintOperand(FILE *file, Ir_Operand oper)
@@ -801,7 +808,7 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
             len = PrintName(file, oper.var.name);
             break;
         case IR_OPER_Temp:
-            len = fprintf(file, "temp%lld", oper.temp.temp_id);
+            len = fprintf(file, "temp%" PRId64, oper.temp.temp_id);
             break;
         case IR_OPER_Immediate:
             len = PrintImmediate(file, oper);
@@ -831,7 +838,7 @@ static void PrintRoutine(FILE *file, Ir_Routine *routine)
     fprintf(file, ":\n");
     for (s64 i = 0; i < routine->instructions.count; i++)
     {
-        fprintf(file, "%lld:\t", i);
+        fprintf(file, "%" PRId64 ":\t", i);
         PrintInstruction(file, array::At(routine->instructions, i));
     }
 }

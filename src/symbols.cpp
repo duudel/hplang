@@ -2,7 +2,9 @@
 #include "common.h"
 #include "symbols.h"
 #include "assert.h"
+
 #include <cstdio>
+#include <cinttypes>
 
 namespace hplang
 {
@@ -546,7 +548,7 @@ static Name MakeUniqueName(Environment *env, Name base_name, Type *type)
     str.size = base_name.str.size;
 
     char *buf = str.data + str.size;
-    int id_len = snprintf(buf, max_size - str.size, "#%llx", env->unique_id);
+    int id_len = snprintf(buf, max_size - str.size, "#%" PRIx64, env->unique_id);
 
     ASSERT(str.size + id_len < max_size);
     str.size += id_len;

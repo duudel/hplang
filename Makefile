@@ -34,7 +34,7 @@ run:
 	-./$(EXENAME) samples/factorial.hp
 
 
-GDB := /usr/bin/gdb.exe
+GDB := /usr/bin/gdb
 
 
 run_debug:
