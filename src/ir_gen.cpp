@@ -551,6 +551,13 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     else
         res = NewTemp(routine, GetIrType(expr->expr_type));
 
+    for (s64 i = 0; i < expr->function_call.args.count; i++)
+    {
+        Ast_Expr *arg = array::At(expr->function_call.args, i);
+        Ir_Operand arg_res = GenExpression(ctx, arg, routine);
+        PushInstruction(routine, IR_Param, arg_res);
+    }
+
     Ir_Operand fv_res = GenExpression(ctx, expr->function_call.fexpr, routine);
     PushInstruction(routine, IR_Call, res, fv_res);
 
@@ -607,7 +614,9 @@ static void GenIfStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *rout
 {
     Ir_Operand if_false_label = NewLabel(ctx);
 
-    PushInstruction(routine, IR_Jz, if_false_label);
+    Ir_Operand cond_res = GenExpression(ctx, node->if_stmt.cond_expr, routine);
+    PushInstruction(routine, IR_Jz, cond_res, if_false_label);
+
     GenIr(ctx, node->if_stmt.then_stmt, routine);
 
     if (node->if_stmt.else_stmt)
