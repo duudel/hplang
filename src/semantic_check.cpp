@@ -344,30 +344,47 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
     return nullptr;
 }
 
+static Ast_Expr* MakeTypecast(Sem_Check_Context *ctx,
+        Ast_Expr *oper, Type *type)
+{
+    Ast_Expr *cast_expr = PushAstExpr(ctx->ast, AST_TypecastExpr, oper->file_loc);
+    cast_expr->typecast_expr.expr = oper;
+    cast_expr->typecast_expr.type = nullptr;
+    cast_expr->expr_type = type;
+    return cast_expr;
+}
+
+const s32 MAX_INT_32 = 0x7fffffff;
+const s64 MAX_INT_64 = 0x7fffffffffffffff;
+
+static Type* GetIntegerLiteralType(Ast_Expr *expr)
+{
+    ASSERT(expr->type == AST_IntLiteral);
+    if (expr->int_literal.value <= MAX_INT_32)
+        return GetBuiltinType(TYP_s32);
+    if (expr->int_literal.value <= MAX_INT_64)
+        return GetBuiltinType(TYP_s64);
+    return GetBuiltinType(TYP_u64);
+}
+
+
 static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt);
 
-#if 0
-static void CheckFunctionArgs(Sem_Check_Context *ctx,
-        Type *ftype, Ast_Node *node, Ast_Function_Call *function_call)
+static void CoerceFunctionArgs(Sem_Check_Context *ctx,
+        Type *ftype, Ast_Function_Call *function_call)
 {
-    s64 param_count = ftype->function_type.parameter_count;
-    if (param_count != function_call->args.count)
+    s64 arg_count = function_call->args.count;
+    for (s64 i = 0; i < arg_count; i++)
     {
-        Error(ctx, node, "Function argument count does not match any overload");
-        return;
-    }
-    for (s64 i = 0; i < function_call->args.count; i++)
-    {
-        Ast_Node *arg = function_call->args.nodes[i];
-        Type *arg_type = CheckExpr(ctx, arg);
         Type *param_type = ftype->function_type.parameter_types[i];
-        if (!CheckTypeCoercion(ctx, arg_type, param_type))
+        Ast_Expr *arg = array::At(function_call->args, i);
+        if (!TypesEqual(arg->expr_type, param_type))
         {
-            ErrorArgTypeMismatch(ctx, arg, arg_type, param_type);
+            Ast_Expr *arg_cast = MakeTypecast(ctx, arg, param_type);
+            array::Set(function_call->args, i, arg_cast);
         }
     }
 }
-#endif
 
 // Returns -1, if not compatible.
 // Otherwise returns >= 0, if compatible.
@@ -389,7 +406,9 @@ static s64 CheckFunctionArgs(Type *ftype, s64 arg_count, Type **arg_types)
         ASSERT(arg_type);
         ASSERT(param_type);
 
-        score *= 10;
+        // TODO(henrik): Make the check and overload resolution more robust and
+        // intuitive for the user.
+        score <<= 2; // TODO(henrik): should this be done?
         if (TypesEqual(arg_type, param_type))
         {
             score += 2;
@@ -401,10 +420,8 @@ static s64 CheckFunctionArgs(Type *ftype, s64 arg_count, Type **arg_types)
         else
         {
             //fprintf(stderr, "Function arg %d not compatible: \n", i);
-            //PrintType(stderr, arg_type);
-            //fprintf(stderr, " != ");
-            //PrintType(stderr, param_type);
-            //fprintf(stderr, "\n");
+            //PrintType(stderr, arg_type); fprintf(stderr, " != ");
+            //PrintType(stderr, param_type); fprintf(stderr, "\n");
             return -1;
         }
     }
@@ -426,6 +443,8 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
         // the name of the actual function.
         ASSERT(fexpr->type == AST_VariableRef);
 
+        // TODO(henrik): Should not make an array for arg types as they are now
+        // stored int the arg->expr_type.
         s64 arg_count = function_call->args.count;
         Type **arg_types = PushArray<Type*>(&ctx->env->arena, arg_count);
         Value_Type vt;
@@ -468,6 +487,10 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
         else if (ambiguous)
         {
             Error(ctx, expr->file_loc, "Function call is ambiguous");
+        }
+        else
+        {
+            CoerceFunctionArgs(ctx, best_overload->type, function_call);
         }
         return best_overload->type->function_type.return_type;
     }
@@ -629,21 +652,38 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             if (!TypeIsNumeric(type))
             {
                 Error(ctx, expr->file_loc, "Invalid operand for unary +");
+                return GetBuiltinType(TYP_s64);
             }
             else
             {
                 switch (type->tag)
                 {
-                    case TYP_u8:
-                    case TYP_u16:
-                    case TYP_u32:
-                        type = GetBuiltinType(TYP_u32); break;
-                    case TYP_s8:
-                    case TYP_s16:
-                    case TYP_s32:
-                        type = GetBuiltinType(TYP_s32); break;
-                    default:
-                        break;
+                case TYP_u8:
+                case TYP_u16:
+                    {
+                        type = GetBuiltinType(TYP_u32);
+                        Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
+                        expr->unary_expr.expr = cast_expr;
+                        return type;
+                    }
+
+                case TYP_u32:
+                    // No cast needed
+                    return type;
+                case TYP_s8:
+                case TYP_s16:
+                    {
+                        type = GetBuiltinType(TYP_s32);
+                        Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
+                        expr->unary_expr.expr = cast_expr;
+                        return type;
+                    }
+
+                case TYP_s32:
+                    // No cast needed
+                    return type;
+                default:
+                    return type;
                 }
             }
         } break;
@@ -652,19 +692,34 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             if (!TypeIsNumeric(type))
             {
                 Error(ctx, expr->file_loc, "Invalid operand for unary -");
+                return GetBuiltinType(TYP_s64);
             }
             else
             {
                 switch (type->tag)
                 {
-                    case TYP_u8: case TYP_s8:
-                    case TYP_u16: case TYP_s16:
-                    case TYP_s32:
-                        type = GetBuiltinType(TYP_s32); break;
-                    case TYP_u32:
-                        type = GetBuiltinType(TYP_s64); break;
-                    default:
-                        break;
+                case TYP_u8: case TYP_s8:
+                case TYP_u16: case TYP_s16:
+                    {
+                        type = GetBuiltinType(TYP_s32);
+                        Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
+                        expr->unary_expr.expr = cast_expr;
+                        return type;
+                    }
+
+                case TYP_s32:
+                    // No cast needed
+                    return type;
+                case TYP_u32:
+                    {
+                        type = GetBuiltinType(TYP_s64);
+                        Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
+                        expr->unary_expr.expr = cast_expr;
+                        return type;
+                    }
+
+                default:
+                    return type;
                 }
             }
         } break;
@@ -673,29 +728,49 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             if (!TypeIsIntegral(type))
             {
                 Error(ctx, expr->file_loc, "Invalid operand for unary ~");
+                return GetBuiltinType(TYP_s64);
             }
             else
             {
                 switch (type->tag)
                 {
-                    case TYP_u8:
-                    case TYP_u16:
-                    case TYP_u32:
-                        type = GetBuiltinType(TYP_u32); break;
-                    case TYP_s8:
-                    case TYP_s16:
-                    case TYP_s32:
-                        type = GetBuiltinType(TYP_s32); break;
-                    default:
-                        break;
+                case TYP_u8:
+                case TYP_u16:
+                    {
+                        type = GetBuiltinType(TYP_u32);
+                        Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
+                        expr->unary_expr.expr = cast_expr;
+                        return type;
+                    }
+
+                case TYP_u32:
+                    // No cast needed
+                    return type;
+                case TYP_s8:
+                case TYP_s16:
+                    {
+                        type = GetBuiltinType(TYP_s32);
+                        Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
+                        expr->unary_expr.expr = cast_expr;
+                        return type;
+                    }
+
+                case TYP_s32:
+                    // No cast needed
+                    return type;
+                default:
+                    return type;
                 }
             }
         } break;
     case UN_OP_Not:
         {
-            if (TypeIsBoolean(type))
-                break;
-            Error(ctx, expr->file_loc, "Invalid operand for logical !");
+            if (!TypeIsBoolean(type))
+            {
+                Error(ctx, expr->file_loc, "Invalid operand for logical !");
+                return GetBuiltinType(TYP_bool);
+            }
+            return type;
         } break;
     case UN_OP_Address:
         {
@@ -704,45 +779,24 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
                 Error(ctx, expr->file_loc, "Taking address of non-l-value");
                 return type;
             }
-            type = GetPointerType(ctx->env, type);
+            return GetPointerType(ctx->env, type);
         } break;
     case UN_OP_Deref:
         {
             *vt = VT_Assignable;
-            if (TypeIsPointer(type))
+            if (!TypeIsPointer(type))
             {
-                type = type->base_type;
-                if (TypeIsVoid(type))
-                    Error(ctx, expr->file_loc, "Dereferencing void pointer");
-                break;
+                Error(ctx, expr->file_loc, "Dereferencing non-pointer type");
+                return type;
             }
-            Error(ctx, expr->file_loc, "Dereferencing non-pointer type");
+            type = type->base_type;
+            if (TypeIsVoid(type))
+                Error(ctx, expr->file_loc, "Dereferencing void pointer");
+            return type;
         } break;
     }
+    INVALID_CODE_PATH;
     return type;
-}
-
-static Ast_Expr* MakeTypecast(Sem_Check_Context *ctx,
-        Ast_Expr *oper, Ast_Node *type_node, Type *type)
-{
-    Ast_Expr *cast_expr = PushAstExpr(ctx->ast, AST_TypecastExpr, oper->file_loc);
-    cast_expr->typecast_expr.expr = oper;
-    cast_expr->typecast_expr.type = type_node;
-    cast_expr->expr_type = type;
-    return cast_expr;
-}
-
-const s32 MAX_INT_32 = 0x7fffffff;          // 2,147,483,647
-const s64 MAX_INT_64 = 0x7fffffffffffffff;  //
-
-static Type* GetIntegerLiteralType(Ast_Expr *expr)
-{
-    ASSERT(expr->type == AST_IntLiteral);
-    if (expr->int_literal.value <= MAX_INT_32)
-        return GetBuiltinType(TYP_s32);
-    if (expr->int_literal.value <= MAX_INT_64)
-        return GetBuiltinType(TYP_s64);
-    return GetBuiltinType(TYP_u64);
 }
 
 // Type for binary operations with numerical operands.
@@ -787,13 +841,13 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
         {
             return ltype;
         }
-        Ast_Expr *cast_expr = MakeTypecast(ctx, right, nullptr, ltype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, right, ltype);
         expr->binary_expr.right = cast_expr;
         return ltype;
     }
     else if (rtype->tag == TYP_f64)
     {
-        Ast_Expr *cast_expr = MakeTypecast(ctx, left, nullptr, rtype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, left, rtype);
         expr->binary_expr.left = cast_expr;
         return rtype;
     }
@@ -804,13 +858,13 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
         {
             return ltype;
         }
-        Ast_Expr *cast_expr = MakeTypecast(ctx, right, nullptr, ltype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, right, ltype);
         expr->binary_expr.right = cast_expr;
         return ltype;
     }
     else if (rtype->tag == TYP_f32)
     {
-        Ast_Expr *cast_expr = MakeTypecast(ctx, left, nullptr, rtype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, left, rtype);
         expr->binary_expr.left = cast_expr;
         return rtype;
     }
@@ -828,7 +882,7 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
             Error(ctx, expr->file_loc,
                 "Invalid operation on unsigned and signed operands");
         }
-        Ast_Expr *cast_expr = MakeTypecast(ctx, right, nullptr, ltype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, right, ltype);
         expr->binary_expr.right = cast_expr;
         return ltype;
     }
@@ -839,7 +893,7 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
             Error(ctx, expr->file_loc,
                 "Invalid operation on signed and unsigned operands");
         }
-        Ast_Expr *cast_expr = MakeTypecast(ctx, left, nullptr, rtype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, left, rtype);
         expr->binary_expr.left = cast_expr;
         return rtype;
     }
@@ -852,13 +906,13 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
         {
             return ltype;
         }
-        Ast_Expr *cast_expr = MakeTypecast(ctx, right, nullptr, ltype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, right, ltype);
         expr->binary_expr.right = cast_expr;
         return ltype;
     }
     else if (rtype->tag == TYP_s64)
     {
-        Ast_Expr *cast_expr = MakeTypecast(ctx, left, nullptr, rtype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, left, rtype);
         expr->binary_expr.left = cast_expr;
         return rtype;
     }
@@ -874,13 +928,13 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
         else if (TypeIsSigned(rtype))
         {
             Type *type = GetBuiltinType(TYP_s64);
-            Ast_Expr *cast_left = MakeTypecast(ctx, left, nullptr, type);
-            Ast_Expr *cast_right = MakeTypecast(ctx, right, nullptr, type);
+            Ast_Expr *cast_left = MakeTypecast(ctx, left, type);
+            Ast_Expr *cast_right = MakeTypecast(ctx, right, type);
             expr->binary_expr.left = cast_left;
             expr->binary_expr.right = cast_right;
             return type;
         }
-        Ast_Expr *cast_expr = MakeTypecast(ctx, right, nullptr, ltype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, right, ltype);
         expr->binary_expr.right = cast_expr;
         return ltype;
     }
@@ -889,13 +943,13 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
         if (TypeIsSigned(ltype))
         {
             Type *type = GetBuiltinType(TYP_s64);
-            Ast_Expr *cast_left = MakeTypecast(ctx, left, nullptr, type);
-            Ast_Expr *cast_right = MakeTypecast(ctx, right, nullptr, type);
+            Ast_Expr *cast_left = MakeTypecast(ctx, left, type);
+            Ast_Expr *cast_right = MakeTypecast(ctx, right, type);
             expr->binary_expr.left = cast_left;
             expr->binary_expr.right = cast_right;
             return type;
         }
-        Ast_Expr *cast_expr = MakeTypecast(ctx, left, nullptr, rtype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, left, rtype);
         expr->binary_expr.left = cast_expr;
         return rtype;
     }
@@ -908,21 +962,21 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
         {
             return ltype;
         }
-        Ast_Expr *cast_expr = MakeTypecast(ctx, right, nullptr, ltype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, right, ltype);
         expr->binary_expr.right = cast_expr;
         return ltype;
     }
     else if (rtype->tag == TYP_s32)
     {
-        Ast_Expr *cast_expr = MakeTypecast(ctx, left, nullptr, rtype);
+        Ast_Expr *cast_expr = MakeTypecast(ctx, left, rtype);
         expr->binary_expr.left = cast_expr;
         return rtype;
     }
 
     // Otherwise, just cast both operands to s32.
     Type *type = GetBuiltinType(TYP_s32);
-    Ast_Expr *cast_left = MakeTypecast(ctx, left, nullptr, type);
-    Ast_Expr *cast_right = MakeTypecast(ctx, right, nullptr, type);
+    Ast_Expr *cast_left = MakeTypecast(ctx, left, type);
+    Ast_Expr *cast_right = MakeTypecast(ctx, right, type);
     expr->binary_expr.left = cast_left;
     expr->binary_expr.right = cast_right;
     return type;

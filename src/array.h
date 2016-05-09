@@ -30,6 +30,9 @@ namespace array
     bool Push(Array<T> &arr, const T &x);
 
     template <class T>
+    void Set(Array<T> &arr, s64 index, const T &x);
+
+    template <class T>
     T At(Array<T> &arr, s64 index);
 
     template <class T>
@@ -86,6 +89,13 @@ namespace array
         }
         arr.data[arr.count++] = x;
         return true;
+    }
+
+    template <class T>
+    void Set(Array<T> &arr, s64 index, const T &x)
+    {
+        ASSERT(index < arr.count);
+        arr.data[index] = x;
     }
 
     template <class T>
