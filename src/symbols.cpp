@@ -12,7 +12,6 @@ namespace hplang
 Type builtin_types[] = {
     // tag,      size, align, union{}, pointer_type
     {TYP_null,      0, 1, { }, nullptr},
-    {TYP_int_lit,   8, 8, { }, nullptr},
     {TYP_pointer,   8, 8, { }, nullptr},
     {TYP_void,      0, 1, { }, nullptr},
     {TYP_bool,      1, 1, { }, nullptr},
@@ -38,7 +37,6 @@ struct Type_Info
 
 static Type_Info builtin_type_infos[] = {
     /*TYP_null,*/       (Type_Info){SYM_PrimitiveType,   "null_type"},
-    /*TYP_int_lit,*/    (Type_Info){SYM_PrimitiveType,   "int_lit_type"},
     /*TYP_pointer,*/    (Type_Info){SYM_PrimitiveType,   "pointer_type"},
     /*TYP_void,*/       (Type_Info){SYM_PrimitiveType,   "void"},
     /*TYP_bool,*/       (Type_Info){SYM_PrimitiveType,   "bool"},
@@ -95,7 +93,6 @@ b32 TypeIsIntegral(Type *t)
     if (!t) return false;
     switch (t->tag)
     {
-        case TYP_int_lit:
         case TYP_u8: case TYP_s8:
         case TYP_u16: case TYP_s16:
         case TYP_u32: case TYP_s32:
@@ -170,7 +167,6 @@ b32 TypesEqual(Type *a, Type *b)
     switch (a->tag)
     {
     case TYP_null:
-    case TYP_int_lit:
         INVALID_CODE_PATH;
         return false;
 
@@ -270,12 +266,9 @@ void PrintType(IoFile *file, Type *type)
             fprintf((FILE*)file, "*");
         } break;
 
-    // These should not appear in any normal case
+    // This should not appear in any normal case
     case TYP_null:
         NOT_IMPLEMENTED("null type printing");
-        break;
-    case TYP_int_lit:
-        NOT_IMPLEMENTED("int literal type printing");
         break;
 
     default:

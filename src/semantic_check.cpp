@@ -205,6 +205,16 @@ static b32 CheckTypeCoercion(Type *from, Type *to)
     switch (from->tag)
     {
         default: break;
+        case TYP_null:
+            return TypeIsPointer(to);
+
+        case TYP_pointer:
+            if (to->tag == TYP_pointer)
+            {
+                return TypesEqual(from->base_type, to->base_type);
+            }
+            return false;
+
         case TYP_u8:
             switch (to->tag)
             {
@@ -275,28 +285,6 @@ static b32 CheckTypeCoercion(Type *from, Type *to)
                 default:
                     return false;
             }
-    }
-    if (from->tag == TYP_int_lit)
-    {
-        // TODO(henrik): Check if the literal can fit in the to-type.
-        switch (to->tag)
-        {
-        case TYP_u8: case TYP_s8:
-        case TYP_u16: case TYP_s16:
-        case TYP_u32: case TYP_s32:
-        case TYP_u64: case TYP_s64:
-            return true;
-        default:
-            return false;
-        }
-    }
-    else if (from->tag == TYP_null)
-    {
-        return TypeIsPointer(to);
-    }
-    else if (TypeIsPointer(from) && TypeIsPointer(to))
-    {
-        return from->base_type == to->base_type;
     }
     return false;
 }
@@ -646,8 +634,6 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             {
                 switch (type->tag)
                 {
-                    case TYP_int_lit:
-                        type = GetBuiltinType(TYP_u64); break;
                     case TYP_u8:
                     case TYP_u16:
                     case TYP_u32:
@@ -671,8 +657,6 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             {
                 switch (type->tag)
                 {
-                    case TYP_int_lit:
-                        type = GetBuiltinType(TYP_s64); break;
                     case TYP_u8: case TYP_s8:
                     case TYP_u16: case TYP_s16:
                     case TYP_s32:
@@ -694,8 +678,6 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             {
                 switch (type->tag)
                 {
-                    case TYP_int_lit:
-                        type = GetBuiltinType(TYP_u64); break;
                     case TYP_u8:
                     case TYP_u16:
                     case TYP_u32:
@@ -753,18 +735,14 @@ static Ast_Expr* MakeTypecast(Sem_Check_Context *ctx,
 const s32 MAX_INT_32 = 0x7fffffff;          // 2,147,483,647
 const s64 MAX_INT_64 = 0x7fffffffffffffff;  //
 
-static Type* PromoteIntegerLiteral(Ast_Expr *expr, Type *type)
+static Type* GetIntegerLiteralType(Ast_Expr *expr)
 {
-    if (type->tag == TYP_int_lit)
-    {
-        ASSERT(expr->type == AST_IntLiteral);
-        if (expr->int_literal.value <= MAX_INT_32)
-            return GetBuiltinType(TYP_s32);
-        if (expr->int_literal.value <= MAX_INT_64)
-            return GetBuiltinType(TYP_s64);
-        return GetBuiltinType(TYP_u64);
-    }
-    return type;
+    ASSERT(expr->type == AST_IntLiteral);
+    if (expr->int_literal.value <= MAX_INT_32)
+        return GetBuiltinType(TYP_s32);
+    if (expr->int_literal.value <= MAX_INT_64)
+        return GetBuiltinType(TYP_s64);
+    return GetBuiltinType(TYP_u64);
 }
 
 // Type for binary operations with numerical operands.
@@ -802,9 +780,6 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
         return nullptr;
 
     // From here, both types are numeric
-
-    ltype = PromoteIntegerLiteral(left, ltype);
-    rtype = PromoteIntegerLiteral(right, rtype);
 
     if (ltype->tag == TYP_f64)
     {
@@ -1275,7 +1250,7 @@ static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
             break;
         case AST_IntLiteral:
             *vt = VT_NonAssignable;
-            result_type = GetBuiltinType(TYP_int_lit);
+            result_type = GetIntegerLiteralType(expr);
             break;
         case AST_Float32Literal:
             *vt = VT_NonAssignable;
@@ -1318,15 +1293,6 @@ static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
             result_type = CheckTypecastExpr(ctx, expr, vt);
             break;
     }
-    // TODO(henrik): as we now promote TYP_int_lit to a specific sized integral
-    // type, we might even want to get rid of TYP_int_lit entirely. What is the
-    // benefit of having it? If we do not want to (and we certainly do not) let
-    // any integer literals pass the semantic check w/o a definitive type, we
-    // should not have any intermediate type for it in the first place.
-    if (result_type && result_type->tag == TYP_int_lit)
-    {
-        result_type = PromoteIntegerLiteral(expr, result_type);
-    }
     expr->expr_type = result_type;
     return result_type;
 }
@@ -1357,8 +1323,6 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
     {
         Value_Type vt;
         init_type = CheckExpression(ctx, node->variable_decl.init_expr, &vt);
-        if (init_type && init_type->tag == TYP_int_lit)
-            init_type = GetBuiltinType(TYP_s64);
     }
 
     if (!type)
@@ -1457,17 +1421,6 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
             return;
         }
 
-        // Coerce int literal type to current return type or default to s64
-        if (type->tag == TYP_int_lit)
-        {
-            // TODO(henrik): We should check if the literal can fit to the
-            // current return type.
-            if (TypeIsIntegral(cur_return_type))
-                type = cur_return_type;
-            else
-                type = GetBuiltinType(TYP_s64);
-        }
-
         if (TypeIsNull(cur_return_type))
         {
             if (TypeIsPointer(type))
@@ -1483,13 +1436,8 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     }
     else
     {
-        // TODO(henrik): We need TYP_uint_lit for the case when the
-        // literal does not fit in signed 64.
         if (!expr)
             type = GetBuiltinType(TYP_void);
-        else if (type->tag == TYP_int_lit)
-            //type = GetBuiltinType(TYP_s64);
-            type = PromoteIntegerLiteral(expr, type);
 
         InferReturnType(ctx->env, type, node);
         //fprintf(stderr, "inferred return type: ");

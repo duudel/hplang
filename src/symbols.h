@@ -10,7 +10,6 @@ namespace hplang
 enum Type_Tag
 {
     TYP_null,
-    TYP_int_lit,
     TYP_pointer,
 
     TYP_void,
