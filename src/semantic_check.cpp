@@ -531,7 +531,7 @@ static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Typ
     return nullptr;
 }
 
-// TODO: Implement module.member; implement pointer.member
+// TODO: Implement module.member
 static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 {
     Ast_Expr *left = expr->access_expr.left;
@@ -574,6 +574,7 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             //fprintf(stderr, "' -> ");
             //PrintType(stderr, member->type);
             //fprintf(stderr, "\n");
+            right->expr_type = member->type;
             return member->type;
         }
     }

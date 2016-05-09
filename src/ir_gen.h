@@ -26,6 +26,7 @@ namespace hplang
     PASTE_IR(IR_Xor)\
     \
     PASTE_IR(IR_Mov)\
+    PASTE_IR(IR_MovMember)\
     \
     PASTE_IR(IR_Neg)\
     PASTE_IR(IR_Not)\

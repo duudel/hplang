@@ -73,6 +73,7 @@ Ir_Type GetIrType(Type *type)
         case TYP_f64:       return IR_TYP_f64;
         case TYP_string:    return IR_TYP_str;
         case TYP_Function:  return IR_TYP_ptr;
+        case TYP_Struct:    return IR_TYP_ptr;
         default:
                             break;
     }
@@ -132,6 +133,16 @@ static Ir_Operand NewImmediateInt(Ir_Routine *routine, u64 value, Type *type)
     oper.oper_type = IR_OPER_Immediate;
     oper.type = GetIrType(type);
     oper.imm_u64 = value;
+    return oper;
+}
+
+static Ir_Operand NewImmediateOffset(Ir_Routine *routine, s64 value)
+{
+    (void)routine;
+    Ir_Operand oper = { };
+    oper.oper_type = IR_OPER_Immediate;
+    oper.type = IR_TYP_s64;
+    oper.imm_s64 = value;
     return oper;
 }
 
@@ -373,6 +384,31 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     return res;
 }
 
+static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
+{
+    Ast_Expr *base_expr = expr->access_expr.left;
+    Ast_Expr *member_expr = expr->access_expr.right;
+    Type *base_type = base_expr->expr_type;
+    Type *member_type = member_expr->expr_type;
+
+    Name member_name = member_expr->variable_ref.name;
+    s64 member_index = 0;
+    for (; member_index < base_type->struct_type.member_count; member_index++)
+    {
+        Struct_Member *member = &base_type->struct_type.members[member_index];
+        if (member->name == member_name)
+        {
+            break;
+        }
+    }
+
+    Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
+    Ir_Operand member_res = NewTemp(routine, GetIrType(member_type));
+    Ir_Operand member_offs = NewImmediateOffset(routine, member_index);
+    PushInstruction(routine, IR_MovMember, member_res, base_res, member_offs);
+    return member_res;
+}
+
 static Ir_Operand GenTernaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
     Ast_Expr *cond_expr = expr->ternary_expr.cond_expr;
@@ -598,8 +634,7 @@ static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         case AST_TernaryExpr:
             return GenTernaryExpr(ctx, expr, routine);
         case AST_AccessExpr:
-            NOT_IMPLEMENTED("IR gen for AST_AccessExpr");
-            break;
+            return GenAccessExpr(ctx, expr, routine);
         case AST_TypecastExpr:
             return GenTypecastExpr(ctx, expr, routine);
         default:
