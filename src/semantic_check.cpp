@@ -610,16 +610,32 @@ static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type
     Value_Type tvt, fvt;
     Type *true_type = CheckExpr(ctx, true_expr, &tvt);
     Type *false_type = CheckExpr(ctx, false_expr, &fvt);
-    if (!CheckTypeCoercion(true_type, false_type) &&
-        !CheckTypeCoercion(false_type, true_type))
-    {
-        Error(ctx, expr->file_loc,
-                "Both results of ternary ?: expression must be convertible to same type");
-    }
+
     if (tvt == VT_NonAssignable || fvt == VT_NonAssignable)
         *vt = VT_NonAssignable;
     else
         *vt = VT_Assignable;
+
+    if (!TypesEqual(true_type, false_type))
+    {
+        if (CheckTypeCoercion(true_type, false_type))
+        {
+            Ast_Expr *cast_expr = MakeTypecast(ctx, true_expr, false_type);
+            expr->ternary_expr.true_expr = cast_expr;
+            return false_type;
+        }
+        else if (CheckTypeCoercion(false_type, true_type))
+        {
+            Ast_Expr *cast_expr = MakeTypecast(ctx, false_expr, true_type);
+            expr->ternary_expr.false_expr = cast_expr;
+            return true_type;
+        }
+        else
+        {
+            Error(ctx, expr->file_loc,
+                    "Both results of ternary ?: expression must be convertible to same type");
+        }
+    }
     return true_type;
 }
 
