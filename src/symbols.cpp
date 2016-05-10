@@ -11,6 +11,7 @@ namespace hplang
 
 Type builtin_types[] = {
     // tag,      size, align, union{}, pointer_type
+    {TYP_pending,   0, 1, { }, nullptr},
     {TYP_null,      0, 1, { }, nullptr},
     {TYP_pointer,   8, 8, { }, nullptr},
     {TYP_void,      0, 1, { }, nullptr},
@@ -36,8 +37,10 @@ struct Type_Info
 };
 
 static Type_Info builtin_type_infos[] = {
+    /*TYP_pending,*/    (Type_Info){SYM_PrimitiveType,   "pending_type"},
     /*TYP_null,*/       (Type_Info){SYM_PrimitiveType,   "null_type"},
     /*TYP_pointer,*/    (Type_Info){SYM_PrimitiveType,   "pointer_type"},
+
     /*TYP_void,*/       (Type_Info){SYM_PrimitiveType,   "void"},
     /*TYP_bool,*/       (Type_Info){SYM_PrimitiveType,   "bool"},
     /*TYP_char,*/       (Type_Info){SYM_PrimitiveType,   "char"},
@@ -58,39 +61,51 @@ static Type_Info builtin_type_infos[] = {
     //TYP_Enum,
 };
 
+b32 TypeIsPending(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_pending;
+}
+
 b32 TypeIsNull(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsNull(t->base_type);
     return t->tag == TYP_null;
 }
 
 b32 TypeIsPointer(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsPointer(t->base_type);
     return (t->tag == TYP_pointer) || (t->tag == TYP_null);
 }
 
 b32 TypeIsVoid(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsVoid(t->base_type);
     return t->tag == TYP_void;
 }
 
 b32 TypeIsBoolean(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsBoolean(t->base_type);
     return t->tag == TYP_bool;
 }
 
 b32 TypeIsChar(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsChar(t->base_type);
     return t->tag == TYP_char;
 }
 
 b32 TypeIsIntegral(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsIntegral(t->base_type);
     switch (t->tag)
     {
         case TYP_u8: case TYP_s8:
@@ -107,6 +122,7 @@ b32 TypeIsIntegral(Type *t)
 b32 TypeIsFloat(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsFloat(t->base_type);
     return (t->tag == TYP_f32) || (t->tag == TYP_f64);
 }
 
@@ -118,18 +134,21 @@ b32 TypeIsNumeric(Type *t)
 b32 TypeIsString(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsString(t->base_type);
     return t->tag == TYP_string;
 }
 
 b32 TypeIsStruct(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsStruct(t->base_type);
     return t->tag == TYP_Struct;
 }
 
 b32 TypeIsSigned(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsSigned(t->base_type);
     switch (t->tag)
     {
         case TYP_s8:
@@ -146,6 +165,7 @@ b32 TypeIsSigned(Type *t)
 b32 TypeIsUnsigned(Type *t)
 {
     if (!t) return false;
+    if (TypeIsPending(t)) return TypeIsUnsigned(t->base_type);
     switch (t->tag)
     {
         case TYP_u8:
@@ -162,10 +182,14 @@ b32 TypeIsUnsigned(Type *t)
 b32 TypesEqual(Type *a, Type *b)
 {
     if (a == b) return true;
+    if (TypeIsPending(a)) a = a->base_type;
+    if (TypeIsPending(b)) b = b->base_type;
+
     if (!a || !b) return false;
     if (a->tag != b->tag) return false;
     switch (a->tag)
     {
+    case TYP_pending:
     case TYP_null:
         INVALID_CODE_PATH;
         return false;
@@ -243,13 +267,19 @@ void PrintFunctionType(IoFile *file, Type *return_type, s64 param_count, Type **
     if (return_type)
         PrintType(file, return_type);
     else
-        fprintf((FILE*)file, "*");
+        fprintf((FILE*)file, "?");
 }
 
 void PrintType(IoFile *file, Type *type)
 {
     switch (type->tag)
     {
+    case TYP_pending:
+        fprintf((FILE*)file, "(?");
+        if (type->base_type)
+            PrintType(file, type->base_type);
+        fprintf((FILE*)file, ")");
+        break;
     case TYP_string:
     case TYP_Struct:
         PrintString(file, type->struct_type.name.str);
@@ -380,10 +410,9 @@ void CloseScope(Environment *env)
     env->current->return_stmt_count = return_stmts;
 }
 
-void OpenFunctionScope(Environment *env, Symbol *function, Type *return_type)
+void OpenFunctionScope(Environment *env, Type *return_type)
 {
     OpenScope(env);
-    env->current->function = function;
     env->current->return_type = return_type;
     env->current->rt_infer_loc = nullptr;
 }
@@ -392,12 +421,14 @@ Type* CloseFunctionScope(Environment *env)
 {
     ASSERT(env->current->parent != nullptr);
     Type *return_type = env->current->return_type;
-    if (!return_type)
+    if (TypeIsPending(return_type))
     {
         // NOTE(henrik): Infer return type to be void, if no return statements
         // were encountered.
         if (env->current->return_stmt_count == 0)
-            return_type = GetBuiltinType(TYP_void);
+        {
+            InferReturnType(env, GetBuiltinType(TYP_void), nullptr);
+        }
     }
 
     env->current = env->current->parent;
@@ -408,6 +439,9 @@ Type* CloseFunctionScope(Environment *env)
 void IncReturnStatements(Environment *env)
 { env->current->return_stmt_count++; }
 
+s64 GetReturnStatements(Environment *env)
+{ return env->current->return_stmt_count; }
+
 Type* GetCurrentReturnType(Environment *env)
 { return env->current->return_type; }
 
@@ -416,7 +450,8 @@ Ast_Node* GetCurrentReturnTypeInferLoc(Environment *env)
 
 void InferReturnType(Environment *env, Type *return_type, Ast_Node *location)
 {
-    env->current->return_type = return_type;
+    ASSERT(TypeIsPending(env->current->return_type));
+    env->current->return_type->base_type = return_type;
     env->current->rt_infer_loc = location;
 }
 
@@ -427,6 +462,11 @@ Type* PushType(Environment *env, Type_Tag tag)
     *type = { };
     type->tag = tag;
     return type;
+}
+
+Type* PushPendingType(Environment *env)
+{
+    return PushType(env, TYP_pending);
 }
 
 Type* GetPointerType(Environment *env, Type *base_type)

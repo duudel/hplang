@@ -1,0 +1,12 @@
+// Tests return type infer with recursive function
+// 2016-05-10
+
+test :: (x : s64)
+{
+    if x > 0
+    {
+        y := test(x-1);
+        return y + 1;
+    }
+    return 0;
+}

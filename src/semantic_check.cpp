@@ -200,11 +200,17 @@ static void ErrorVaribleShadowsParam(Sem_Check_Context *ctx,
 static b32 CheckTypeCoercion(Type *from, Type *to)
 {
     if (from == to) return true;
-    if (!from || !to) return false;
+    //if (!from || !to) return false;
     //if (!from || !to) return true; // To suppress extra errors after type error
     switch (from->tag)
     {
         default: break;
+        case TYP_pending:
+            if (from->base_type)
+            {
+                return CheckTypeCoercion(from->base_type, to);
+            }
+            return true; // NOTE(henrik): suppress some errors, eh?
         case TYP_null:
             return TypeIsPointer(to);
 
@@ -659,6 +665,12 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
 
     Value_Type evt;
     Type *type = CheckExpr(ctx, oper, &evt);
+    if (TypeIsPending(type))
+    {
+        if (!type->base_type)
+            return type;
+        type = type->base_type;
+    }
 
     *vt = VT_NonAssignable;
     switch (op)
@@ -833,10 +845,24 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
 // T and U are types
 // <*> is the binary operator
 // the types are commutative, so the first types can be switched
-static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
+static Type* DetermineBinaryExprType(Sem_Check_Context *ctx,
         Ast_Expr *expr, Ast_Expr *left, Ast_Expr *right,
         Type *ltype, Type *rtype)
 {
+    if (TypeIsPending(ltype))
+    {
+        if (!ltype->base_type)
+            return ltype;
+        ltype = ltype->base_type;
+    }
+    if (TypeIsPending(rtype))
+    {
+        if (!rtype->base_type)
+            return rtype;
+        rtype = rtype->base_type;
+    }
+
+    /*
     if (TypeIsNumeric(ltype))
     {
         if (!rtype) rtype = ltype;
@@ -845,6 +871,7 @@ static Type* DetermineBinaryOpType(Sem_Check_Context *ctx,
     {
         if (!ltype) ltype = rtype;
     }
+    */
 
     if (!TypeIsNumeric(ltype) || !TypeIsNumeric(rtype))
         return nullptr;
@@ -1009,7 +1036,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
     Type *rtype = CheckExpr(ctx, right, &rvt);
 
     *vt = VT_NonAssignable;
-    if (!ltype && !rtype) return nullptr;
+    ASSERT(ltype && rtype);
 
     Type *type = nullptr;
     type = ltype;
@@ -1023,34 +1050,13 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                     Error(ctx, expr->file_loc, "Invalid null operand");
                 return ltype;
             }
-            type = DetermineBinaryOpType(ctx, expr, left, right, ltype, rtype);
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
-                Error(ctx, expr->file_loc, "Invalid operands for binary +");
+                ErrorBinaryOperands(ctx, expr->file_loc, "+", ltype, rtype);
                 type = ltype;
             }
-
-            //if (!ltype && TypeIsNumeric(rtype))
-            //    break;
-            //if (!rtype && TypeIsNumeric(ltype))
-            //    break;
-            //if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-            //    break;
-            //if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
-            //    break;
-            //Error(ctx, expr->file_loc, "Invalid operands for binary +");
-            /*
-            if (!ltype && TypeIsNumeric(rtype))
-                type = CoerceBinaryOpType(ctx, expr, op, left, right, ltype, rtype);
-            else if (!rtype && TypeIsNumeric(ltype))
-                type = CoerceBinaryOpType(ctx, expr, op, left, right, ltype, rtype);
-            else if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-                type = CoerceBinaryOpType(ctx, expr, op, left, right, ltype, rtype);
-            else if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
-                type = CoerceBinaryOpType(ctx, expr, op, left, right, ltype, rtype);
-            else
-                Error(ctx, expr->file_loc, "Invalid operands for binary +");
-                */
+            return type;
         } break;
     case BIN_OP_Subtract:
         {
@@ -1060,155 +1066,155 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                     Error(ctx, expr->file_loc, "Invalid null operand");
                 return ltype;
             }
-            type = DetermineBinaryOpType(ctx, expr, left, right, ltype, rtype);
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
-                Error(ctx, expr->file_loc, "Invalid operands for binary -");
+                ErrorBinaryOperands(ctx, expr->file_loc, "-", ltype, rtype);
                 type = ltype;
             }
-            //if (!ltype && TypeIsNumeric(rtype))
-            //    break;
-            //if (!rtype && TypeIsNumeric(ltype))
-            //    break;
-            //if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-            //    break;
-            //if (TypeIsPointer(ltype) && TypeIsNumeric(rtype))
-            //    break;
-            //Error(ctx, expr->file_loc, "Invalid operands for binary -");
+            return type;
         } break;
     case BIN_OP_Multiply:
         {
-            if (!ltype && TypeIsNumeric(rtype))
-                break;
-            if (!rtype && TypeIsNumeric(ltype))
-                break;
-            if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-                break;
-            Error(ctx, expr->file_loc, "Operator * expects numeric type for left and right hand side");
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type)
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "*", ltype, rtype);
+                type = ltype;
+            }
+            return type;
         } break;
     case BIN_OP_Divide:
         {
-            if (!ltype && TypeIsNumeric(rtype))
-                break;
-            if (!rtype && TypeIsNumeric(ltype))
-                break;
-            if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-                break;
-            Error(ctx, expr->file_loc, "Operator / expects numeric type for left and right hand side");
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type)
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "/", ltype, rtype);
+                type = ltype;
+            }
+            return type;
         } break;
     case BIN_OP_Modulo:
         {
             // TODO(henrik): Should modulo work for floats too?
-            if (!ltype && TypeIsNumeric(rtype))
-                break;
-            if (!rtype && TypeIsNumeric(ltype))
-                break;
-            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                break;
-            Error(ctx, expr->file_loc, "Operator \% expects numeric type for left and right hand side");
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type)
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "\%", ltype, rtype);
+                type = ltype;
+            }
+            else if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "\%", ltype, rtype);
+            }
+            return type;
         } break;
 
     case BIN_OP_BitAnd:
         {
-            if (!ltype && TypeIsNumeric(rtype))
-                break;
-            if (!rtype && TypeIsNumeric(ltype))
-                break;
-            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                break;
-            Error(ctx, expr->file_loc, "Bitwise & expects integral type for left and right hand side");
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type)
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "&", ltype, rtype);
+                type = ltype;
+            }
+            else if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "&", ltype, rtype);
+            }
+            return type;
         } break;
     case BIN_OP_BitOr:
         {
-            if (!ltype && TypeIsNumeric(rtype))
-                break;
-            if (!rtype && TypeIsNumeric(ltype))
-                break;
-            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                break;
-            Error(ctx, expr->file_loc, "Bitwise | expects integral type for left and right hand side");
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type)
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "|", ltype, rtype);
+                type = ltype;
+            }
+            else if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "|", ltype, rtype);
+            }
+            return type;
         } break;
     case BIN_OP_BitXor:
         {
-            if (!ltype && TypeIsNumeric(rtype))
-                break;
-            if (!rtype && TypeIsNumeric(ltype))
-                break;
-            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                break;
-            Error(ctx, expr->file_loc, "Bitwise ^ expects integral type for left and right hand side");
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type)
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "^", ltype, rtype);
+                type = ltype;
+            }
+            else if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "^", ltype, rtype);
+            }
+            return type;
         } break;
 
     case BIN_OP_And:
         {
-            if (!ltype && TypeIsNumeric(rtype))
-                break;
-            if (!rtype && TypeIsNumeric(ltype))
-                break;
-            if (TypeIsBoolean(ltype) && TypeIsBoolean(rtype))
-                break;
-            Error(ctx, expr->file_loc, "Logical && expects boolean type for left and right hand side");
+            if (!TypeIsBoolean(ltype) || !TypeIsBoolean(rtype))
+                Error(ctx, expr->file_loc, "Logical && expects boolean type for left and right hand side");
+            return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_Or:
         {
-            if (!ltype && TypeIsNumeric(rtype))
-                break;
-            if (!rtype && TypeIsNumeric(ltype))
-                break;
-            if (TypeIsBoolean(ltype) && TypeIsBoolean(rtype))
-                break;
-            Error(ctx, expr->file_loc, "Logical || expects boolean type for left and right hand side");
+            if (!TypeIsBoolean(ltype) || !TypeIsBoolean(rtype))
+                Error(ctx, expr->file_loc, "Logical || expects boolean type for left and right hand side");
+            return GetBuiltinType(TYP_bool);
         } break;
 
     case BIN_OP_Equal:
         {
-            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
-            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, expr->file_loc, "Invalid operands for == operator"); }
+            if (CheckTypeCoercion(ltype, rtype))      { }
+            else if (CheckTypeCoercion(rtype, ltype)) { }
+            else { ErrorBinaryOperands(ctx, expr->file_loc, "==", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_NotEqual:
         {
-            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
-            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, expr->file_loc, "Invalid operands for != operator"); }
+            if (CheckTypeCoercion(ltype, rtype))      { }
+            else if (CheckTypeCoercion(rtype, ltype)) { }
+            else { ErrorBinaryOperands(ctx, expr->file_loc, "!=", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_Less:
         {
-            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
-            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, expr->file_loc, "Invalid operands for < operator"); }
+            if (CheckTypeCoercion(ltype, rtype))      { }
+            else if (CheckTypeCoercion(rtype, ltype)) { }
+            else { ErrorBinaryOperands(ctx, expr->file_loc, "<", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_LessEq:
         {
-            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
-            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, expr->file_loc, "Invalid operands for <= operator"); }
+            if (CheckTypeCoercion(ltype, rtype))      { }
+            else if (CheckTypeCoercion(rtype, ltype)) { }
+            else { ErrorBinaryOperands(ctx, expr->file_loc, "<=", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_Greater:
         {
-            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
-            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, expr->file_loc, "Invalid operands for > operator"); }
+            if (CheckTypeCoercion(ltype, rtype))      { }
+            else if (CheckTypeCoercion(rtype, ltype)) { }
+            else { ErrorBinaryOperands(ctx, expr->file_loc, ">", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_GreaterEq:
         {
-            if (!ltype || CheckTypeCoercion(ltype, rtype))      { }
-            else if (!rtype || CheckTypeCoercion(rtype, ltype)) { }
-            else { Error(ctx, expr->file_loc, "Invalid operands for >= operator"); }
+            if (CheckTypeCoercion(ltype, rtype))      { }
+            else if (CheckTypeCoercion(rtype, ltype)) { }
+            else { ErrorBinaryOperands(ctx, expr->file_loc, ">=", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
         } break;
 
     case BIN_OP_Range:
-        NOT_IMPLEMENTED("Binary expression ops");
+        NOT_IMPLEMENTED("Range expression semantic check");
         break;
 
     case BIN_OP_Subscript:
-        NOT_IMPLEMENTED("Binary expression ops");
+        NOT_IMPLEMENTED("Subscript expression semantic check");
         break;
     }
     return type;
@@ -1224,8 +1230,7 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_T
     Type *ltype = CheckExpr(ctx, left, &lvt);
     Type *rtype = CheckExpr(ctx, right, &rvt);
 
-    if (!ltype || !rtype) return nullptr;
-
+    ASSERT(ltype && rtype);
     if (lvt != VT_Assignable)
     {
         Error(ctx, left->file_loc, "Assignment to non-l-value expression");
@@ -1370,7 +1375,8 @@ static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 {
     Type *type = CheckExpr(ctx, expr, vt);
-    if (!type)
+    //if (!type)
+    if (TypeIsPending(type) && !type->base_type)
     {
         Pending_Expr pe = { };
         pe.expr = expr;
@@ -1382,17 +1388,20 @@ static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
 
 static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
 {
+    Ast_Node *type_node = node->variable_decl.type;
+    Ast_Expr *init_expr = node->variable_decl.init_expr;
+
     Type *type = nullptr;
-    if (node->variable_decl.type)
+    if (type_node)
     {
-        type = CheckType(ctx, node->variable_decl.type);
+        type = CheckType(ctx, type_node);
     }
 
     Type *init_type = nullptr;
-    if (node->variable_decl.init_expr)
+    if (init_expr)
     {
         Value_Type vt;
-        init_type = CheckExpression(ctx, node->variable_decl.init_expr, &vt);
+        init_type = CheckExpression(ctx, init_expr, &vt);
     }
 
     if (!type)
@@ -1413,6 +1422,11 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         {
             Error(ctx, node->file_loc, "Variable initializer expression is incompatible");
         }
+        else if (!TypesEqual(init_type, type))
+        {
+            Ast_Expr *cast_expr = MakeTypecast(ctx, init_expr, type);
+            node->variable_decl.init_expr = cast_expr;
+        }
     }
 
     Name name = node->variable_decl.name;
@@ -1427,7 +1441,8 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         if (old_symbol && old_symbol->sym_type == SYM_Parameter)
             ErrorVaribleShadowsParam(ctx, node, name);
     }
-    AddSymbol(ctx->env, SYM_Variable, name, type);
+    Symbol *symbol = AddSymbol(ctx->env, SYM_Variable, name, type);
+    node->variable_decl.symbol = symbol;
 }
 
 static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node);
@@ -1471,15 +1486,88 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     {
         Value_Type vt;
         type = CheckExpression(ctx, expr, &vt);
-        if (!type)
-        {
-            // NOTE(henrik): If there was an error in the expression, we
-            // do not need to check the return type.
-            return;
-        }
+        ASSERT(type);
+        //if (!type)
+        //{
+        //    // NOTE(henrik): If there was an error in the expression, we
+        //    // do not need to check the return type.
+        //    return;
+        //}
     }
 
     Type *cur_return_type = GetCurrentReturnType(ctx->env);
+    if (TypeIsPending(cur_return_type))
+    {
+        if (!cur_return_type->base_type)
+        {
+            if (!expr)
+            {
+                type = GetBuiltinType(TYP_void);
+                InferReturnType(ctx->env, type, node);
+            }
+            else if (type != cur_return_type)
+            {
+                // NOTE(henrik): Infer only, if there was no dependency..
+                InferReturnType(ctx->env, type, node);
+            }
+        }
+        else
+        {
+            if (!expr)
+            {
+                if (!TypeIsVoid(cur_return_type))
+                {
+                    Error(ctx, node->file_loc, "Return value expected");
+                }
+                return;
+            }
+
+            if (TypeIsNull(cur_return_type))
+            {
+                if (TypeIsPointer(type))
+                {
+                    InferReturnType(ctx->env, type, node);
+                }
+            }
+
+            if (!CheckTypeCoercion(type, cur_return_type))
+            {
+                Ast_Node *infer_loc = GetCurrentReturnTypeInferLoc(ctx->env);
+                ErrorReturnTypeMismatch(ctx, expr->file_loc,
+                        type, cur_return_type, infer_loc);
+            }
+            else if (!TypesEqual(type, cur_return_type))
+            {
+                Ast_Expr *cast_expr = MakeTypecast(ctx, expr, type);
+                node->return_stmt.expr = cast_expr;
+            }
+        }
+    }
+    else
+    {
+        if (!expr)
+        {
+            if (!TypeIsVoid(cur_return_type))
+            {
+                Error(ctx, node->file_loc, "Return value expected");
+            }
+            return;
+        }
+
+        if (!CheckTypeCoercion(type, cur_return_type))
+        {
+            Ast_Node *infer_loc = GetCurrentReturnTypeInferLoc(ctx->env);
+            ErrorReturnTypeMismatch(ctx, expr->file_loc,
+                    type, cur_return_type, infer_loc);
+        }
+        else if (!TypesEqual(type, cur_return_type))
+        {
+            Ast_Expr *cast_expr = MakeTypecast(ctx, expr, type);
+            node->return_stmt.expr = cast_expr;
+        }
+    }
+
+    /*
     if (cur_return_type)
     {
         if (!expr)
@@ -1514,6 +1602,7 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
         //PrintType(stderr, type);
         //fprintf(stderr, "\n");
     }
+    */
 }
 
 static void CheckBlockStatement(Sem_Check_Context *ctx, Ast_Node *node);
@@ -1653,6 +1742,10 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     {
         return_type = CheckType(ctx, node->function.return_type);
     }
+    else
+    {
+        return_type = PushPendingType(ctx->env);
+    }
     ftype->function_type.return_type = return_type;
 
     // TODO(henrik): Should the names be copied to env->arena?
@@ -1663,15 +1756,13 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
         ErrorDeclaredEarlierAs(ctx, node, name, symbol);
     }
 
-    // NOTE(henrik): Maybe we don't want to have a reference to the symbol
-    // directly in the node?
     node->function.symbol = symbol;
 
     // NOTE(henrik): Lookup only in current scope, before opening the
     // function scope.
     Symbol *overload = LookupSymbolInCurrentScope(ctx->env, name);
 
-    OpenFunctionScope(ctx->env, symbol, return_type);
+    OpenFunctionScope(ctx->env, return_type);
 
     // NOTE(henrik): Check parameters after opening the function scope
     CheckParameters(ctx, node, ftype);
@@ -1690,12 +1781,18 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 
     // NOTE(henrik): Must be called before closing the scope
     Ast_Node *infer_loc = GetCurrentReturnTypeInferLoc(ctx->env);
+    s64 return_stmt_count = GetReturnStatements(ctx->env);
 
     Type *inferred_return_type = CloseFunctionScope(ctx->env);
     if (return_type)
         ASSERT(inferred_return_type);
 
-    if (!inferred_return_type)
+    if (!TypeIsVoid(return_type) && return_stmt_count == 0)
+    {
+        Error(ctx, node->file_loc, "No return statements in function returning non-void");
+    }
+
+    if (TypeIsPending(inferred_return_type) && !inferred_return_type->base_type)
     {
         Error(ctx, node->file_loc, "Could not infer return type for function");
     }
@@ -1843,17 +1940,17 @@ b32 Check(Sem_Check_Context *ctx)
         CheckTopLevelStmt(ctx, node);
     }
 
-    s64 index = 0;
-    while (ContinueChecking(ctx) &&
-           index < ctx->pending_exprs.count)
-    {
-        Pending_Expr pe = array::At(ctx->pending_exprs, index);
-        SetCurrentScope(ctx->env, pe.scope);
-        Value_Type vt;
-        CheckExpression(ctx, pe.expr, &vt);
+    //s64 index = 0;
+    //while (ContinueChecking(ctx) &&
+    //       index < ctx->pending_exprs.count)
+    //{
+    //    Pending_Expr pe = array::At(ctx->pending_exprs, index);
+    //    SetCurrentScope(ctx->env, pe.scope);
+    //    Value_Type vt;
+    //    CheckExpression(ctx, pe.expr, &vt);
 
-        index++;
-    }
+    //    index++;
+    //}
 
     return HasError(ctx->comp_ctx);
 }

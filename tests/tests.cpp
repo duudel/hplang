@@ -32,11 +32,62 @@ bool report_test(Test_Context *test_ctx, bool x, const char *xs,
 
 #define TEST(x) report_test(test_ctx, x, #x, __FILE__, __LINE__)
 
+// beer_test.hp
+void Beer_Test(Test_Context *test_ctx, Compiler_Context comp_ctx)
+{
+    Environment env = comp_ctx.env;
+    Symbol *main_sym = LookupSymbol(&env, PushName(&comp_ctx.arena, "main"));
+    Symbol *beer_sym = LookupSymbol(&env, PushName(&comp_ctx.arena, "beer"));
+    Symbol *bottles_sym = LookupSymbol(&env, PushName(&comp_ctx.arena, "bottles"));
+
+    if (TEST(main_sym != nullptr))
+    {
+        TEST(main_sym->sym_type == SYM_Function);
+        if (TEST(main_sym->type->tag == TYP_Function))
+        {
+            TEST(TypeIsVoid(main_sym->type->function_type.return_type));
+        }
+    }
+    if (TEST(beer_sym != nullptr))
+    {
+        TEST(beer_sym->sym_type == SYM_Function);
+        if (TEST(beer_sym->type->tag == TYP_Function))
+        {
+            TEST(TypeIsVoid(beer_sym->type->function_type.return_type));
+        }
+    }
+    if (TEST(bottles_sym != nullptr))
+    {
+        TEST(bottles_sym->sym_type == SYM_Function);
+        if (TEST(bottles_sym->type->tag == TYP_Function))
+        {
+            TEST(TypeIsVoid(bottles_sym->type->function_type.return_type));
+        }
+    }
+}
+
+// recursive_rt_infer.hp
+void RecursiveRtInfer_Test(Test_Context *test_ctx, Compiler_Context comp_ctx)
+{
+    Environment env = comp_ctx.env;
+    Symbol *test_sym = LookupSymbol(&env, PushName(&comp_ctx.arena, "test"));
+    if (TEST(test_sym != nullptr))
+    {
+        TEST(test_sym->sym_type == SYM_Function);
+        TEST(test_sym->type->tag == TYP_Function);
+    }
+    //PrintType(comp_ctx.error_ctx.file, test->type);
+    //fprintf(stderr, "\n");
+}
+
+
 
 struct Line_Col
 {
     s64 line, column;
 };
+
+typedef void (*Test_Function)(Test_Context *test_ctx, Compiler_Context comp_ctx);
 
 struct Test
 {
@@ -45,37 +96,39 @@ struct Test
     Line_Col fail_lexing;       // if line, column != 0, should fail lexing at the location
     Line_Col fail_parsing;      // if line, column != 0, should fail parsing at the location
     Line_Col fail_sem_check;    // if line, column != 0, should fail checking at the location
+    Test_Function test_func;
 };
 
 Test tests[] = {
-    (Test){ CP_Lexing,  "tests/lexer_fail/crlf_test.hp",        {4, 26}, {}, {} },
-    (Test){ CP_Lexing,  "tests/lexer_fail/only_one_dquote.hp",  {1, 1}, {}, {} },
-    (Test){ CP_Lexing,  "tests/lexer_fail/non_ending_mlc.hp",   {6, 5}, {}, {} },
-    (Test){ CP_Parsing, "tests/parser_fail/token_test.hp",      {}, {1, 1}, {} },
-    (Test){ CP_Parsing, "tests/parser_fail/if_paren_test.hp",   {}, {8, 23}, {} },
-    (Test){ CP_Parsing, "tests/expr_test.hp", {}, {}, {} },
-    (Test){ CP_Parsing, "tests/stmt_test.hp", {}, {}, {} },
-    (Test){ CP_Checking, "tests/sem_check_fail/infer_var_type_from_null.hp",    {}, {}, {4, 1} },
-    (Test){ CP_Checking, "tests/sem_check_fail/dup_func_param.hp",              {}, {}, {4, 39} },
-    (Test){ CP_Checking, "tests/sem_check_fail/dup_variable.hp",                {}, {}, {7, 5} },
-    (Test){ CP_Checking, "tests/sem_check_fail/var_shadows_param.hp",           {}, {}, {6, 5} },
-    (Test){ CP_Checking, "tests/sem_check_fail/ambiguous_func_call.hp",         {}, {}, {8, 9} },
-    (Test){ CP_Checking, "tests/sem_check_fail/dup_func_def.hp",                {}, {}, {5, 1} },
-    (Test){ CP_Checking, "tests/sem_check_fail/return_infer_fail.hp",           {}, {}, {11, 12} },
-    (Test){ CP_Checking, "tests/sem_check_fail/void_func_return.hp",            {}, {}, {6, 12} },
-    (Test){ CP_Checking, "tests/sem_check_fail/non_void_func_return.hp",        {}, {}, {6, 5} },
-    (Test){ CP_Checking, "tests/sem_check_fail/infer_ret_type_from_null.hp",    {}, {}, {6, 5} },
-    (Test){ CP_Checking, "tests/sem_check_fail/access_non_struct.hp",           {}, {}, {7, 10} },
-    (Test){ CP_Checking, "tests/sem_check_fail/deref_void_ptr.hp",              {}, {}, {7, 10} },
-    (Test){ CP_Checking, "tests/empty.hp", {}, {}, {}, },
-    (Test){ CP_Checking, "tests/variable_scope.hp", {}, {}, {}, },
-    (Test){ CP_Checking, "tests/struct_access.hp", {}, {}, {}, },
-    (Test){ CP_CodeGen, "tests/hello_test.hp", {}, {}, {}, },
-    (Test){ CP_CodeGen, "tests/beer_test.hp", {}, {}, {}, },
-    (Test){ CP_CodeGen, "tests/pointer_arith.hp", {}, {}, {}, },
-    (Test){ CP_CodeGen, "tests/member_access.hp", {}, {}, {}, },
-    (Test){ CP_CodeGen, "tests/module_test.hp", {}, {}, {}, },
-    (Test){ CP_CodeGen, "tests/modules_test.hp", {}, {}, {}, },
+    (Test){ CP_Lexing,  "tests/lexer_fail/crlf_test.hp",        {4, 26}, {}, {}, nullptr },
+    (Test){ CP_Lexing,  "tests/lexer_fail/only_one_dquote.hp",  {1, 1}, {}, {}, nullptr },
+    (Test){ CP_Lexing,  "tests/lexer_fail/non_ending_mlc.hp",   {6, 5}, {}, {}, nullptr },
+    (Test){ CP_Parsing, "tests/parser_fail/token_test.hp",      {}, {1, 1}, {}, nullptr },
+    (Test){ CP_Parsing, "tests/parser_fail/if_paren_test.hp",   {}, {8, 23}, {}, nullptr },
+    (Test){ CP_Parsing, "tests/expr_test.hp", {}, {}, {}, nullptr },
+    (Test){ CP_Parsing, "tests/stmt_test.hp", {}, {}, {}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/infer_var_type_from_null.hp",    {}, {}, {4, 1}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/dup_func_param.hp",              {}, {}, {4, 39}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/dup_variable.hp",                {}, {}, {7, 5}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/var_shadows_param.hp",           {}, {}, {6, 5}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/ambiguous_func_call.hp",         {}, {}, {8, 9}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/dup_func_def.hp",                {}, {}, {5, 1}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/return_infer_fail.hp",           {}, {}, {11, 12}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/void_func_return.hp",            {}, {}, {6, 12}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/non_void_func_return.hp",        {}, {}, {6, 5}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/infer_ret_type_from_null.hp",    {}, {}, {6, 5}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/access_non_struct.hp",           {}, {}, {7, 10}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/deref_void_ptr.hp",              {}, {}, {7, 10}, nullptr },
+    (Test){ CP_Checking, "tests/empty.hp",              {}, {}, {}, nullptr },
+    (Test){ CP_Checking, "tests/variable_scope.hp",     {}, {}, {}, nullptr },
+    (Test){ CP_Checking, "tests/struct_access.hp",      {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/hello_test.hp",          {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/beer_test.hp",           {}, {}, {}, Beer_Test },
+    (Test){ CP_CodeGen, "tests/pointer_arith.hp",       {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/member_access.hp",       {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/module_test.hp",         {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/modules_test.hp",        {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
 };
 
 void PrintError(const char *filename, s64 line, s64 column, const char *message)
@@ -138,9 +191,8 @@ b32 CheckSemCheckResult(Compiler_Context *compiler_ctx,
             "Unexpected semantic check error", "Expected semantic check error");
 }
 
-s64 RunTest(Test_Context *ctx, const Test &test)
+s64 RunTest(Test_Context *test_ctx, const Test &test)
 {
-    (void)ctx;
     fprintf(stderr, "Running test '%s'\n", test.filename);
 
     s64 failed = 0;
@@ -171,6 +223,11 @@ s64 RunTest(Test_Context *ctx, const Test &test)
             failed = 1;
         else if (!CheckSemCheckResult(&compiler_ctx, test))
             failed = 1;
+
+        if (test.test_func)
+        {
+            test.test_func(test_ctx, compiler_ctx);
+        }
     }
     else
     {
@@ -181,6 +238,8 @@ s64 RunTest(Test_Context *ctx, const Test &test)
     FreeCompilerContext(&compiler_ctx);
 
     fprintf(stderr, "----\n"); fflush(stderr);
+
+    if (test_ctx->errors > 0) failed = 1;
     return failed;
 }
 
@@ -200,12 +259,11 @@ int main(int argc, char **argv)
 
     fprintf(stderr, "----\n");
 
-    Test_Context test_ctx = { };
-
     s64 failed_tests = 0;
     s64 total_tests = array_length(tests);
     for (const Test &test : tests)
     {
+        Test_Context test_ctx = { };
         failed_tests += RunTest(&test_ctx, test);
         fflush(stderr);
     }

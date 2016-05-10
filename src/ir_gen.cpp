@@ -58,6 +58,7 @@ Ir_Type GetIrType(Type *type)
 {
     switch (type->tag)
     {
+        case TYP_pending:   return GetIrType(type->base_type);
         case TYP_pointer:   return IR_TYP_ptr;
         case TYP_bool:      return IR_TYP_bool;
         case TYP_char:      return IR_TYP_u8;
@@ -176,7 +177,30 @@ static Ir_Operand NewLabel(Ir_Gen_Context *ctx)
     return oper;
 }
 
-static void PushInstruction(Ir_Routine *routine, Ir_Opcode opcode,
+static void ExtractComment(Ir_Gen_Context *ctx, Ast_Node *node)
+{
+    Ir_Comment comment = { };
+
+    Open_File *open_file = node->file_loc.file;
+    const char *file_start = (const char*)open_file->contents.ptr;
+    const char *file_end = file_start + open_file->contents.size;
+    comment.start = file_start + node->file_loc.offset_start;
+    comment.end = comment.start;
+
+    while (comment.end != file_end)
+    {
+        if (comment.end[0] == '\n' || comment.end[0] == '\r')
+            break;
+        comment.end++;
+        if (comment.end - comment.start > 32)
+            break;
+    }
+
+    ctx->comment = comment;
+}
+
+static void PushInstruction(Ir_Gen_Context *ctx, Ir_Routine *routine,
+        Ir_Opcode opcode,
         Ir_Operand target = NoneOperand(),
         Ir_Operand oper1 = NoneOperand(),
         Ir_Operand oper2 = NoneOperand())
@@ -186,7 +210,10 @@ static void PushInstruction(Ir_Routine *routine, Ir_Opcode opcode,
     instr.target = target;
     instr.oper1 = oper1;
     instr.oper2 = oper2;
+    instr.comment = ctx->comment;
     array::Push(routine->instructions, instr);
+
+    ctx->comment = { };
 }
 
 static void SetLabelTarget(Ir_Routine *routine, Ir_Operand label_oper)
@@ -213,113 +240,113 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
             INVALID_CODE_PATH;
             break;
         case IR_TYP_ptr:
-            PushInstruction(routine, IR_Mov, res, oper_res);
+            PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             break;
         case IR_TYP_bool:
-            PushInstruction(routine, IR_Mov, res, oper_res);
+            PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             break;
         case IR_TYP_u8:
             switch (res_type)
             {
             case IR_TYP_f32:
-                PushInstruction(routine, IR_U_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_U_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F64, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
         case IR_TYP_s8:
             switch (res_type)
             {
             case IR_TYP_f32:
-                PushInstruction(routine, IR_S_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_S_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
         case IR_TYP_u16:
             switch (res_type)
             {
             case IR_TYP_f32:
-                PushInstruction(routine, IR_U_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_U_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F64, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
         case IR_TYP_s16:
             switch (res_type)
             {
             case IR_TYP_f32:
-                PushInstruction(routine, IR_S_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_S_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
         case IR_TYP_u32:
             switch (res_type)
             {
             case IR_TYP_f32:
-                PushInstruction(routine, IR_U_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_U_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F64, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
         case IR_TYP_s32:
             switch (res_type)
             {
             case IR_TYP_f32:
-                PushInstruction(routine, IR_S_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_S_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
         case IR_TYP_u64:
             switch (res_type)
             {
             case IR_TYP_f32:
-                PushInstruction(routine, IR_U_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_U_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F64, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
         case IR_TYP_s64:
             switch (res_type)
             {
             case IR_TYP_f32:
-                PushInstruction(routine, IR_S_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_S_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
         case IR_TYP_f32:
@@ -333,22 +360,22 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
             case IR_TYP_u16:
             case IR_TYP_u32:
             case IR_TYP_u64:
-                PushInstruction(routine, IR_U_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F32, res, oper_res);
                 break;
             case IR_TYP_s8:
             case IR_TYP_s16:
             case IR_TYP_s32:
             case IR_TYP_s64:
-                PushInstruction(routine, IR_S_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f32:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_F32_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_F32_TO_F64, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
         case IR_TYP_f64:
@@ -362,22 +389,22 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
             case IR_TYP_u16:
             case IR_TYP_u32:
             case IR_TYP_u64:
-                PushInstruction(routine, IR_U_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_U_TO_F64, res, oper_res);
                 break;
             case IR_TYP_s8:
             case IR_TYP_s16:
             case IR_TYP_s32:
             case IR_TYP_s64:
-                PushInstruction(routine, IR_S_TO_F64, res, oper_res);
+                PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             case IR_TYP_f32:
-                PushInstruction(routine, IR_F64_TO_F32, res, oper_res);
+                PushInstruction(ctx, routine, IR_F64_TO_F32, res, oper_res);
                 break;
             case IR_TYP_f64:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
                 break;
             default:
-                PushInstruction(routine, IR_Mov, res, oper_res);
+                PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
     }
@@ -405,7 +432,7 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
     Ir_Operand member_res = NewTemp(routine, GetIrType(member_type));
     Ir_Operand member_offs = NewImmediateOffset(routine, member_index);
-    PushInstruction(routine, IR_MovMember, member_res, base_res, member_offs);
+    PushInstruction(ctx, routine, IR_MovMember, member_res, base_res, member_offs);
     return member_res;
 }
 
@@ -420,15 +447,15 @@ static Ir_Operand GenTernaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
     Ir_Operand res = NewTemp(routine, GetIrType(expr->expr_type));
 
     Ir_Operand cond_res = GenExpression(ctx, cond_expr, routine);
-    PushInstruction(routine, IR_Jz, false_label, cond_res);
+    PushInstruction(ctx, routine, IR_Jz, false_label, cond_res);
 
     Ir_Operand true_res = GenExpression(ctx, true_expr, routine);
-    PushInstruction(routine, IR_Mov, res, true_res);
-    PushInstruction(routine, IR_Jump, ternary_end);
+    PushInstruction(ctx, routine, IR_Mov, res, true_res);
+    PushInstruction(ctx, routine, IR_Jump, ternary_end);
 
     SetLabelTarget(routine, false_label);
     Ir_Operand false_res = GenExpression(ctx, false_expr, routine);
-    PushInstruction(routine, IR_Mov, res, false_res);
+    PushInstruction(ctx, routine, IR_Mov, res, false_res);
 
     SetLabelTarget(routine, ternary_end);
     return res;
@@ -443,22 +470,22 @@ static Ir_Operand GenUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *
     switch (op)
     {
         case UN_OP_Positive:
-            PushInstruction(routine, IR_Mov, target, oper);
+            PushInstruction(ctx, routine, IR_Mov, target, oper);
             break;
         case UN_OP_Negative:
-            PushInstruction(routine, IR_Neg, target, oper);
+            PushInstruction(ctx, routine, IR_Neg, target, oper);
             break;
         case UN_OP_Not:
-            PushInstruction(routine, IR_Not, target, oper);
+            PushInstruction(ctx, routine, IR_Not, target, oper);
             break;
         case UN_OP_Complement:
-            PushInstruction(routine, IR_Compl, target, oper);
+            PushInstruction(ctx, routine, IR_Compl, target, oper);
             break;
         case UN_OP_Address:
-            PushInstruction(routine, IR_Addr, target, oper);
+            PushInstruction(ctx, routine, IR_Addr, target, oper);
             break;
         case UN_OP_Deref:
-            PushInstruction(routine, IR_Deref, target, oper);
+            PushInstruction(ctx, routine, IR_Deref, target, oper);
             break;
     }
     return target;
@@ -475,28 +502,28 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     switch (op)
     {
         case BIN_OP_Add:
-            PushInstruction(routine, IR_Add, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Add, target, loper, roper);
             break;
         case BIN_OP_Subtract:
-            PushInstruction(routine, IR_Sub, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Sub, target, loper, roper);
             break;
         case BIN_OP_Multiply:
-            PushInstruction(routine, IR_Mul, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Mul, target, loper, roper);
             break;
         case BIN_OP_Divide:
-            PushInstruction(routine, IR_Div, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Div, target, loper, roper);
             break;
         case BIN_OP_Modulo:
-            PushInstruction(routine, IR_Mod, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Mod, target, loper, roper);
             break;
         case BIN_OP_BitAnd:
-            PushInstruction(routine, IR_And, target, loper, roper);
+            PushInstruction(ctx, routine, IR_And, target, loper, roper);
             break;
         case BIN_OP_BitOr:
-            PushInstruction(routine, IR_Or, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Or, target, loper, roper);
             break;
         case BIN_OP_BitXor:
-            PushInstruction(routine, IR_Xor, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Xor, target, loper, roper);
             break;
         case BIN_OP_And:
             NOT_IMPLEMENTED("IR gen for logical and");
@@ -505,22 +532,22 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
             NOT_IMPLEMENTED("IR gen for logical or");
             break;
         case BIN_OP_Equal:
-            PushInstruction(routine, IR_Eq, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Eq, target, loper, roper);
             break;
         case BIN_OP_NotEqual:
-            PushInstruction(routine, IR_Neq, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Neq, target, loper, roper);
             break;
         case BIN_OP_Less:
-            PushInstruction(routine, IR_Lt, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Lt, target, loper, roper);
             break;
         case BIN_OP_LessEq:
-            PushInstruction(routine, IR_Leq, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Leq, target, loper, roper);
             break;
         case BIN_OP_Greater:
-            PushInstruction(routine, IR_Gt, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Gt, target, loper, roper);
             break;
         case BIN_OP_GreaterEq:
-            PushInstruction(routine, IR_Geq, target, loper, roper);
+            PushInstruction(ctx, routine, IR_Geq, target, loper, roper);
             break;
         case BIN_OP_Range:
             NOT_IMPLEMENTED("IR gen for range op");
@@ -543,31 +570,31 @@ static Ir_Operand GenAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Rout
     switch (op)
     {
         case AS_OP_Assign:
-            PushInstruction(routine, IR_Mov, loper, roper);
+            PushInstruction(ctx, routine, IR_Mov, loper, roper);
             break;
         case AS_OP_AddAssign:
-            PushInstruction(routine, IR_Add, loper, loper, roper);
+            PushInstruction(ctx, routine, IR_Add, loper, loper, roper);
             break;
         case AS_OP_SubtractAssign:
-            PushInstruction(routine, IR_Sub, loper, loper, roper);
+            PushInstruction(ctx, routine, IR_Sub, loper, loper, roper);
             break;
         case AS_OP_MultiplyAssign:
-            PushInstruction(routine, IR_Mul, loper, loper, roper);
+            PushInstruction(ctx, routine, IR_Mul, loper, loper, roper);
             break;
         case AS_OP_DivideAssign:
-            PushInstruction(routine, IR_Div, loper, loper, roper);
+            PushInstruction(ctx, routine, IR_Div, loper, loper, roper);
             break;
         case AS_OP_ModuloAssign:
-            PushInstruction(routine, IR_Mod, loper, loper, roper);
+            PushInstruction(ctx, routine, IR_Mod, loper, loper, roper);
             break;
         case AS_OP_BitAndAssign:
-            PushInstruction(routine, IR_And, loper, loper, roper);
+            PushInstruction(ctx, routine, IR_And, loper, loper, roper);
             break;
         case AS_OP_BitOrAssign:
-            PushInstruction(routine, IR_Or, loper, loper, roper);
+            PushInstruction(ctx, routine, IR_Or, loper, loper, roper);
             break;
         case AS_OP_BitXorAssign:
-            PushInstruction(routine, IR_Xor, loper, loper, roper);
+            PushInstruction(ctx, routine, IR_Xor, loper, loper, roper);
             break;
     }
     return loper;
@@ -591,11 +618,11 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     {
         Ast_Expr *arg = array::At(expr->function_call.args, i);
         Ir_Operand arg_res = GenExpression(ctx, arg, routine);
-        PushInstruction(routine, IR_Param, arg_res);
+        PushInstruction(ctx, routine, IR_Param, arg_res);
     }
 
     Ir_Operand fv_res = GenExpression(ctx, expr->function_call.fexpr, routine);
-    PushInstruction(routine, IR_Call, res, fv_res);
+    PushInstruction(ctx, routine, IR_Call, res, fv_res);
 
     return res;
 }
@@ -647,17 +674,19 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine);
 
 static void GenIfStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
+    ExtractComment(ctx, node);
+
     Ir_Operand if_false_label = NewLabel(ctx);
 
     Ir_Operand cond_res = GenExpression(ctx, node->if_stmt.cond_expr, routine);
-    PushInstruction(routine, IR_Jz, cond_res, if_false_label);
+    PushInstruction(ctx, routine, IR_Jz, cond_res, if_false_label);
 
     GenIr(ctx, node->if_stmt.then_stmt, routine);
 
     if (node->if_stmt.else_stmt)
     {
         Ir_Operand else_end_label = NewLabel(ctx);
-        PushInstruction(routine, IR_Jump, else_end_label);
+        PushInstruction(ctx, routine, IR_Jump, else_end_label);
 
         SetLabelTarget(routine, if_false_label);
 
@@ -671,14 +700,35 @@ static void GenIfStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *rout
     }
 }
 
+static void GenWhileStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
+{
+    ExtractComment(ctx, node);
+
+    Ir_Operand while_end_label = NewLabel(ctx);
+
+    Ir_Operand while_start_label = NewLabel(ctx);
+    SetLabelTarget(routine, while_start_label);
+
+    Ir_Operand cond_res = GenExpression(ctx, node->while_stmt.cond_expr, routine);
+    PushInstruction(ctx, routine, IR_Jz, cond_res, while_end_label);
+
+    GenIr(ctx, node->while_stmt.loop_stmt, routine);
+
+    PushInstruction(ctx, routine, IR_Jump, while_start_label);
+
+    SetLabelTarget(routine, while_end_label);
+}
+
 static void GenReturnStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
+    ExtractComment(ctx, node);
+
     Ir_Operand res_expr = NoneOperand();
     if (node->return_stmt.expr)
     {
         res_expr = GenExpression(ctx, node->return_stmt.expr, routine);
     }
-    PushInstruction(routine, IR_Return, res_expr);
+    PushInstruction(ctx, routine, IR_Return, res_expr);
 }
 
 static void GenBlockStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
@@ -701,6 +751,7 @@ static void AddVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine
     (void)ctx;
     (void)node;
     (void)routine;
+    NOT_IMPLEMENTED("IR gen: AddVariable");
     //Symbol *symbol = LookupSymbol(ctx->env, node->variable_decl.name);
 }
 
@@ -747,7 +798,7 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
             GenIfStatement(ctx, node, routine);
             break;
         case AST_WhileStmt:
-            NOT_IMPLEMENTED("IR gen for AST_WhileStmt");
+            GenWhileStmt(ctx, node, routine);
             break;
         case AST_ForStmt:
             NOT_IMPLEMENTED("IR gen for AST_ForStmt");
@@ -759,6 +810,7 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
             GenReturnStmt(ctx, node, routine);
             break;
         case AST_ExpressionStmt:
+            ExtractComment(ctx, node);
             GenExpression(ctx, node->expr_stmt.expr, routine);
             break;
     }
@@ -878,6 +930,15 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
     PrintPadding(file, len, 16);
 }
 
+static void PrintComment(FILE *file, Ir_Comment comment)
+{
+    if (comment.start)
+    {
+        fprintf(file, "// ");
+        fwrite(comment.start, 1, comment.end - comment.start, file);
+    }
+}
+
 static void PrintInstruction(FILE *file, Ir_Instruction instr)
 {
     PrintOpcode(file, instr.opcode);
@@ -887,6 +948,7 @@ static void PrintInstruction(FILE *file, Ir_Instruction instr)
     PrintOperand(file, instr.oper1);
     fprintf(file, "\t");
     PrintOperand(file, instr.oper2);
+    PrintComment(file, instr.comment);
     fprintf(file, "\n");
 }
 

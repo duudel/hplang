@@ -285,6 +285,8 @@ struct Ast_Variable_Decl
     Name name;
     Ast_Node *type;         // NOTE(henrik): type can be null (type will be inferred)
     Ast_Expr *init_expr;    // NOTE(henrik): init_expr can be null
+
+    Symbol *symbol;
 };
 
 struct Ast_If_Stmt

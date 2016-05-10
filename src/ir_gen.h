@@ -133,11 +133,17 @@ struct Ir_Operand
     };
 };
 
+struct Ir_Comment
+{
+    const char *start;
+    const char *end;
+};
+
 struct Ir_Instruction
 {
     Ir_Opcode opcode;
     Ir_Operand target, oper1, oper2;
-    //String comment;
+    Ir_Comment comment;
 };
 
 typedef Array<Ir_Instruction> Ir_Instruction_List;
@@ -159,6 +165,7 @@ struct Ir_Gen_Context
 {
     Memory_Arena arena;
     Ir_Routine_List routines;
+    Ir_Comment comment;
     Compiler_Context *comp_ctx;
 };
 

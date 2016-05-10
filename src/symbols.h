@@ -9,6 +9,10 @@ namespace hplang
 
 enum Type_Tag
 {
+    // A pseudo type pending final inferred type, which will be set as
+    // Type::base_type.
+    TYP_pending,
+
     TYP_null,
     TYP_pointer,
 
@@ -80,6 +84,7 @@ enum Value_Type
     VT_NonAssignable,
 };
 
+b32 TypeIsPending(Type *t);
 b32 TypeIsNull(Type *t);
 b32 TypeIsPointer(Type *t);
 b32 TypeIsVoid(Type *t);
@@ -137,7 +142,6 @@ struct Scope
     Array<Symbol*> table;
 
     Scope *parent;
-    Symbol *function;       // Set, if the scope is a function scope
 
     Type *return_type;      // The return type of the current function scope
     Ast_Node *rt_infer_loc; // Set, if the return type was inferred (location info for errors)
@@ -165,16 +169,18 @@ void SetCurrentScope(Environment *env, Scope *scope);
 void OpenScope(Environment *env);
 void CloseScope(Environment *env);
 
-void OpenFunctionScope(Environment *env, Symbol *function, Type *return_type);
+void OpenFunctionScope(Environment *env, Type *return_type);
 // Returns the inferred or declared function return type
 Type* CloseFunctionScope(Environment *env);
 
 void IncReturnStatements(Environment *env);
+s64 GetReturnStatements(Environment *env);
 Type* GetCurrentReturnType(Environment *env);
 Ast_Node* GetCurrentReturnTypeInferLoc(Environment *env);
 void InferReturnType(Environment *env, Type *return_type, Ast_Node *location);
 
 Type* PushType(Environment *env, Type_Tag tag);
+Type* PushPendingType(Environment *env);
 Type* GetPointerType(Environment *env, Type *base_type);
 
 Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type);
