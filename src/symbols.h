@@ -9,7 +9,10 @@ namespace hplang
 
 enum Type_Tag
 {
-    // A pseudo type pending final inferred type, which will be set as
+    // A pseudo type for expression types where the typing resulted in error.
+    // Should propagate quietly, so no extranous errors will be raised.
+    TYP_none,
+    // A pseudo type for pending inferred type, which will be set as
     // Type::base_type.
     TYP_pending,
 
@@ -84,6 +87,7 @@ enum Value_Type
     VT_NonAssignable,
 };
 
+b32 TypeIsNone(Type *t);
 b32 TypeIsPending(Type *t);
 b32 TypeIsNull(Type *t);
 b32 TypeIsPointer(Type *t);

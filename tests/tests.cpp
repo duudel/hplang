@@ -116,7 +116,7 @@ Test tests[] = {
     (Test){ CP_Checking, "tests/sem_check_fail/return_infer_fail.hp",           {}, {}, {11, 12}, nullptr },
     (Test){ CP_Checking, "tests/sem_check_fail/void_func_return.hp",            {}, {}, {6, 12}, nullptr },
     (Test){ CP_Checking, "tests/sem_check_fail/non_void_func_return.hp",        {}, {}, {6, 5}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/infer_ret_type_from_null.hp",    {}, {}, {6, 5}, nullptr },
+    (Test){ CP_Checking, "tests/sem_check_fail/infer_ret_type_from_null.hp",    {}, {}, {4, 1}, nullptr },
     (Test){ CP_Checking, "tests/sem_check_fail/access_non_struct.hp",           {}, {}, {7, 10}, nullptr },
     (Test){ CP_Checking, "tests/sem_check_fail/deref_void_ptr.hp",              {}, {}, {7, 10}, nullptr },
     (Test){ CP_Checking, "tests/empty.hp",              {}, {}, {}, nullptr },
@@ -129,6 +129,7 @@ Test tests[] = {
     (Test){ CP_CodeGen, "tests/module_test.hp",         {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/modules_test.hp",        {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
+    (Test){ CP_CodeGen, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
 };
 
 void PrintError(const char *filename, s64 line, s64 column, const char *message)

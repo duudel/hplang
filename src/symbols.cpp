@@ -11,6 +11,7 @@ namespace hplang
 
 Type builtin_types[] = {
     // tag,      size, align, union{}, pointer_type
+    {TYP_none,      0, 1, { }, nullptr},
     {TYP_pending,   0, 1, { }, nullptr},
     {TYP_null,      0, 1, { }, nullptr},
     {TYP_pointer,   8, 8, { }, nullptr},
@@ -37,6 +38,7 @@ struct Type_Info
 };
 
 static Type_Info builtin_type_infos[] = {
+    /*TYP_none,*/       (Type_Info){SYM_PrimitiveType,   "none_type"},
     /*TYP_pending,*/    (Type_Info){SYM_PrimitiveType,   "pending_type"},
     /*TYP_null,*/       (Type_Info){SYM_PrimitiveType,   "null_type"},
     /*TYP_pointer,*/    (Type_Info){SYM_PrimitiveType,   "pointer_type"},
@@ -60,6 +62,12 @@ static Type_Info builtin_type_infos[] = {
     /*TYP_Struct,*/
     //TYP_Enum,
 };
+
+b32 TypeIsNone(Type *t)
+{
+    if (!t) return false;
+    return t->tag == TYP_none;
+}
 
 b32 TypeIsPending(Type *t)
 {
@@ -185,10 +193,12 @@ b32 TypesEqual(Type *a, Type *b)
     if (TypeIsPending(a)) a = a->base_type;
     if (TypeIsPending(b)) b = b->base_type;
 
-    if (!a || !b) return false;
+    //if (!a || !b) return false;
     if (a->tag != b->tag) return false;
     switch (a->tag)
     {
+    case TYP_none:
+        return false;
     case TYP_pending:
     case TYP_null:
         INVALID_CODE_PATH;

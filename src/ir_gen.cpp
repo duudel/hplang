@@ -748,11 +748,15 @@ static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
 
 static void AddVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
-    (void)ctx;
-    (void)node;
-    (void)routine;
-    NOT_IMPLEMENTED("IR gen: AddVariable");
-    //Symbol *symbol = LookupSymbol(ctx->env, node->variable_decl.name);
+    Symbol *symbol = node->variable_decl.symbol;
+    Ast_Expr *init_expr = node->variable_decl.init_expr;
+
+    if (init_expr)
+    {
+        Ir_Operand init_res = GenExpression(ctx, init_expr, routine);
+        Ir_Type ir_type = GetIrType(init_expr->expr_type);
+        PushInstruction(ctx, routine, IR_Mov, NewVariable(routine, ir_type, symbol->name), init_res);
+    }
 }
 
 static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
@@ -875,12 +879,19 @@ static void PrintOpcode(FILE *file, Ir_Opcode opcode)
     PrintPadding(file, len, 10);
 }
 
+static s64 PrintPtr(FILE *file, void *ptr)
+{
+    if (ptr)
+        return fprintf(file, "%p", ptr);
+    return fprintf(file, "(null)");
+}
+
 static s64 PrintImmediate(FILE *file, Ir_Operand oper)
 {
     s64 len = 0;
     switch (oper.type)
     {
-        case IR_TYP_ptr:    len = fprintf(file, "%p", oper.imm_ptr); break;
+        case IR_TYP_ptr:    len = PrintPtr(file, oper.imm_ptr); break;
         case IR_TYP_bool:   len = fprintf(file, "%s", (oper.imm_bool ? "true" : "false")); break;
         case IR_TYP_u8:     len = fprintf(file, "%u", oper.imm_u8); break;
         case IR_TYP_s8:     len = fprintf(file, "%d", oper.imm_s8); break;

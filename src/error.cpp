@@ -50,7 +50,7 @@ void PrintFileLocation(IoFile *file, File_Location file_loc)
             loc_len = sizeof(spaces) - 1;
         fwrite(spaces, 1, loc_len, fp);
     }
-    fprintf(fp, "\n  ");
+    //fprintf(fp, "\n  ");
 }
 
 void PrintFileLine(IoFile *file, File_Location file_loc)
