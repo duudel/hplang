@@ -240,16 +240,31 @@ static b32 ContinueParsing(Parser_Context *ctx)
     return ContinueCompiling(ctx->comp_ctx);
 }
 
+//static Ast_Node* PushNode(Parser_Context *ctx,
+//        Ast_Node_Type node_type, const Token *token)
+//{
+//    return PushAstNode(ctx->ast, node_type, token);
+//}
+//
+//static Ast_Expr* PushExpr(Parser_Context *ctx,
+//        Ast_Expr_Type expr_type, const Token *token)
+//{
+//    return PushAstExpr(ctx->ast, expr_type, token);
+//}
+
+
+template <class T>
 static Ast_Node* PushNode(Parser_Context *ctx,
         Ast_Node_Type node_type, const Token *token)
 {
-    return PushAstNode(ctx->ast, node_type, token);
+    return PushAstNode<T>(ctx->ast, node_type, token->file_loc);
 }
 
+template <class T>
 static Ast_Expr* PushExpr(Parser_Context *ctx,
         Ast_Expr_Type expr_type, const Token *token)
 {
-    return PushAstExpr(ctx->ast, expr_type, token);
+    return PushAstExpr<T>(ctx->ast, expr_type, token->file_loc);
 }
 
 
@@ -284,7 +299,7 @@ static Ast_Node* ParseType(Parser_Context *ctx)
         case TOK_Identifier:
             {
                 GetNextToken(ctx);
-                type_node = PushNode(ctx, AST_Type_Plain, token);
+                type_node = PushNode<Ast_Type_Node>(ctx, AST_Type_Plain, token);
                 Name name = PushName(&ctx->ast->arena,
                         token->value, token->value_end);
                 type_node->type_node.plain.name = name;
@@ -299,7 +314,7 @@ static Ast_Node* ParseType(Parser_Context *ctx)
         const Token *token = Accept(ctx, TOK_Star);
         if (token)
         {
-            Ast_Node *pointer_node = PushNode(ctx, AST_Type_Pointer, token);
+            Ast_Node *pointer_node = PushNode<Ast_Type_Node>(ctx, AST_Type_Pointer, token);
             s64 indirection = 1;
             while (Accept(ctx, TOK_Star))
             {
@@ -313,7 +328,7 @@ static Ast_Node* ParseType(Parser_Context *ctx)
         token = Accept(ctx, TOK_OpenBracket);
         if (token)
         {
-            Ast_Node *array_node = PushNode(ctx, AST_Type_Array, token);
+            Ast_Node *array_node = PushNode<Ast_Type_Node>(ctx, AST_Type_Array, token);
             ExpectAfterLast(ctx, TOK_CloseBracket);
             s64 arrays = 1;
             while (Accept(ctx, TOK_OpenBracket))
@@ -471,54 +486,54 @@ static Ast_Expr* ParseLiteralExpr(Parser_Context *ctx)
     const Token *token = Accept(ctx, TOK_Null);
     if (token)
     {
-        return PushExpr(ctx, AST_Null, token);
+        return PushExpr<Ast_Int_Literal>(ctx, AST_Null, token); // TODO(henrik): needs an empty Ast_Null_Literal struct
     }
     token = Accept(ctx, TOK_TrueLit);
     if (token)
     {
-        Ast_Expr *literal = PushExpr(ctx, AST_BoolLiteral, token);
+        Ast_Expr *literal = PushExpr<Ast_Bool_Literal>(ctx, AST_BoolLiteral, token);
         literal->bool_literal.value = true;
         return literal;
     }
     token = Accept(ctx, TOK_FalseLit);
     if (token)
     {
-        Ast_Expr *literal = PushExpr(ctx, AST_BoolLiteral, token);
+        Ast_Expr *literal = PushExpr<Ast_Bool_Literal>(ctx, AST_BoolLiteral, token);
         literal->bool_literal.value = false;
         return literal;
     }
     token = Accept(ctx, TOK_IntegerLit);
     if (token)
     {
-        Ast_Expr *literal = PushExpr(ctx, AST_IntLiteral, token);
+        Ast_Expr *literal = PushExpr<Ast_Int_Literal>(ctx, AST_IntLiteral, token);
         literal->int_literal.value = ConvertInt(token->value, token->value_end);
         return literal;
     }
     token = Accept(ctx, TOK_Float32Lit);
     if (token)
     {
-        Ast_Expr *literal = PushExpr(ctx, AST_Float32Literal, token);
+        Ast_Expr *literal = PushExpr<Ast_Float32_Literal>(ctx, AST_Float32Literal, token);
         literal->float32_literal.value = ConvertFloat(ctx, token);
         return literal;
     }
     token = Accept(ctx, TOK_Float64Lit);
     if (token)
     {
-        Ast_Expr *literal = PushExpr(ctx, AST_Float64Literal, token);
+        Ast_Expr *literal = PushExpr<Ast_Float64_Literal>(ctx, AST_Float64Literal, token);
         literal->float64_literal.value = ConvertFloat(ctx, token);
         return literal;
     }
     token = Accept(ctx, TOK_CharLit);
     if (token)
     {
-        Ast_Expr *literal = PushExpr(ctx, AST_CharLiteral, token);
+        Ast_Expr *literal = PushExpr<Ast_Char_Literal>(ctx, AST_CharLiteral, token);
         literal->char_literal.value = ConvertChar(ctx, token->value, token->value_end);
         return literal;
     }
     token = Accept(ctx, TOK_StringLit);
     if (token)
     {
-        Ast_Expr *literal = PushExpr(ctx, AST_StringLiteral, token);
+        Ast_Expr *literal = PushExpr<Ast_String_Literal>(ctx, AST_StringLiteral, token);
         literal->string_literal.value = ConvertString(ctx, token->value, token->value_end);
         return literal;
     }
@@ -537,7 +552,7 @@ static Ast_Expr* ParsePrefixOperator(Parser_Context *ctx)
     if (!op_token) op_token = Accept(ctx, TOK_At);
     if (!op_token) return nullptr;
 
-    Ast_Expr *pre_op = PushExpr(ctx, AST_UnaryExpr, op_token);
+    Ast_Expr *pre_op = PushExpr<Ast_Unary_Expr>(ctx, AST_UnaryExpr, op_token);
 
     Unary_Op op;
     switch (op_token->type)
@@ -583,12 +598,12 @@ static Ast_Expr* ParsePostfixOperator(Parser_Context *ctx, Ast_Expr *factor)
     const Token *op_token = Accept(ctx, TOK_Period);
     if (op_token)
     {
-        Ast_Expr *access_expr = PushExpr(ctx, AST_AccessExpr, op_token);
+        Ast_Expr *access_expr = PushExpr<Ast_Access_Expr>(ctx, AST_AccessExpr, op_token);
 
         const Token *ident_tok = Accept(ctx, TOK_Identifier);
         if (ident_tok)
         {
-            Ast_Expr *member_ref  = PushExpr(ctx, AST_VariableRef, ident_tok);
+            Ast_Expr *member_ref  = PushExpr<Ast_Variable_Ref>(ctx, AST_VariableRef, ident_tok);
             Name name = PushName(&ctx->ast->arena,
                     ident_tok->value, ident_tok->value_end);
             member_ref->variable_ref.name = name;
@@ -605,7 +620,7 @@ static Ast_Expr* ParsePostfixOperator(Parser_Context *ctx, Ast_Expr *factor)
     op_token = Accept(ctx, TOK_OpenBracket);
     if (op_token)
     {
-        Ast_Expr *subscript_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        Ast_Expr *subscript_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
         subscript_expr->binary_expr.op = BIN_OP_Subscript;
         subscript_expr->binary_expr.left = factor;
         subscript_expr->binary_expr.right = ParseExpression(ctx);
@@ -617,7 +632,7 @@ static Ast_Expr* ParsePostfixOperator(Parser_Context *ctx, Ast_Expr *factor)
     op_token = Accept(ctx, TOK_OpenParent);
     if (op_token)
     {
-        Ast_Expr *fcall_expr = PushExpr(ctx, AST_FunctionCall, op_token);
+        Ast_Expr *fcall_expr = PushExpr<Ast_Function_Call>(ctx, AST_FunctionCall, op_token);
         fcall_expr->function_call.fexpr = factor;
         ParseFunctionArgs(ctx, &fcall_expr->function_call);
         ExpectAfterLast(ctx, TOK_CloseParent);
@@ -626,7 +641,7 @@ static Ast_Expr* ParsePostfixOperator(Parser_Context *ctx, Ast_Expr *factor)
     op_token = Accept(ctx, TOK_Arrow);
     if (op_token)
     {
-        Ast_Expr *cast_expr = PushExpr(ctx, AST_TypecastExpr, op_token);
+        Ast_Expr *cast_expr = PushExpr<Ast_Typecast_Expr>(ctx, AST_TypecastExpr, op_token);
         cast_expr->typecast_expr.expr = factor;
         Ast_Node *type = ParseType(ctx);
         if (!type)
@@ -661,7 +676,7 @@ static Ast_Expr* ParseFactorExpr(Parser_Context *ctx)
         {
             TRACE(ParseFactor_identifier);
             Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
-            factor = PushExpr(ctx, AST_VariableRef, ident_tok);
+            factor = PushExpr<Ast_Variable_Ref>(ctx, AST_VariableRef, ident_tok);
             factor->variable_ref.name = name;
         }
     }
@@ -745,7 +760,7 @@ static Ast_Expr* ParseMultDivExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        Ast_Expr *bin_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
         bin_expr->binary_expr.op = op;
         bin_expr->binary_expr.left = expr;
         bin_expr->binary_expr.right = ParseFactorExpr(ctx);
@@ -784,7 +799,7 @@ static Ast_Expr* ParseAddSubExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        Ast_Expr *bin_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
         bin_expr->binary_expr.op = op;
         bin_expr->binary_expr.left = expr;
         bin_expr->binary_expr.right = ParseMultDivExpr(ctx);
@@ -807,7 +822,7 @@ static Ast_Expr* ParseRangeExpr(Parser_Context *ctx)
         const Token *op_token = Accept(ctx, TOK_PeriodPeriod);
         if (!op_token) return expr;
 
-        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        Ast_Expr *bin_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
         bin_expr->binary_expr.op = BIN_OP_Range;
         bin_expr->binary_expr.left = expr;
         bin_expr->binary_expr.right = ParseAddSubExpr(ctx);
@@ -841,7 +856,7 @@ static Ast_Expr* ParseLogicalExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        Ast_Expr *bin_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
         bin_expr->binary_expr.op = op;
         bin_expr->binary_expr.left = expr;
         bin_expr->binary_expr.right = ParseAddSubExpr(ctx);
@@ -881,7 +896,7 @@ static Ast_Expr* ParseComparisonExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Expr *bin_expr = PushExpr(ctx, AST_BinaryExpr, op_token);
+        Ast_Expr *bin_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
         bin_expr->binary_expr.op = op;
         bin_expr->binary_expr.left = expr;
         bin_expr->binary_expr.right = ParseLogicalExpr(ctx);
@@ -912,7 +927,7 @@ static Ast_Expr* ParseTernaryExpr(Parser_Context *ctx)
     if (!false_expr)
         Error(ctx, colon_tok, "Expecting expression after ternary :");
 
-    Ast_Expr *ternary_expr = PushExpr(ctx, AST_TernaryExpr, qmark_tok);
+    Ast_Expr *ternary_expr = PushExpr<Ast_Ternary_Expr>(ctx, AST_TernaryExpr, qmark_tok);
     ternary_expr->ternary_expr.cond_expr = expr;
     ternary_expr->ternary_expr.true_expr = true_expr;
     ternary_expr->ternary_expr.false_expr = false_expr;
@@ -953,7 +968,7 @@ static Ast_Expr* ParseAssignmentExpr(Parser_Context *ctx)
             default: INVALID_CODE_PATH;
         }
 
-        Ast_Expr *bin_expr = PushExpr(ctx, AST_AssignmentExpr, op_token);
+        Ast_Expr *bin_expr = PushExpr<Ast_Assignment>(ctx, AST_AssignmentExpr, op_token);
         bin_expr->assignment.op = op;
         bin_expr->assignment.left = expr;
         bin_expr->assignment.right = ParseAssignmentExpr(ctx);
@@ -994,7 +1009,7 @@ static Ast_Node* ParseBlockStatement(Parser_Context *ctx)
     const Token *block_tok = Accept(ctx, TOK_OpenBlock);
     if (!block_tok) return nullptr;
 
-    Ast_Node *block_node = PushNode(ctx, AST_BlockStmt, block_tok);
+    Ast_Node *block_node = PushNode<Ast_Block_Stmt>(ctx, AST_BlockStmt, block_tok);
     do
     {
         if (Accept(ctx, TOK_CloseBlock))
@@ -1019,7 +1034,7 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx)
     const Token *if_tok = Accept(ctx, TOK_If);
     if (!if_tok) return nullptr;
 
-    Ast_Node *if_node = PushNode(ctx, AST_IfStmt, if_tok);
+    Ast_Node *if_node = PushNode<Ast_If_Stmt>(ctx, AST_IfStmt, if_tok);
     Ast_Expr *cond_expr = ParseExpression(ctx);
     if (!cond_expr)
     {
@@ -1058,7 +1073,7 @@ static Ast_Node* ParseWhileStatement(Parser_Context *ctx)
     // deal with them. This would avoid the problem where if (expr) + 5; could
     // be interpreted differently by a human and the parser.
 
-    Ast_Node *while_node = PushNode(ctx, AST_WhileStmt, while_tok);
+    Ast_Node *while_node = PushNode<Ast_While_Stmt>(ctx, AST_WhileStmt, while_tok);
     Ast_Expr *cond_expr = ParseExpression(ctx);
     if (!cond_expr)
         Error(ctx, "Expecting condition expression after while");
@@ -1083,7 +1098,7 @@ static Ast_Node* ParseForStatement(Parser_Context *ctx)
 
     if (Accept(ctx, TOK_OpenParent))
     {
-        Ast_Node *for_node = PushNode(ctx, AST_ForStmt, for_tok);
+        Ast_Node *for_node = PushNode<Ast_For_Stmt>(ctx, AST_ForStmt, for_tok);
 
         Ast_Node *init_stmt = ParseVarDeclStatement(ctx);
         Ast_Expr *init_expr = nullptr;
@@ -1118,7 +1133,7 @@ static Ast_Node* ParseForStatement(Parser_Context *ctx)
     }
     else
     {
-        Ast_Node *for_node = PushNode(ctx, AST_RangeForStmt, for_tok);
+        Ast_Node *for_node = PushNode<Ast_Range_For_Stmt>(ctx, AST_RangeForStmt, for_tok);
 
         Ast_Node *init_stmt = ParseVarDeclExpr(ctx);
         Ast_Expr *init_expr = nullptr;
@@ -1150,7 +1165,7 @@ static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
     const Token *return_tok = Accept(ctx, TOK_Return);
     if (!return_tok) return nullptr;
 
-    Ast_Node *return_node = PushNode(ctx, AST_ReturnStmt, return_tok);
+    Ast_Node *return_node = PushNode<Ast_Return_Stmt>(ctx, AST_ReturnStmt, return_tok);
     Ast_Expr *expr = ParseExpression(ctx);
     return_node->return_stmt.expr = expr;
     ExpectAfterLast(ctx, TOK_Semicolon);
@@ -1169,7 +1184,7 @@ static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
 
     Accept(ctx, TOK_Identifier);
 
-    Ast_Node *var_decl = PushNode(ctx, AST_VariableDecl, ident_tok);
+    Ast_Node *var_decl = PushNode<Ast_Variable_Decl>(ctx, AST_VariableDecl, ident_tok);
     Name name = PushName(&ctx->ast->arena,
             ident_tok->value, ident_tok->value_end);
     var_decl->variable_decl.name = name;
@@ -1225,7 +1240,7 @@ static Ast_Node* ParseExprStatement(Parser_Context *ctx)
     if (!expr) return nullptr;
 
     ExpectAfterLast(ctx, TOK_Semicolon);
-    Ast_Node *stmt = PushNode(ctx, AST_ExpressionStmt, tok);
+    Ast_Node *stmt = PushNode<Ast_Expr_Stmt>(ctx, AST_ExpressionStmt, tok);
     stmt->expr_stmt.expr = expr;
     return stmt;
 }
@@ -1253,7 +1268,7 @@ static void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
         if (token->type == TOK_Identifier)
         {
             GetNextToken(ctx);
-            Ast_Node *param_node = PushNode(ctx, AST_Parameter, token);
+            Ast_Node *param_node = PushNode<Ast_Parameter>(ctx, AST_Parameter, token);
             Name name = PushName(&ctx->ast->arena,
                     token->value, token->value_end);
             param_node->parameter.name = name;
@@ -1280,7 +1295,7 @@ static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
     TRACE(ParseFunction);
     if (!Accept(ctx, TOK_OpenParent)) return nullptr;
 
-    Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
+    Ast_Node *func_def = PushNode<Ast_Function_Def>(ctx, AST_FunctionDef, ident_tok);
     Name name = PushName(&ctx->ast->arena,
             ident_tok->value, ident_tok->value_end);
     func_def->function.name = name;
@@ -1320,7 +1335,7 @@ static Ast_Node* ParseStructMember(Parser_Context *ctx)
 
     ExpectAfterLast(ctx, TOK_Colon);
 
-    Ast_Node *member = PushNode(ctx, AST_StructMember, ident_tok);
+    Ast_Node *member = PushNode<Ast_Struct_Member>(ctx, AST_StructMember, ident_tok);
     Ast_Node *type = ParseType(ctx);
 
     Name name = PushName(&ctx->ast->arena,
@@ -1338,7 +1353,7 @@ static Ast_Node* ParseStruct(Parser_Context *ctx, const Token *ident_tok)
     const Token *struct_tok = Accept(ctx, TOK_Struct);
     if (!struct_tok) return nullptr;
 
-    Ast_Node *struct_def = PushNode(ctx, AST_StructDef, ident_tok);
+    Ast_Node *struct_def = PushNode<Ast_Struct_Def>(ctx, AST_StructDef, ident_tok);
     Name name = PushName(&ctx->ast->arena,
             ident_tok->value, ident_tok->value_end);
     struct_def->struct_def.name = name;
@@ -1367,7 +1382,7 @@ static Ast_Node* ParseNamedImport(Parser_Context *ctx, const Token *ident_tok)
     }
     ExpectAfterLast(ctx, TOK_Semicolon);
 
-    Ast_Node *import_node = PushNode(ctx, AST_Import, import_tok);
+    Ast_Node *import_node = PushNode<Ast_Import>(ctx, AST_Import, import_tok);
     Name name = PushName(&ctx->ast->arena,
             ident_tok->value, ident_tok->value_end);
     String mod_name_str = ConvertString(ctx,
@@ -1390,7 +1405,7 @@ static Ast_Node* ParseGlobalImport(Parser_Context *ctx)
     }
     ExpectAfterLast(ctx, TOK_Semicolon);
 
-    Ast_Node *import_node = PushNode(ctx, AST_Import, import_tok);
+    Ast_Node *import_node = PushNode<Ast_Import>(ctx, AST_Import, import_tok);
     String mod_name_str = ConvertString(ctx,
             module_name_tok->value, module_name_tok->value_end);
     import_node->import.name = { };
@@ -1404,7 +1419,7 @@ static Ast_Node* ParseForeignFunction(Parser_Context *ctx, const Token *ident_to
     TRACE(ParseForeignFunction);
     if (!Accept(ctx, TOK_OpenParent)) return nullptr;
 
-    Ast_Node *func_def = PushNode(ctx, AST_FunctionDef, ident_tok);
+    Ast_Node *func_def = PushNode<Ast_Function_Def>(ctx, AST_FunctionDef, ident_tok);
     Name name = PushName(&ctx->ast->arena,
             ident_tok->value, ident_tok->value_end);
     func_def->function.name = name;
@@ -1458,7 +1473,7 @@ static Ast_Node* ParseForeignBlock(Parser_Context *ctx)
     const Token *foreign_tok = Accept(ctx, TOK_Foreign);
     if (!foreign_tok) return nullptr;
 
-    Ast_Node *foreign_block = PushNode(ctx, AST_ForeignBlock, foreign_tok);
+    Ast_Node *foreign_block = PushNode<Ast_Foreign_Block>(ctx, AST_ForeignBlock, foreign_tok);
 
     Expect(ctx, TOK_OpenBlock);
     while (ContinueParsing(ctx))
@@ -1514,7 +1529,7 @@ static Ast_Node* ParseTopLevelStmt(Parser_Context *ctx)
 b32 Parse(Parser_Context *ctx)
 {
     ASSERT(ctx && ctx->ast);
-    ctx->ast->root = PushNode(ctx, AST_TopLevel, GetCurrentToken(ctx));
+    ctx->ast->root = PushNode<Ast_Top_Level>(ctx, AST_TopLevel, GetCurrentToken(ctx));
     Ast_Node *root = ctx->ast->root;
 
     while (ContinueParsing(ctx))

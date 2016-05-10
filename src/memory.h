@@ -17,6 +17,7 @@ struct Memory_Arena
 };
 
 void FreeMemoryArena(Memory_Arena *arena);
+void GetMemoryArenaUsage(Memory_Arena *arena, s64 *used, s64 *unused);
 
 void* PushData(Memory_Arena *arena, s64 size, s64 alignment);
 Pointer PushDataPointer(Memory_Arena *arena, s64 size, s64 alignment);

@@ -7,6 +7,7 @@
 #include "ir_gen.h"
 
 #include <cstdio>
+#include <cinttypes>
 
 namespace hplang
 {
@@ -172,6 +173,37 @@ void PrintSourceLineAndArrow(Compiler_Context *ctx, File_Location file_loc)
     }
 }
 
+static void PrintAstMem(IoFile *file, Ast *ast)
+{
+    s64 used, unused;
+    GetMemoryArenaUsage(&ast->arena, &used, &unused);
+    fprintf((FILE*)file, " ast (used = %" PRId64 "; unused = %" PRId64 "; stmts = %d; exprs = %d)\n",
+            used, unused, ast->stmt_count, ast->expr_count);
+}
+
+static void PrintMemoryDiagnostic(Compiler_Context *ctx)
+{
+    IoFile *file = ctx->error_ctx.file;
+    s64 used, unused;
+
+    GetMemoryArenaUsage(&ctx->arena, &used, &unused);
+    fprintf((FILE*)file, "ctx (used = %" PRId64 "; unused = %" PRId64 ")\n",
+            used, unused);
+
+    GetMemoryArenaUsage(&ctx->env.arena, &used, &unused);
+    fprintf((FILE*)file, "env (used = %" PRId64 "; unused = %" PRId64 ")\n",
+            used, unused);
+
+    for (s64 i = 0; i < ctx->modules.count; i++)
+    {
+        Module *module = array::At(ctx->modules, i);
+        fprintf((FILE*)file, "module '");
+        PrintString(file, module->module_file->filename);
+        fprintf((FILE*)file, "':\n");
+        PrintAstMem(file, &module->ast);
+    }
+}
+
 b32 Compile(Compiler_Context *ctx, Open_File *open_file)
 {
     Module *root_module = PushStruct<Module>(&ctx->arena);
@@ -192,6 +224,8 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     }
 
     FreeLexerContext(&lexer_ctx);
+
+    PrintMemoryDiagnostic(ctx);
 
     if (ctx->options.stop_after == CP_Lexing)
     {
@@ -217,6 +251,8 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     FreeTokenList(&tokens);
     FreeParserContext(&parser_ctx);
 
+    PrintMemoryDiagnostic(ctx);
+
     if (ctx->options.stop_after == CP_Parsing)
     {
         ctx->result = RES_OK;
@@ -236,6 +272,8 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
 
     FreeSemanticCheckContext(&sem_ctx);
 
+    PrintMemoryDiagnostic(ctx);
+
     if (ctx->options.stop_after == CP_Checking)
     {
         ctx->result = RES_OK;
@@ -249,6 +287,8 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     PrintIr(stderr, &ir_ctx);
 
     FreeIrGenContext(&ir_ctx);
+
+    PrintMemoryDiagnostic(ctx);
 
     if (ctx->options.stop_after == CP_IrGen)
     {

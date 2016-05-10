@@ -364,13 +364,24 @@ static Ast_Expr* MakeTypecast(Sem_Check_Context *ctx,
 const s32 MAX_INT_32 = 0x7fffffff;
 const s64 MAX_INT_64 = 0x7fffffffffffffff;
 
-static Type* GetIntegerLiteralType(Ast_Expr *expr)
+const u32 MAX_UINT_32 = 0xffffffff;
+const u64 MAX_UINT_64 = 0xffffffffffffffff;
+
+static Type* GetSignedIntLiteralType(Ast_Expr *expr)
 {
     ASSERT(expr->type == AST_IntLiteral);
     if (expr->int_literal.value <= MAX_INT_32)
         return GetBuiltinType(TYP_s32);
     if (expr->int_literal.value <= MAX_INT_64)
         return GetBuiltinType(TYP_s64);
+    return GetBuiltinType(TYP_u64);
+}
+
+static Type* GetUnsignedIntLiteralType(Ast_Expr *expr)
+{
+    ASSERT(expr->type == AST_UIntLiteral);
+    if (expr->int_literal.value <= MAX_UINT_32)
+        return GetBuiltinType(TYP_u32);
     return GetBuiltinType(TYP_u64);
 }
 
@@ -1362,7 +1373,11 @@ static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
             break;
         case AST_IntLiteral:
             *vt = VT_NonAssignable;
-            result_type = GetIntegerLiteralType(expr);
+            result_type = GetSignedIntLiteralType(expr);
+            break;
+        case AST_UIntLiteral:
+            *vt = VT_NonAssignable;
+            result_type = GetUnsignedIntLiteralType(expr);
             break;
         case AST_Float32Literal:
             *vt = VT_NonAssignable;

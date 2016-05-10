@@ -40,6 +40,7 @@ enum Ast_Expr_Type
     AST_BoolLiteral,
     AST_CharLiteral,
     AST_IntLiteral,
+    AST_UIntLiteral,
     AST_Float32Literal,
     AST_Float64Literal,
     AST_StringLiteral,
@@ -193,9 +194,12 @@ struct Type;
 struct Ast_Expr
 {
     Ast_Expr_Type type;
+    Type *expr_type;
+    File_Location file_loc;
     union {
         Ast_Bool_Literal    bool_literal;
         Ast_Int_Literal     int_literal;
+        Ast_Int_Literal     uint_literal;
         Ast_Float32_Literal float32_literal;
         Ast_Float64_Literal float64_literal;
         Ast_Char_Literal    char_literal;
@@ -209,8 +213,6 @@ struct Ast_Expr
         Ast_Function_Call   function_call;
         Ast_Assignment      assignment;
     };
-    Type *expr_type;
-    File_Location file_loc;
 };
 
 struct Ast_Type_Node
@@ -338,6 +340,7 @@ struct Ast_Expr_Stmt
 struct Ast_Node
 {
     Ast_Node_Type type;
+    File_Location file_loc;
     union {
         Ast_Top_Level       top_level;
         Ast_Foreign_Block   foreign;
@@ -356,7 +359,6 @@ struct Ast_Node
         Ast_Block_Stmt      block_stmt;
         Ast_Expr_Stmt       expr_stmt;
     };
-    File_Location file_loc;
 };
 
 b32 PushNodeList(Ast_Node_List *nodes, Ast_Node *node);
@@ -368,6 +370,8 @@ struct Ast
 {
     Memory_Arena arena;
     Ast_Node *root;
+    s32 stmt_count;
+    s32 expr_count;
 };
 
 struct Token;
@@ -377,6 +381,44 @@ Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token);
 Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, File_Location file_loc);
 Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, const Token *token);
 void FreeAst(Ast *ast);
+
+struct Ast_NT_FL
+{
+    Ast_Node_Type node_type;
+    File_Location file_loc;
+};
+
+template <class T>
+Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, File_Location file_loc)
+{
+    ast->stmt_count++;
+    Ast_NT_FL *nt_loc = PushStruct<Ast_NT_FL>(&ast->arena);
+    T *node = PushStruct<T>(&ast->arena);
+    nt_loc->node_type = node_type;
+    nt_loc->file_loc = file_loc;
+    *node = { };
+    return (Ast_Node*)nt_loc;
+}
+
+struct Ast_ET_FL
+{
+    Ast_Expr_Type type;
+    Type *expr_type;
+    File_Location file_loc;
+};
+
+template <class T>
+Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, File_Location file_loc)
+{
+    ast->expr_count++;
+    Ast_ET_FL *et_loc = PushStruct<Ast_ET_FL>(&ast->arena);
+    T *expr = PushStruct<T>(&ast->arena);
+    et_loc->type = expr_type;
+    et_loc->expr_type = nullptr;
+    et_loc->file_loc = file_loc;
+    *expr = { };
+    return (Ast_Expr*)et_loc;
+}
 
 } // hplang
 

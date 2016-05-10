@@ -32,6 +32,7 @@ b32 PushExprList(Ast_Expr_List *exprs, Ast_Expr *expr)
 
 Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, File_Location file_loc)
 {
+    ast->stmt_count++;
     Ast_Node *node = PushStruct<Ast_Node>(&ast->arena);
     *node = { };
     node->type = node_type;
@@ -46,6 +47,7 @@ Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token)
 
 Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, File_Location file_loc)
 {
+    ast->expr_count++;
     Ast_Expr *expr = PushStruct<Ast_Expr>(&ast->arena);
     *expr = { };
     expr->type = expr_type;
@@ -177,6 +179,7 @@ void FreeAstExpr(Ast_Expr *expr)
         case AST_BoolLiteral:
         case AST_CharLiteral:
         case AST_IntLiteral:
+        case AST_UIntLiteral:
         case AST_Float32Literal:
         case AST_Float64Literal:
         case AST_StringLiteral:

@@ -78,6 +78,19 @@ void FreeMemoryArena(Memory_Arena *arena)
     arena->head = nullptr;
 }
 
+void GetMemoryArenaUsage(Memory_Arena *arena, s64 *used, s64 *unused)
+{
+    *used = 0;
+    *unused = 0;
+    Memory_Block *block = arena->head;
+    while (block)
+    {
+        (*used) += block->top_pointer;
+        (*unused) += block->memory.size - block->top_pointer;
+        block = block->prev;
+    }
+}
+
 static s64 Align(s64 x, s64 alignment)
 {
     ASSERT(alignment > 0);
@@ -97,7 +110,7 @@ static s64 PointerDiff(void *p1, void *p2)
 
 static b32 AllocateNewMemoryBlock(Memory_Arena *arena, s64 min_size)
 {
-    s64 memory_block_size = MBytes(16);
+    s64 memory_block_size = MBytes(4);
     min_size = Align(min_size, KBytes(4));
     memory_block_size = (memory_block_size < min_size) ? min_size : memory_block_size;
 
