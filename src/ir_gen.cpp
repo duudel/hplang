@@ -853,14 +853,37 @@ b32 GenIr(Ir_Gen_Context *ctx)
 
 // IR printing
 
-static s64 PrintString(FILE *file, String str)
+static s64 PrintString(FILE *file, String str, s64 max_len)
 {
-    return fwrite(str.data, 1, str.size, file);
+    bool ellipsis = false;
+    if (str.size < max_len)
+        max_len = str.size;
+    else if (str.size > max_len)
+        ellipsis = true;
+
+    s64 len = 0;
+    for (s64 i = 0; i < max_len - (ellipsis ? 3 : 0); i++)
+    {
+        char c = str.data[i];
+        switch (c)
+        {
+            case '\t': len += 2; fputs("\\t", file); break;
+            case '\n': len += 2; fputs("\\n", file); break;
+            case '\r': len += 2; fputs("\\r", file); break;
+            case '\f': len += 2; fputs("\\f", file); break;
+            case '\v': len += 2; fputs("\\v", file); break;
+            default:
+                len += 1; fputc(c, file);
+        }
+    }
+    if (ellipsis) len += fprintf(file, "...");
+    return len;
+    //return fwrite(str.data, 1, str.size, file);
 }
 
-static s64 PrintName(FILE *file, Name name)
+static s64 PrintName(FILE *file, Name name, s64 max_len)
 {
-    return PrintString(file, name.str);
+    return PrintString(file, name.str, max_len);
 }
 
 static void PrintPadding(FILE *file, s64 len, s64 min_len)
@@ -876,7 +899,7 @@ static void PrintOpcode(FILE *file, Ir_Opcode opcode)
 {
     ASSERT((s64)opcode < IR_COUNT);
     s64 len = fprintf(file, "%s", ir_opcode_names[opcode]);
-    PrintPadding(file, len, 10);
+    PrintPadding(file, len, 16);
 }
 
 static s64 PrintPtr(FILE *file, void *ptr)
@@ -905,7 +928,7 @@ static s64 PrintImmediate(FILE *file, Ir_Operand oper)
         case IR_TYP_f64:    len = fprintf(file, "%fd", oper.imm_f64); break;
         case IR_TYP_str:
             len = fprintf(file, "\"");
-            len += PrintString(file, oper.imm_str);
+            len += PrintString(file, oper.imm_str, 16);
             len += fprintf(file, "\"");
             break;
     }
@@ -926,7 +949,7 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
             len = fprintf(file, "_");
             break;
         case IR_OPER_Variable:
-            len = PrintName(file, oper.var.name);
+            len = PrintName(file, oper.var.name, 17);
             break;
         case IR_OPER_Temp:
             len = fprintf(file, "temp%" PRId64, oper.temp.temp_id);
@@ -938,7 +961,7 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
             len = PrintLabel(file, oper);
             break;
     }
-    PrintPadding(file, len, 16);
+    PrintPadding(file, len, 20);
 }
 
 static void PrintComment(FILE *file, Ir_Comment comment)
@@ -953,11 +976,11 @@ static void PrintComment(FILE *file, Ir_Comment comment)
 static void PrintInstruction(FILE *file, Ir_Instruction instr)
 {
     PrintOpcode(file, instr.opcode);
-    fprintf(file, "\t");
+    fprintf(file, "  ");
     PrintOperand(file, instr.target);
-    fprintf(file, "\t");
+    fprintf(file, "  ");
     PrintOperand(file, instr.oper1);
-    fprintf(file, "\t");
+    fprintf(file, "  ");
     PrintOperand(file, instr.oper2);
     PrintComment(file, instr.comment);
     fprintf(file, "\n");
@@ -965,7 +988,7 @@ static void PrintInstruction(FILE *file, Ir_Instruction instr)
 
 static void PrintRoutine(FILE *file, Ir_Routine *routine)
 {
-    PrintName(file, routine->name);
+    PrintName(file, routine->name, 80);
     fprintf(file, ":\n");
     for (s64 i = 0; i < routine->instructions.count; i++)
     {
