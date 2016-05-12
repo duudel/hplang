@@ -7,6 +7,7 @@
 #include "assert.h"
 
 #include <cstdio>
+#include <cinttypes>
 
 namespace hplang
 {
@@ -1999,7 +2000,8 @@ b32 Check(Sem_Check_Context *ctx)
         ctx->pending_exprs = { };
         if (pending_exprs.count > 0)
         {
-            fprintf(stderr, "DEBUG: pending exprs %lld\n", pending_exprs.count);
+            fprintf(stderr, "DEBUG: pending exprs %" PRId64 "\n",
+                    pending_exprs.count);
             for (s64 i = 0; i < pending_exprs.count; i++)
             {
                 Pending_Expr pe = array::At(pending_exprs, i);
