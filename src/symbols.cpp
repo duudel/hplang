@@ -551,7 +551,7 @@ static Symbol* LookupSymbol(Scope *scope, Name name)
     Symbol *symbol = scope->table.data[hash];
     while (symbol && probe_offset < table_size)
     {
-        if (symbol && symbol->name.hash == name.hash)
+        if (symbol && symbol->name == name)
             return symbol;
         probe_offset++;
         symbol = scope->table.data[(hash + probe_offset) % table_size];

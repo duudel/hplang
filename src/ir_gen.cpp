@@ -496,6 +496,43 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     Binary_Op op = expr->binary_expr.op;
     Ast_Expr *left = expr->binary_expr.left;
     Ast_Expr *right = expr->binary_expr.right;
+
+    switch (op)
+    {
+        case BIN_OP_And:
+            {
+                Ir_Operand and_end = NewLabel(ctx);
+                Ir_Operand target = NewTemp(routine, GetIrType(expr->expr_type));
+
+                Ir_Operand loper = GenExpression(ctx, left, routine);
+                PushInstruction(ctx, routine, IR_Mov, target, loper);
+                PushInstruction(ctx, routine, IR_Jz, loper, and_end);
+
+                Ir_Operand roper = GenExpression(ctx, left, routine);
+                PushInstruction(ctx, routine, IR_Mov, target, roper);
+
+                SetLabelTarget(routine, and_end);
+                return target;
+            }
+        case BIN_OP_Or:
+            {
+                Ir_Operand or_end = NewLabel(ctx);
+                Ir_Operand target = NewTemp(routine, GetIrType(expr->expr_type));
+
+                Ir_Operand loper = GenExpression(ctx, left, routine);
+                PushInstruction(ctx, routine, IR_Mov, target, loper);
+                PushInstruction(ctx, routine, IR_Jnz, loper, or_end);
+
+                Ir_Operand roper = GenExpression(ctx, left, routine);
+                PushInstruction(ctx, routine, IR_Mov, target, roper);
+
+                SetLabelTarget(routine, or_end);
+                return target;
+            }
+        default:
+            break;
+    }
+
     Ir_Operand loper = GenExpression(ctx, left, routine);
     Ir_Operand roper = GenExpression(ctx, right, routine);
     Ir_Operand target = NewTemp(routine, GetIrType(expr->expr_type));
@@ -526,10 +563,10 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
             PushInstruction(ctx, routine, IR_Xor, target, loper, roper);
             break;
         case BIN_OP_And:
-            NOT_IMPLEMENTED("IR gen for logical and");
+            INVALID_CODE_PATH;
             break;
         case BIN_OP_Or:
-            NOT_IMPLEMENTED("IR gen for logical or");
+            INVALID_CODE_PATH;
             break;
         case BIN_OP_Equal:
             PushInstruction(ctx, routine, IR_Eq, target, loper, roper);
