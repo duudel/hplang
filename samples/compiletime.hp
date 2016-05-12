@@ -1,8 +1,11 @@
 // hplang - Compile time execution sample
 // 2016-03-30
+
 /*
-This feature may not get implemented due to schedule constraints :(
+This feature might not be implemented due to schedule constraints :(
 */
+
+import "io";
 
 main :: ()
 {
@@ -16,8 +19,8 @@ main :: ()
     var2 = false;
 
     // Some more test prints to test expressions were evaluated correctly
-    print("Var 1 = %d", var1);
-    print("Var 1 = %d", var2);
+    print("Var 1 = ", var1);
+    print("Var 1 = ", var2);
 }
 
 #exec main();
