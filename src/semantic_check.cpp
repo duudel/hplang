@@ -73,6 +73,18 @@ static void ErrorFuncCallNoOverload(Sem_Check_Context *ctx,
     PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
+static void ErrorNotCallable(Sem_Check_Context *ctx,
+        File_Location file_loc, Type *fexpr_type)
+{
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "Expression of type '");
+    PrintType(err_ctx->file, fexpr_type);
+    fprintf((FILE*)err_ctx->file, "' is not callable\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
+}
+
 static void ErrorReturnTypeMismatch(Sem_Check_Context *ctx,
         File_Location file_loc, Type *a, Type *b, Ast_Node *rt_inferred)
 {
@@ -471,8 +483,8 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
     Ast_Expr *fexpr = function_call->fexpr;
 
     Value_Type vt;
-    Type *type = CheckExpr(ctx, fexpr, &vt);
-    ASSERT(type != nullptr);
+    Type *fexpr_type = CheckExpr(ctx, fexpr, &vt);
+    ASSERT(fexpr_type != nullptr);
 
     // TODO(henrik): Should not make an array for arg types as they are now
     // stored int the arg->expr_type and could be looked up from there.
@@ -492,12 +504,12 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
     // errors, return quietly and propagate TYP_none to avoid extranous errors.
     if (!ContinueChecking(ctx) ||
         args_have_none_type ||
-        TypeIsNone(type))
+        TypeIsNone(fexpr_type))
     {
         return GetBuiltinType(TYP_none);
     }
 
-    if (type->tag == TYP_Function)
+    if (fexpr_type->tag == TYP_Function)
     {
         if (fexpr->type == AST_VariableRef)
         {
@@ -557,17 +569,17 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
         }
         else
         {
-            s64 score = CheckFunctionArgs(type, arg_count, arg_types);
+            s64 score = CheckFunctionArgs(fexpr_type, arg_count, arg_types);
             if (score < 0)
             {
                 // TODO(henrik): Improve this error message
                 Error(ctx, expr->file_loc, "Calling with invalid arguments");
                 return GetBuiltinType(TYP_none);
             }
-            return type->function_type.return_type;
+            return fexpr_type->function_type.return_type;
         }
     }
-    Error(ctx, function_call->fexpr->file_loc, "Expression is not callable");
+    ErrorNotCallable(ctx, fexpr->file_loc, fexpr_type);
     return GetBuiltinType(TYP_none);
 }
 
