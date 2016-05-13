@@ -51,7 +51,6 @@ void PrintFileLocation(IoFile *file, File_Location file_loc)
             loc_len = sizeof(spaces) - 1;
         fwrite(spaces, 1, loc_len, fp);
     }
-    //fprintf(fp, "\n  ");
 }
 
 void PrintFileLine(IoFile *file, File_Location file_loc)
@@ -61,10 +60,8 @@ void PrintFileLine(IoFile *file, File_Location file_loc)
 
     const char *file_start = (const char*)open_file->contents.ptr;
     ASSERT(file_start != nullptr);
-    //ASSERT(file_loc.line_offset < open_file->contents.size);
 
-    //const char *line_start = file_start + file_loc.line_offset;
-    const char *line_start = SeekToLineStart(file_loc.file, file_loc.offset_start);
+    const char *line_start = SeekToLineStart(open_file, file_loc.offset_start);
     s64 line_len = 0;
 
     while (line_len < open_file->contents.size)

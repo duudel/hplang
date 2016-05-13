@@ -1,4 +1,5 @@
-// Using function as a variable
+// Assigning function to a variable and invoking the function through the
+// variable.
 // 2016-05-13
 
 func :: (a : s32, b : f32) : bool
@@ -27,6 +28,9 @@ test :: ()
     /*assert(*/ result == true /*)*/;
 
     result = call_f(f, 15, -2.5f);
+    /*assert(*/ result == false /*)*/;
+
+    result = call_f(func, 15, -2.5f);
     /*assert(*/ result == false /*)*/;
 
     result = call_f2(f, 0, 2.5f);

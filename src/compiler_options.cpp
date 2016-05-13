@@ -11,7 +11,7 @@ Compiler_Options DefaultCompilerOptions()
     result.max_line_arrow_error_count = 4;
     result.stop_after = CP_CodeGen;
 
-    result.diagnose_memory = false;
+    result.diagnose_memory = true;
     return result;
 }
 

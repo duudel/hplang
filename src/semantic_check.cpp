@@ -386,7 +386,7 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
 static Ast_Expr* MakeTypecast(Sem_Check_Context *ctx,
         Ast_Expr *oper, Type *type)
 {
-    Ast_Expr *cast_expr = PushAstExpr(ctx->ast, AST_TypecastExpr, oper->file_loc);
+    Ast_Expr *cast_expr = PushAstExpr<Ast_Typecast_Expr>(ctx->ast, AST_TypecastExpr, oper->file_loc);
     cast_expr->typecast_expr.expr = oper;
     cast_expr->typecast_expr.type = nullptr;
     cast_expr->expr_type = type;
