@@ -126,6 +126,16 @@ static void FreeAstNode(Ast_Node *node)
         case AST_Type_Array:
             FreeAstNode(node->type_node.array.base_type);
             break;
+        case AST_Type_Function:
+            {
+                FreeAstNode(node->type_node.function.return_type);
+                Ast_Param_Type *param_type = node->type_node.function.param_types;
+                while (param_type)
+                {
+                    FreeAstNode(param_type->type);
+                    param_type = param_type->next;
+                }
+            } break;
 
         case AST_StructMember:
             FreeAstNode(node->struct_member.type);

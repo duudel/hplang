@@ -275,6 +275,52 @@ static Ast_Node* ParseType(Parser_Context *ctx)
     const Token *token = GetCurrentToken(ctx);
     switch (token->type)
     {
+        case TOK_Bang:
+            {
+                GetNextToken(ctx);
+                type_node = PushNode<Ast_Type_Node>(ctx, AST_Type_Function, token);
+
+                ExpectAfterLast(ctx, TOK_OpenParent);
+
+                Ast_Node *param_type = ParseType(ctx);
+                Ast_Param_Type *param_types = nullptr;
+                s64 param_count = 0;
+                if (param_type)
+                {
+                    param_types = PushStruct<Ast_Param_Type>(&ctx->ast->arena);
+                    param_types->type = param_type;
+                    param_types->next = nullptr;
+
+                    param_count++;
+
+                    Ast_Param_Type *param_it = param_types;
+                    while (Accept(ctx, TOK_Comma) && ContinueParsing(ctx))
+                    {
+                        Ast_Node *param_type = ParseType(ctx);
+                        if (!param_type)
+                        {
+                            Error(ctx, "Expecting parameter type after ,");
+                            break;
+                        }
+
+                        Ast_Param_Type *new_param_type = PushStruct<Ast_Param_Type>(&ctx->ast->arena);
+                        new_param_type->type = param_type;
+                        new_param_type->next = nullptr;
+
+                        param_it->next = new_param_type;
+                        param_it = new_param_type;
+
+                        param_count++;
+                    }
+                }
+                type_node->type_node.function.param_count = param_count;
+                type_node->type_node.function.param_types = param_types;
+                Expect(ctx, TOK_CloseParent);
+
+                ExpectAfterLast(ctx, TOK_Colon);
+                Ast_Node *return_type = ParseType(ctx);
+                type_node->type_node.function.return_type = return_type;
+            } break;
         case TOK_OpenParent:
             {
                 GetNextToken(ctx);

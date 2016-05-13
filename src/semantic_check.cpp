@@ -321,8 +321,8 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
                         return symbol->type;
                     //case SYM_Enum:
                     //case SYM_Typealias:
-                        NOT_IMPLEMENTED("enum and typealias in CheckType");
-                        break;
+                    //    NOT_IMPLEMENTED("enum and typealias in CheckType");
+                    //    break;
 
                     case SYM_PrimitiveType:
                         return symbol->type;
@@ -344,6 +344,24 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
     case AST_Type_Array:
         NOT_IMPLEMENTED("Array type check");
         return CheckType(ctx, node->type_node.array.base_type);
+    case AST_Type_Function:
+        {
+            s64 param_count = node->type_node.function.param_count;
+            Ast_Param_Type *param_type = node->type_node.function.param_types;
+
+            Type *ftype = PushFunctionType(ctx->env, TYP_Function, param_count);
+            s64 i = 0;
+            while (param_type)
+            {
+                ftype->function_type.parameter_types[i] = CheckType(ctx, param_type->type);
+                param_type = param_type->next;
+                i++;
+            }
+
+            Ast_Node *return_type = node->type_node.function.return_type;
+            ftype->function_type.return_type = CheckType(ctx, return_type);
+            return ftype;
+        } break;
     default:
         INVALID_CODE_PATH;
     }
@@ -1734,6 +1752,7 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
         case AST_Type_Plain:
         case AST_Type_Pointer:
         case AST_Type_Array:
+        case AST_Type_Function:
             INVALID_CODE_PATH;
     }
 }

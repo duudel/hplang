@@ -205,6 +205,7 @@ void InferReturnType(Environment *env, Type *return_type, Ast_Node *location);
 
 Type* PushType(Environment *env, Type_Tag tag);
 Type* PushPendingType(Environment *env);
+Type* PushFunctionType(Environment *env, Type_Tag tag, s64 param_count);
 Type* GetPointerType(Environment *env, Type *base_type);
 
 Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type);

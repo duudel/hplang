@@ -479,6 +479,17 @@ Type* PushPendingType(Environment *env)
     return PushType(env, TYP_pending);
 }
 
+Type* PushFunctionType(Environment *env, Type_Tag tag, s64 param_count)
+{
+    Type *ftype = PushType(env, tag);
+    ftype->function_type.parameter_count = param_count;
+    if (param_count > 0)
+        ftype->function_type.parameter_types = PushArray<Type*>(&env->arena, param_count);
+    else
+        ftype->function_type.parameter_types = nullptr;
+    return ftype;
+}
+
 Type* GetPointerType(Environment *env, Type *base_type)
 {
     Type *pointer_type = base_type->pointer_type;

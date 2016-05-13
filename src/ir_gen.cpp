@@ -892,6 +892,9 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
         case AST_Type_Array:
             INVALID_CODE_PATH;
             break;
+        case AST_Type_Function:
+            INVALID_CODE_PATH;
+            break;
 
         case AST_StructMember:
             INVALID_CODE_PATH;

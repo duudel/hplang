@@ -22,6 +22,7 @@ enum Ast_Node_Type
     AST_Type_Plain,
     AST_Type_Pointer,
     AST_Type_Array,
+    AST_Type_Function,
 
     AST_StructMember,
 
@@ -216,23 +217,43 @@ struct Ast_Expr
     };
 };
 
+/*
+struct Ast_Node_List_Item
+{
+    Ast_Node node;
+    Ast_Node_List_Item *next;
+};
+*/
+
+struct Ast_Param_Type
+{
+    Ast_Node *type;
+    Ast_Param_Type *next;
+};
+
 struct Ast_Type_Node
 {
+    struct Plain {
+        Name name;
+    };
     struct Pointer {
-        s64 indirection;
+        s64 indirection;    // NOTE(henrik): should be > 0
         Ast_Node *base_type;
     };
     struct Array {
         s64 array;
         Ast_Node *base_type;
     };
-    struct Plain {
-        Name name;
+    struct Function {
+        Ast_Node *return_type;
+        s64 param_count;
+        Ast_Param_Type *param_types;
     };
     union {
-        Pointer pointer;
-        Array array;
-        Plain plain;
+        Plain       plain;
+        Pointer     pointer;
+        Array       array;
+        Function    function;
     };
 };
 
