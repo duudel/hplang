@@ -404,6 +404,20 @@ static s64 ConvertInt(const char *s, const char *end)
     return result;
 }
 
+static s64 ConvertUInt(const char *s, const char *end)
+{
+    ASSERT(end[-1] == 'u');
+    end--; // eat 'u' from the end
+    s64 result = 0;
+    while (s != end)
+    {
+        char c = *s++;
+        result *= 10;
+        result += s64(c - '0');
+    }
+    return result;
+}
+
 static f64 ConvertFloat(Parser_Context *ctx, const Token *token)
 {
     // NOTE(henrik): As token->value is not null-terminated, we need to make a
@@ -529,7 +543,7 @@ static String ConvertString(Parser_Context *ctx, const char *s, const char *end)
 
 static Ast_Expr* ParseLiteralExpr(Parser_Context *ctx)
 {
-    const Token *token = Accept(ctx, TOK_Null);
+    const Token *token = Accept(ctx, TOK_NullLit);
     if (token)
     {
         return PushExpr<Ast_Int_Literal>(ctx, AST_Null, token); // TODO(henrik): needs an empty Ast_Null_Literal struct
@@ -548,11 +562,18 @@ static Ast_Expr* ParseLiteralExpr(Parser_Context *ctx)
         literal->bool_literal.value = false;
         return literal;
     }
-    token = Accept(ctx, TOK_IntegerLit);
+    token = Accept(ctx, TOK_IntLit);
     if (token)
     {
         Ast_Expr *literal = PushExpr<Ast_Int_Literal>(ctx, AST_IntLiteral, token);
         literal->int_literal.value = ConvertInt(token->value, token->value_end);
+        return literal;
+    }
+    token = Accept(ctx, TOK_UIntLit);
+    if (token)
+    {
+        Ast_Expr *literal = PushExpr<Ast_Int_Literal>(ctx, AST_UIntLiteral, token);
+        literal->int_literal.value = ConvertUInt(token->value, token->value_end);
         return literal;
     }
     token = Accept(ctx, TOK_Float32Lit);

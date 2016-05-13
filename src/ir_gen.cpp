@@ -1013,13 +1013,18 @@ static s64 PrintPtr(FILE *file, void *ptr)
     return fprintf(file, "(null)");
 }
 
+static s64 PrintBool(FILE *file, bool value)
+{
+    return fprintf(file, "%s", (value ? "(true)" : "(false)"));
+}
+
 static s64 PrintImmediate(FILE *file, Ir_Operand oper)
 {
     s64 len = 0;
     switch (oper.type)
     {
         case IR_TYP_ptr:    len = PrintPtr(file, oper.imm_ptr); break;
-        case IR_TYP_bool:   len = fprintf(file, "%s", (oper.imm_bool ? "true" : "false")); break;
+        case IR_TYP_bool:   len = PrintBool(file, oper.imm_bool); break;
         case IR_TYP_u8:     len = fprintf(file, "%u", oper.imm_u8); break;
         case IR_TYP_s8:     len = fprintf(file, "%d", oper.imm_s8); break;
         case IR_TYP_u16:    len = fprintf(file, "%u", oper.imm_u16); break;

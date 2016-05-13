@@ -12,25 +12,27 @@ enum Token_Type
     TOK_Comment,
     TOK_Multiline_comment,
 
-    TOK_IntegerLit,     // 34123543 (w/o sign)
+    TOK_IntLit,         // 34123543 (w/o sign)
+    TOK_UIntLit,        // 34123543u (w/o sign)
     TOK_Float32Lit,     // 0.031f
     TOK_Float64Lit,     // 43.12d or 3.21
     TOK_CharLit,        // 'x'
     TOK_StringLit,      // "xyz"
     TOK_TrueLit,        // true
     TOK_FalseLit,       // false
+    TOK_NullLit,        // null
 
     TOK_Identifier,     // identifier
 
-    TOK_Import,         // import
-    TOK_If,             // if
     TOK_Else,           // else
     TOK_For,            // for
     TOK_Foreign,        // foreign
-    TOK_While,          // while
+    TOK_If,             // if
+    TOK_Import,         // import
     TOK_Return,         // return
     TOK_Struct,         // struct
-    TOK_Null,           // null
+    TOK_Typealias,      // typealias
+    TOK_While,          // while
 
     // TODO: Implement enums
 

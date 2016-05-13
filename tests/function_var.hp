@@ -31,4 +31,7 @@ test :: ()
 
     result := f(15, 0.5f);
     /*assert(*/ result == true /*)*/;
+
+    result = call_f(f, 15, -2.5f);
+    /*assert(*/ result == false /*)*/;
 }

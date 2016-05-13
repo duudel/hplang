@@ -46,6 +46,7 @@ enum Lexer_State
 {
     LS_Default,
     LS_Int,
+    LS_UInt,
     LS_FloatP,      // 1.
     LS_Float,       // 1.0
     LS_FloatE1,     // 1.0e
@@ -127,6 +128,14 @@ enum Lexer_State
     LS_STR_tr,
     LS_STR_tru,
     LS_STR_true,
+    LS_STR_ty,
+    LS_STR_typ,
+    LS_STR_type,
+    LS_STR_typea,
+    LS_STR_typeal,
+    LS_STR_typeali,
+    LS_STR_typealia,
+    LS_STR_typealias,
     LS_STR_u,
     LS_STR_u8,
     LS_STR_u1,
@@ -311,11 +320,16 @@ static FSM lex_default(FSM fsm, char c)
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9':
                 break;
+            case 'u': fsm.state = LS_UInt; break;
             case '.': fsm.state = LS_FloatP; break;
             default:
-                fsm.token_type = TOK_IntegerLit;
+                fsm.token_type = TOK_IntLit;
                 fsm.emit = true;
         } break;
+    case LS_UInt:
+        fsm.token_type = TOK_UIntLit;
+        fsm.emit = true;
+        break;
 
     case LS_FloatP:
         switch (c)
@@ -538,7 +552,7 @@ static FSM lex_default(FSM fsm, char c)
     SINGLE_CASE(LS_STR_n, 'u', LS_STR_nu);
     SINGLE_CASE(LS_STR_nu, 'l', LS_STR_nul);
     SINGLE_CASE(LS_STR_nul, 'l', LS_STR_null);
-    case LS_STR_null: KW_END_CASE(TOK_Null);
+    case LS_STR_null: KW_END_CASE(TOK_NullLit);
 
     SINGLE_CASE(LS_STR_r, 'e', LS_STR_re);
     SINGLE_CASE(LS_STR_re, 't', LS_STR_ret);
@@ -590,10 +604,29 @@ static FSM lex_default(FSM fsm, char c)
     SINGLE_CASE(LS_STR_struc, 't', LS_STR_struct);
     case LS_STR_struct: KW_END_CASE(TOK_Struct);
 
-    SINGLE_CASE(LS_STR_t, 'r', LS_STR_tr);
+    //SINGLE_CASE(LS_STR_t, 'r', LS_STR_tr);
+    case LS_STR_t:
+        switch (c)
+        {
+            case 'r':
+                fsm.state = LS_STR_tr; break;
+            case 'y':
+                fsm.state = LS_STR_ty; break;
+            default:
+                STR_END_CASE();
+        } break;
     SINGLE_CASE(LS_STR_tr, 'u', LS_STR_tru);
     SINGLE_CASE(LS_STR_tru, 'e', LS_STR_true);
     case LS_STR_true: KW_END_CASE(TOK_TrueLit);
+
+    SINGLE_CASE(LS_STR_ty, 'p', LS_STR_typ);
+    SINGLE_CASE(LS_STR_typ, 'e', LS_STR_type);
+    SINGLE_CASE(LS_STR_type, 'a', LS_STR_typea);
+    SINGLE_CASE(LS_STR_typea, 'l', LS_STR_typeal);
+    SINGLE_CASE(LS_STR_typeal, 'i', LS_STR_typeali);
+    SINGLE_CASE(LS_STR_typeali, 'a', LS_STR_typealia);
+    SINGLE_CASE(LS_STR_typealia, 's', LS_STR_typealias);
+    case LS_STR_typealias: KW_END_CASE(TOK_Typealias);
 
     case LS_STR_u:
         switch (c)
@@ -853,6 +886,7 @@ static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
             INVALID_CODE_PATH;
 
         case LS_Int:            return true;
+        case LS_UInt:           return true;
         case LS_FloatP:
             Error(ctx, "Invalid floating point number", &ctx->current_token);
             return false;
@@ -948,6 +982,14 @@ static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
         case LS_STR_tr:         return true;
         case LS_STR_tru:        return true;
         case LS_STR_true:       return true;
+        case LS_STR_ty:         return true;
+        case LS_STR_typ:        return true;
+        case LS_STR_type:       return true;
+        case LS_STR_typea:      return true;
+        case LS_STR_typeal:     return true;
+        case LS_STR_typeali:    return true;
+        case LS_STR_typealia:   return true;
+        case LS_STR_typealias:  return true;
         case LS_STR_u:          return true;
         case LS_STR_u8:         return true;
         case LS_STR_u1:         return true;

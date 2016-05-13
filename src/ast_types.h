@@ -124,6 +124,9 @@ typedef Array<Ast_Node*> Ast_Node_List;
 typedef Array<Ast_Expr*> Ast_Expr_List;
 
 
+struct Ast_Null_Literal
+{ };
+
 struct Ast_Bool_Literal
 { bool value; };
 
@@ -292,6 +295,12 @@ struct Ast_Parameter
     Ast_Node *type;
 };
 
+struct Ast_Typealias
+{
+    Name name;
+    Ast_Node *type;
+};
+
 struct Ast_Struct_Def
 {
     Name name;
@@ -369,6 +378,7 @@ struct Ast_Node
         Ast_Import          import;
         Ast_Function_Def    function;
         Ast_Parameter       parameter;
+        Ast_Typealias       typealias;
         Ast_Struct_Def      struct_def;
         Ast_Struct_Member   struct_member;
         Ast_Variable_Decl   variable_decl;

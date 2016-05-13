@@ -1837,10 +1837,7 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     ASSERT(node->function.name.str.data);
 
     s64 param_count = node->function.parameters.count;
-    Type *ftype = PushType(ctx->env, TYP_Function);
-    ftype->function_type.parameter_count = param_count;
-    ftype->function_type.parameter_types = PushArray<Type*>(&ctx->env->arena, param_count);
-
+    Type *ftype = PushFunctionType(ctx->env, TYP_Function, param_count);
     Type *return_type = nullptr;
     if (node->function.return_type)
     {
