@@ -174,6 +174,7 @@ struct Ast_Typecast_Expr
 struct Ast_Variable_Ref
 {
     Name name;
+    Symbol *symbol;
 };
 
 struct Ast_Function_Call

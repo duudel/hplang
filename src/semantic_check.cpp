@@ -173,7 +173,6 @@ static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
         case SYM_Constant:          sym_type = "constant"; break;
         case SYM_Variable:          sym_type = "variable"; break;
         case SYM_Parameter:         sym_type = "parameter"; break;
-        case SYM_Member:            sym_type = "struct member"; break;
         case SYM_Struct:            sym_type = "struct"; break;
         case SYM_PrimitiveType:     sym_type = "primitive type"; break;
     }
@@ -315,7 +314,6 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
                     case SYM_Constant:
                     case SYM_Variable:
                     case SYM_Parameter:
-                    case SYM_Member:
                         ErrorSymbolNotTypename(ctx, node, node->type_node.plain.name);
                         break;
 
@@ -527,9 +525,26 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
                     func->sym_type == SYM_Parameter ||
                     func->sym_type == SYM_Constant)
             {
-                NOT_IMPLEMENTED("Function call with variable");
+                s64 score = CheckFunctionArgs(func->type, arg_count, arg_types);
+                if (score < 0)
+                {
+                    // TODO(henrik): Improve this error message
+                    Error(ctx, expr->file_loc, "Calling with invalid arguments");
+                    return GetBuiltinType(TYP_none);
+                }
+                return func->type->function_type.return_type;
+            }
+        }
+        else
+        {
+            s64 score = CheckFunctionArgs(type, arg_count, arg_types);
+            if (score < 0)
+            {
+                // TODO(henrik): Improve this error message
+                Error(ctx, expr->file_loc, "Calling with invalid arguments");
                 return GetBuiltinType(TYP_none);
             }
+            return type->function_type.return_type;
         }
     }
     Error(ctx, function_call->fexpr->file_loc, "Expression is not callable");
@@ -544,6 +559,7 @@ static Type* CheckVariableRef(Sem_Check_Context *ctx, Ast_Expr *expr)
         ErrorUndefinedReference(ctx, expr->file_loc, expr->variable_ref.name);
         return GetBuiltinType(TYP_none);
     }
+    expr->variable_ref.symbol = symbol;
     return symbol->type;
 }
 

@@ -78,6 +78,9 @@ enum Ir_Type
     IR_TYP_f32,
     IR_TYP_f64,
     IR_TYP_str,
+
+    IR_TYP_struct,
+    IR_TYP_routine,
 };
 
 enum Ir_Oper_Type
@@ -87,17 +90,23 @@ enum Ir_Oper_Type
     IR_OPER_Temp,
     IR_OPER_Immediate,
     IR_OPER_Label,
+    IR_OPER_Routine,
+    IR_OPER_ForeignRoutine,
 };
+
+struct Type;
 
 struct Ir_Variable
 {
     Name name;
+    Type *type;
 };
 
 struct Ir_Temp
 {
     //Name name;
     s64 temp_id;
+    Type *type;
 };
 
 struct Ir_Label
@@ -106,7 +115,7 @@ struct Ir_Label
     s64 target_loc;
 };
 
-struct Symbol;
+struct Ir_Routine;
 
 struct Ir_Operand
 {
@@ -116,6 +125,7 @@ struct Ir_Operand
         Ir_Variable var;
         Ir_Temp temp;
         Ir_Label *label;
+        //Ir_Routine *routine;
 
         bool imm_bool;
         s8 imm_s8;
@@ -147,6 +157,8 @@ struct Ir_Instruction
 };
 
 typedef Array<Ir_Instruction> Ir_Instruction_List;
+
+struct Symbol;
 
 struct Ir_Routine
 {

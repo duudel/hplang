@@ -73,8 +73,8 @@ Ir_Type GetIrType(Type *type)
         case TYP_f32:       return IR_TYP_f32;
         case TYP_f64:       return IR_TYP_f64;
         case TYP_string:    return IR_TYP_str;
-        case TYP_Function:  return IR_TYP_ptr;
-        case TYP_Struct:    return IR_TYP_ptr;
+        case TYP_Function:  return IR_TYP_routine;
+        case TYP_Struct:    return IR_TYP_struct;
         default:
                             break;
     }
@@ -147,22 +147,46 @@ static Ir_Operand NewImmediateOffset(Ir_Routine *routine, s64 value)
     return oper;
 }
 
-static Ir_Operand NewVariable(Ir_Routine *routine, Ir_Type type, Name name)
+static Ir_Operand NewVariableRef(Ir_Routine *routine, Type *type, Name name)
 {
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Variable;
-    oper.type = type;
+    oper.type = GetIrType(type);
     oper.var.name = name;
+    oper.var.type = type;
     return oper;
 }
 
-static Ir_Operand NewTemp(Ir_Routine *routine, Ir_Type type)
+static Ir_Operand NewRoutineRef(Ir_Routine *routine, Type *type, Name name)
+{
+    (void)routine;
+    Ir_Operand oper = { };
+    oper.oper_type = IR_OPER_Routine;
+    oper.type = GetIrType(type);
+    oper.var.name = name;
+    oper.var.type = type;
+    return oper;
+}
+
+static Ir_Operand NewForeignRoutineRef(Ir_Routine *routine, Type *type, Name name)
+{
+    (void)routine;
+    Ir_Operand oper = { };
+    oper.oper_type = IR_OPER_ForeignRoutine;
+    oper.type = GetIrType(type);
+    oper.var.name = name;
+    oper.var.type = type;
+    return oper;
+}
+
+static Ir_Operand NewTemp(Ir_Routine *routine, Type *type)
 {
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Temp;
-    oper.type = type;
+    oper.type = GetIrType(type);
     oper.temp.temp_id = routine->temp_count++;
+    oper.temp.type = type;
     return oper;
 }
 
@@ -232,13 +256,20 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     Ir_Operand oper_res = GenExpression(ctx, oper_expr, routine);
 
     Ir_Type oper_type = GetIrType(oper_expr->expr_type);
-    Ir_Type res_type = GetIrType(expr->expr_type);
-    Ir_Operand res = NewTemp(routine, res_type);
+    Ir_Operand res = NewTemp(routine, expr->expr_type);
+    Ir_Type res_type = res.type;
     switch (oper_type)
     {
         case IR_TYP_str:
             INVALID_CODE_PATH;
             break;
+        case IR_TYP_struct:
+            INVALID_CODE_PATH;
+            break;
+        case IR_TYP_routine:
+            INVALID_CODE_PATH;
+            break;
+
         case IR_TYP_ptr:
             PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             break;
@@ -430,7 +461,7 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     }
 
     Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
-    Ir_Operand member_res = NewTemp(routine, GetIrType(member_type));
+    Ir_Operand member_res = NewTemp(routine, member_type);
     Ir_Operand member_offs = NewImmediateOffset(routine, member_index);
     PushInstruction(ctx, routine, IR_MovMember, member_res, base_res, member_offs);
     return member_res;
@@ -444,7 +475,7 @@ static Ir_Operand GenTernaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
 
     Ir_Operand false_label = NewLabel(ctx);
     Ir_Operand ternary_end = NewLabel(ctx);
-    Ir_Operand res = NewTemp(routine, GetIrType(expr->expr_type));
+    Ir_Operand res = NewTemp(routine, expr->expr_type);
 
     Ir_Operand cond_res = GenExpression(ctx, cond_expr, routine);
     PushInstruction(ctx, routine, IR_Jz, false_label, cond_res);
@@ -466,7 +497,7 @@ static Ir_Operand GenUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *
     Unary_Op op = expr->unary_expr.op;
     Ast_Expr *oper_expr = expr->unary_expr.expr;
     Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
-    Ir_Operand target = NewTemp(routine, GetIrType(expr->expr_type));
+    Ir_Operand target = NewTemp(routine, expr->expr_type);
     switch (op)
     {
         case UN_OP_Positive:
@@ -502,7 +533,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         case BIN_OP_And:
             {
                 Ir_Operand and_end = NewLabel(ctx);
-                Ir_Operand target = NewTemp(routine, GetIrType(expr->expr_type));
+                Ir_Operand target = NewTemp(routine, expr->expr_type);
 
                 Ir_Operand loper = GenExpression(ctx, left, routine);
                 PushInstruction(ctx, routine, IR_Mov, target, loper);
@@ -517,7 +548,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         case BIN_OP_Or:
             {
                 Ir_Operand or_end = NewLabel(ctx);
-                Ir_Operand target = NewTemp(routine, GetIrType(expr->expr_type));
+                Ir_Operand target = NewTemp(routine, expr->expr_type);
 
                 Ir_Operand loper = GenExpression(ctx, left, routine);
                 PushInstruction(ctx, routine, IR_Mov, target, loper);
@@ -535,7 +566,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
 
     Ir_Operand loper = GenExpression(ctx, left, routine);
     Ir_Operand roper = GenExpression(ctx, right, routine);
-    Ir_Operand target = NewTemp(routine, GetIrType(expr->expr_type));
+    Ir_Operand target = NewTemp(routine, expr->expr_type);
     switch (op)
     {
         case BIN_OP_Add:
@@ -640,7 +671,34 @@ static Ir_Operand GenAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Rout
 static Ir_Operand GenVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
     (void)ctx;
-    return NewVariable(routine, GetIrType(expr->expr_type), expr->variable_ref.name);
+    //Type *expr_type = expr->expr_type;
+    //if (expr_type->tag == TYP_Function)
+    //{
+    //    NewVariable();
+    //}
+    Symbol *symbol = expr->variable_ref.symbol;
+    if (symbol->sym_type == SYM_Function)
+    {
+        return NewRoutineRef(routine, expr->expr_type, expr->variable_ref.name);
+    }
+    else if (symbol->sym_type == SYM_ForeignFunction)
+    {
+        return NewForeignRoutineRef(routine, expr->expr_type, expr->variable_ref.name);
+    }
+    else if (symbol->sym_type == SYM_Parameter)
+    {
+        return NewVariableRef(routine, expr->expr_type, expr->variable_ref.name);
+    }
+    else if (symbol->sym_type == SYM_Variable)
+    {
+        return NewVariableRef(routine, expr->expr_type, expr->variable_ref.name);
+    }
+    else if (symbol->sym_type == SYM_Constant)
+    {
+        return NewVariableRef(routine, expr->expr_type, expr->variable_ref.name);
+    }
+    INVALID_CODE_PATH;
+    return NoneOperand();
 }
 
 static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
@@ -649,7 +707,7 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     if (TypeIsVoid(expr->expr_type))
         res = NoneOperand();
     else
-        res = NewTemp(routine, GetIrType(expr->expr_type));
+        res = NewTemp(routine, expr->expr_type);
 
     for (s64 i = 0; i < expr->function_call.args.count; i++)
     {
@@ -659,7 +717,14 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     }
 
     Ir_Operand fv_res = GenExpression(ctx, expr->function_call.fexpr, routine);
-    PushInstruction(ctx, routine, IR_Call, res, fv_res);
+    if (fv_res.oper_type == IR_OPER_ForeignRoutine)
+    {
+        PushInstruction(ctx, routine, IR_CallForeign, res, fv_res);
+    }
+    else
+    {
+        PushInstruction(ctx, routine, IR_Call, res, fv_res);
+    }
 
     return res;
 }
@@ -783,7 +848,7 @@ static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
     GenIr(ctx, node->function.body, func_routine);
 }
 
-static void AddVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
+static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
     Symbol *symbol = node->variable_decl.symbol;
     Ast_Expr *init_expr = node->variable_decl.init_expr;
@@ -791,8 +856,8 @@ static void AddVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine
     if (init_expr)
     {
         Ir_Operand init_res = GenExpression(ctx, init_expr, routine);
-        Ir_Type ir_type = GetIrType(init_expr->expr_type);
-        PushInstruction(ctx, routine, IR_Mov, NewVariable(routine, ir_type, symbol->name), init_res);
+        Ir_Operand var_oper = NewVariableRef(routine, init_expr->expr_type, symbol->name);
+        PushInstruction(ctx, routine, IR_Mov, var_oper, init_res);
     }
 }
 
@@ -806,7 +871,7 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
         case AST_ForeignBlock: break;
 
         case AST_VariableDecl:
-            AddVariable(ctx, node, routine);
+            GenVariable(ctx, node, routine);
             break;
         case AST_FunctionDef:
             GenFunction(ctx, node);
@@ -915,7 +980,6 @@ static s64 PrintString(FILE *file, String str, s64 max_len)
     }
     if (ellipsis) len += fprintf(file, "...");
     return len;
-    //return fwrite(str.data, 1, str.size, file);
 }
 
 static s64 PrintName(FILE *file, Name name, s64 max_len)
@@ -964,9 +1028,14 @@ static s64 PrintImmediate(FILE *file, Ir_Operand oper)
         case IR_TYP_f32:    len = fprintf(file, "%ff", oper.imm_f32); break;
         case IR_TYP_f64:    len = fprintf(file, "%fd", oper.imm_f64); break;
         case IR_TYP_str:
-            len = fprintf(file, "\"");
+            len += fprintf(file, "\"");
             len += PrintString(file, oper.imm_str, 16);
             len += fprintf(file, "\"");
+            break;
+
+        case IR_TYP_struct:
+        case IR_TYP_routine:
+            INVALID_CODE_PATH;
             break;
     }
     return len;
@@ -996,6 +1065,13 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
             break;
         case IR_OPER_Label:
             len = PrintLabel(file, oper);
+            break;
+        case IR_OPER_Routine:
+        case IR_OPER_ForeignRoutine:
+            len += fprintf(file, "<");
+            //len += PrintName(file, oper.routine->name, 15);
+            len += PrintName(file, oper.var.name, 15);
+            len += fprintf(file, ">");
             break;
     }
     PrintPadding(file, len, 20);

@@ -117,7 +117,27 @@ enum Symbol_Type
     SYM_Constant,
     SYM_Variable,
     SYM_Parameter,
-    SYM_Member,
+
+    // TODO(henrik): Could make struct type have a scope (Scope*) having
+    // members as symbols. This would require the member symbols to be in the
+    // order they were decalred in which cannot be automatically achieved with
+    // the hash table based scope. The member symbols could be linked to a list
+    // i.e. something like this
+    // struct Symbol { Symbol_Type sym_type; Name name; Type *type;
+    //  union {
+    //   struct Function_Symbol {
+    //    Name unique_name;
+    //    Symbol *next_overload;
+    //   } func_symbol;
+    //   struct Struct_Member {
+    //    s32 offset;
+    //    Symbol *next_member;
+    //   } struct_member; }
+    // };
+    // This would allow structs to have other structs or functions defined
+    // inside their scope, but the benefit of having them is not compelling.
+    //
+    //SYM_Member,
 
     SYM_Struct,
     //SYM_Enum,
