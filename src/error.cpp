@@ -1,6 +1,7 @@
 
 #include "error.h"
 #include "assert.h"
+#include "common.h"
 
 #include <cstdio>
 #include <cinttypes>

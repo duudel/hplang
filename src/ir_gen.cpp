@@ -1,5 +1,6 @@
 
 #include "ir_gen.h"
+#include "common.h"
 #include "compiler.h"
 #include "symbols.h"
 #include "ast_types.h"

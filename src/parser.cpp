@@ -1,5 +1,6 @@
 
 #include "parser.h"
+#include "common.h"
 #include "ast_types.h"
 #include "compiler.h"
 #include "assert.h"
@@ -80,18 +81,10 @@ static void ErrorExpectedAtEnd(Parser_Context *ctx,
 {
     File_Location file_loc = token->file_loc;
 
-    // NOTE(henrik): This will fail, if the token extends multiple lines.
-    // This almost never happens though. Currently only with multiline strings
-    // A better solution might be to explicitly store the end of token
-    // as another File_Location in the token.
-    //file_loc.column += (token->value_end - token->value);
-
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, file_loc);
 
-    //PrintFileLocation(err_ctx->file, file_loc);
     SeekToEnd(&file_loc);
-
     PrintFileLocation(err_ctx->file, file_loc);
     fprintf((FILE*)err_ctx->file, "Expecting %s\n", expected_token);
     PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);

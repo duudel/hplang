@@ -1,6 +1,7 @@
 
 #include "hplang.h"
 #include "memory.h"
+#include "common.h"
 #include "assert.h"
 
 #include <cstdlib>

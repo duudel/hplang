@@ -1,5 +1,6 @@
 
 #include "semantic_check.h"
+#include "common.h"
 #include "ast_types.h"
 #include "compiler.h"
 #include "error.h"

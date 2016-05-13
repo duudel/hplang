@@ -1,5 +1,6 @@
 
 #include "lexer.h"
+#include "common.h"
 #include "compiler.h"
 #include "error.h"
 #include "assert.h"
