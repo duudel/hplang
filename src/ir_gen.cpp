@@ -671,11 +671,6 @@ static Ir_Operand GenAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Rout
 static Ir_Operand GenVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
     (void)ctx;
-    //Type *expr_type = expr->expr_type;
-    //if (expr_type->tag == TYP_Function)
-    //{
-    //    NewVariable();
-    //}
     Symbol *symbol = expr->variable_ref.symbol;
     if (symbol->sym_type == SYM_Function)
     {

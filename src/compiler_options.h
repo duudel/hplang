@@ -19,6 +19,8 @@ struct Compiler_Options
     s64 max_error_count;
     s64 max_line_arrow_error_count;
     Compilation_Phase stop_after;
+
+    b32 diagnose_memory;
 };
 
 Compiler_Options DefaultCompilerOptions();

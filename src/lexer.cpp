@@ -14,9 +14,9 @@ Lexer_Context NewLexerContext(Token_List *tokens,
 {
     Lexer_Context ctx = { };
     ctx.tokens = tokens;
-    ctx.file_loc.file = file;
-    ctx.file_loc.line = 1;
-    ctx.file_loc.column = 1;
+    ctx.current_token.file_loc.file = file;
+    ctx.current_token.file_loc.line = 1;
+    ctx.current_token.file_loc.column = 1;
     ctx.comp_ctx = comp_ctx;
     return ctx;
 }
@@ -26,18 +26,18 @@ void FreeLexerContext(Lexer_Context *ctx)
     ctx->tokens = nullptr;
 }
 
-b32 is_digit(char c)
+static b32 is_digit(char c)
 {
     return c >= '0' && c <= '9';
 }
 
-b32 is_alpha(char c)
+static b32 is_alpha(char c)
 {
     return (c >= 'A' && c <= 'Z') ||
         (c >= 'a' && c <= 'z');
 }
 
-b32 is_ident(char c)
+static b32 is_ident(char c)
 {
     return is_alpha(c) || is_digit(c) || c == '_';
 }
@@ -1073,7 +1073,7 @@ static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
     return false;
 }
 
-void EmitToken(Lexer_Context *ctx, FSM fsm)
+static void EmitToken(Lexer_Context *ctx, FSM fsm)
 {
     if (CheckEmitState(ctx, fsm))
     {
@@ -1083,22 +1083,31 @@ void EmitToken(Lexer_Context *ctx, FSM fsm)
     }
 }
 
+static void ResetToken(Lexer_Context *ctx, File_Location *file_loc,
+        s64 cur, const char *text)
+{
+    file_loc->offset_start = cur;
+    file_loc->offset_end = cur;
+    ctx->current_token.file_loc = *file_loc;
+    ctx->current_token.value = text + cur;
+    ctx->current_token.value_end = text + cur;
+}
+
 void Lex(Lexer_Context *ctx)
 {
-    const char *text = (const char*)ctx->file_loc.file->contents.ptr;
-    s64 text_length = ctx->file_loc.file->contents.size;
+    File_Location file_loc = ctx->current_token.file_loc;
+    const char *text = (const char*)file_loc.file->contents.ptr;
+    s64 text_length = file_loc.file->contents.size;
 
     s64 cur = ctx->current;
     ctx->current_token.value = text;
     ctx->current_token.value_end = text;
-    ctx->current_token.file_loc = ctx->file_loc;
 
     FSM fsm = { };
     fsm.emit = false;
     fsm.state = LS_Default;
     fsm.carriage_return = false;
 
-    File_Location *file_loc = &ctx->file_loc;
     while (cur < text_length - 1)
     {
         while (!fsm.emit && cur < text_length)
@@ -1123,27 +1132,26 @@ void Lex(Lexer_Context *ctx)
             if (!fsm.emit)
             {
                 cur++;
-                file_loc->column++;
                 if (c == '\r')
                 {
-                    file_loc->line++;
-                    file_loc->column = 1;
-                    file_loc->line_offset = cur;
+                    file_loc.line++;
+                    file_loc.column = 1;
                     ctx->carriage_return = true;
+                }
+                else if (c == '\n' && ctx->carriage_return)
+                {
+                    file_loc.column = 1;
+                    ctx->carriage_return = false;
+                }
+                else if (IsNewlineChar(c))
+                {
+                    file_loc.line++;
+                    file_loc.column = 1;
+                    ctx->carriage_return = false;
                 }
                 else
                 {
-                    if (c == '\n' && ctx->carriage_return)
-                    {
-                        file_loc->column = 1;
-                    }
-                    else if (c == '\n' || c == '\f' || c == '\v')
-                    {
-                        file_loc->line++;
-                        file_loc->column = 1;
-                        file_loc->line_offset = cur;
-                    }
-                    ctx->carriage_return = false;
+                    file_loc.column++;
                 }
 
                 if (fsm.state == LS_Invalid)
@@ -1152,17 +1160,12 @@ void Lex(Lexer_Context *ctx)
                     Error(ctx, "Invalid token", &ctx->current_token);
 
                     fsm.state = LS_Default;
-                    ctx->file_loc.offset_start = cur;
-                    ctx->current_token.value = text + cur;
-                    ctx->current_token.file_loc = *file_loc;
+                    ResetToken(ctx, &file_loc, cur, text);
                 }
                 else if (fsm.state == LS_Junk)
                 {
                     fsm.state = LS_Default;
-                    ctx->file_loc.offset_start = cur;
-                    ctx->current_token.value = text + cur;
-                    ctx->current_token.value_end = text + cur;
-                    ctx->current_token.file_loc = *file_loc;
+                    ResetToken(ctx, &file_loc, cur, text);
                 }
             }
         }
@@ -1172,19 +1175,17 @@ void Lex(Lexer_Context *ctx)
             // our last token.
             if (fsm.done) cur--;
 
-            ctx->file_loc.offset_end = cur;
+            ctx->current_token.file_loc.offset_end = cur;
             ctx->current_token.value_end = text + cur;
             EmitToken(ctx, fsm);
 
             fsm.emit = false;
             fsm.state = LS_Default;
-            file_loc->offset_start = cur;
-            ctx->current_token.value = text + cur;
-            ctx->current_token.file_loc = *file_loc;
+            ResetToken(ctx, &file_loc, cur, text);
         }
     }
 
-    // A remain from continuing lexer days.. -.-´
+    // A remain from continuable lexer days.. -.-´
     ctx->current = cur;
 }
 

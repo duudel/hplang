@@ -43,6 +43,7 @@ struct Compiler_Context
 };
 
 Compiler_Context NewCompilerContext();
+Compiler_Context NewCompilerContext(Compiler_Options options);
 void FreeCompilerContext(Compiler_Context *ctx);
 
 Open_File* OpenFile(Compiler_Context *ctx, const char *filename);

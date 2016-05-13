@@ -7,16 +7,11 @@ func :: (a : s32, b : f32) : bool
     return a > 0;
 }
 
-//TODO: implement function type syntax
-
 call_f :: (f : !(s32, f32) : bool, a : s32, b : f32) : bool
 {
     return f(a, b);
 }
 
-ftype :: struct { }
-
-//TODO: implement typealias
 ftype :: typealias !(s32, f32) : bool;
 
 call_f2 :: (f : ftype, a : s32, b : f32) : bool

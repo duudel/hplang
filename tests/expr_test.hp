@@ -29,10 +29,11 @@ main :: ()
 
     //x + 10 - ()
 
-    //call(x, y, "this
-    //breaks things"
-
-    //;
+    call(x, y, "this
+    breaks things (error messages),
+        but not any more"
+)
+    ;
 
     return 0;
 }

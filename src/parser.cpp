@@ -84,10 +84,14 @@ static void ErrorExpectedAtEnd(Parser_Context *ctx,
     // This almost never happens though. Currently only with multiline strings
     // A better solution might be to explicitly store the end of token
     // as another File_Location in the token.
-    file_loc.column += (token->value_end - token->value);
+    //file_loc.column += (token->value_end - token->value);
 
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
     AddError(err_ctx, file_loc);
+
+    //PrintFileLocation(err_ctx->file, file_loc);
+    SeekToEnd(&file_loc);
+
     PrintFileLocation(err_ctx->file, file_loc);
     fprintf((FILE*)err_ctx->file, "Expecting %s\n", expected_token);
     PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);

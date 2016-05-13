@@ -30,8 +30,9 @@ build:
 run:
 	@#-./$(EXENAME) samples/compiletime.hp
 	@#-./$(EXENAME) samples/fibo.hp
-	-./$(EXENAME) samples/beer.hp
+	@#-./$(EXENAME) samples/beer.hp
 	@#-./$(EXENAME) samples/factorial.hp
+	-./$(EXENAME) tests/expr_test.hp
 
 
 GDB := /usr/bin/gdb

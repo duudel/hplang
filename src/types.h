@@ -1,6 +1,7 @@
 #ifndef H_HPLANG_TYPES_H
 
 #include <cstdint>
+#include <initializer_list>
 
 namespace hplang
 {
@@ -14,10 +15,24 @@ typedef uint32_t    u32;
 typedef int64_t     s64;
 typedef uint64_t    u64;
 
-typedef s32         b32;
-
 typedef float       f32;
 typedef double      f64;
+
+// NOTE(henrik): b32 should not be implicitely convertible to any integral
+// type.  A solution is to wrap it into a struct, but then sizeof(b32)
+// might not be 4, as the name implies.
+//typedef s32         b32;
+
+struct b32
+{
+    s32 value;
+    b32(bool x) : value((s32)x) { }
+    b32(std::initializer_list<bool> x) : value((s32)*x.begin()) { }
+    operator bool () { return (bool)value; }
+};
+
+static_assert(sizeof(b32) == 4, "assert that sizeof b32 == 4");
+static_assert(alignof(b32) == 4, "assert that alignof b32 == 4");
 
 
 struct Pointer
@@ -45,9 +60,71 @@ struct File_Location
     s32 line, column;
     s64 offset_start;   // token file offset start
     s64 offset_end;     // token file offset end
-    // offset from the begin of the file to the start of this line
-    s64 line_offset;
+    //// offset from the begin of the file to the start of this line
+    //s64 line_offset;
 };
+
+inline b32 IsNewlineChar(char c)
+{
+    return (c == '\n') ||
+           (c == '\r') ||
+           (c == '\v') ||
+           (c == '\f');
+}
+
+//const char* SeekToLineStart(File_Location file_loc)
+inline const char* SeekToLineStart(Open_File *file, s64 offset)
+{
+    const char *text = (const char*)file->contents.ptr;
+    //s64 text_len = file->contents.size;
+
+    if (offset <= 0)
+        return text;
+
+    while (offset > 0)
+    {
+        if (IsNewlineChar(text[offset - 1]))
+            break;
+        offset--;
+    }
+    return text + offset;
+}
+
+inline void SeekToEnd(File_Location *file_loc)
+{
+    Open_File *file = file_loc->file;
+    const char *text = (const char*)file->contents.ptr;
+
+    //s64 text_len = file->contents.size;
+    //ASSERT(file_loc->offset_end < text_len);
+
+    b32 carriage_return = false;
+    s64 pos = file_loc->offset_start;
+    while (pos < file_loc->offset_end)
+    {
+        char c = text[pos];
+        file_loc->column++;
+        if (c == '\r')
+        {
+            file_loc->line++;
+            file_loc->column = 1;
+            carriage_return = true;
+        }
+        else if (c == '\n' && carriage_return)
+        {
+            file_loc->column = 1;
+            carriage_return = false;
+        }
+        else if (IsNewlineChar(c))
+        {
+            file_loc->line++;
+            file_loc->column = 1;
+            carriage_return = false;
+        }
+        pos++;
+    }
+    file_loc->offset_start = pos;
+}
 
 struct Name
 {

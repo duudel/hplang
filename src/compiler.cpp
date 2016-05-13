@@ -22,6 +22,16 @@ Compiler_Context NewCompilerContext()
     return result;
 }
 
+Compiler_Context NewCompilerContext(Compiler_Options options)
+{
+    Compiler_Context result = { };
+    result.error_ctx.file = (IoFile*)stderr;
+    result.options = options;
+    result.env = NewEnvironment();
+    result.result = RES_OK;
+    return result;
+}
+
 static void FreeModule(Module *module)
 {
     FreeAst(&module->ast);
@@ -183,6 +193,9 @@ static void PrintAstMem(IoFile *file, Ast *ast)
 
 static void PrintMemoryDiagnostic(Compiler_Context *ctx)
 {
+    if (!ctx->options.diagnose_memory)
+        return;
+
     IoFile *file = ctx->error_ctx.file;
     s64 used, unused;
 

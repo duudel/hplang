@@ -9,26 +9,33 @@
 
 using namespace hplang;
 
-b32 HasArg(const char *arg, int argc, char *const *argv)
+s64 GetArgIndex(const char *arg, int argc, char *const *argv)
 {
     for (s64 i = 1; i < argc; i++)
     {
         if (strcmp(arg, argv[i]) == 0)
         {
-            return true;
+            return i;
         }
     }
-    return false;
+    return -1;
+}
+
+b32 HasArg(const char *arg, int argc, char *const *argv)
+{
+    return GetArgIndex(arg, argc, argv) != -1;
 }
 
 void PrintUsage()
 {
-    printf("hplang <source>\n");
-    printf("  compile <source> into binary executable");
-    printf("hplang -v");
-    printf("  print version of the compiler");
-    printf("hplang -h");
-    printf("  print help");
+    printf("hplang [options] <source>\n");
+    printf("  compile <source> into binary executable\n");
+    printf("options:\n");
+    printf("  -d M \tdiagnose memory\n");
+    printf("hplang -v\n");
+    printf("  print version of the compiler\n");
+    printf("hplang -h\n");
+    printf("  print help\n");
 }
 
 void PrintHelp()
@@ -71,9 +78,31 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    Compiler_Options options = DefaultCompilerOptions();
+
+    s64 d_index = GetArgIndex("-d", argc, argv);
+    if (d_index != -1)
+    {
+        if (d_index + 1 < argc)
+        {
+            const char *d_arg = argv[d_index + 1];
+            if (strcmp(d_arg, "M") != 0)
+            {
+                printf("Invalid argument for -d option; must be M\n");
+                return -1;
+            }
+            options.diagnose_memory = true;
+        }
+        else
+        {
+            printf("Option -d needs argument; must be M\n");
+            return -1;
+        }
+    }
+
     const char *source = argv[1];
 
-    Compiler_Context compiler_ctx = NewCompilerContext();
+    Compiler_Context compiler_ctx = NewCompilerContext(options);
 
     Open_File *file = OpenFile(&compiler_ctx, source);
     if (!file)

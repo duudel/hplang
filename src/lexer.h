@@ -18,7 +18,6 @@ struct Lexer_Context
 
     Token current_token;
 
-    File_Location file_loc;
     Compiler_Context *comp_ctx;
 };
 

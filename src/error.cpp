@@ -60,15 +60,16 @@ void PrintFileLine(IoFile *file, File_Location file_loc)
 
     const char *file_start = (const char*)open_file->contents.ptr;
     ASSERT(file_start != nullptr);
-    ASSERT(file_loc.line_offset < open_file->contents.size);
+    //ASSERT(file_loc.line_offset < open_file->contents.size);
 
-    const char *line_start = file_start + file_loc.line_offset;
+    //const char *line_start = file_start + file_loc.line_offset;
+    const char *line_start = SeekToLineStart(file_loc.file, file_loc.offset_start);
     s64 line_len = 0;
 
     while (line_len < open_file->contents.size)
     {
         char c = line_start[line_len];
-        if (c == '\n' || c == '\r' || c == '\v' || c == '\f')
+        if (IsNewlineChar(c))
             break;
         line_len++;
     }
