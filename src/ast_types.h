@@ -15,16 +15,15 @@ enum Ast_Node_Type
     AST_ForeignBlock,
     AST_VariableDecl,
     AST_FunctionDef,    // <ident> :: (<param_list>) : <type> {<stmt_block>}
-    AST_StructDef,      // <ident> :: struct {<struct_body>}
-
     AST_Parameter,
+    AST_StructDef,      // <ident> :: struct {<struct_body>}
+    AST_StructMember,
+    AST_Typealias,      // <ident> :: typealias <type>;
 
     AST_Type_Plain,
     AST_Type_Pointer,
     AST_Type_Array,
     AST_Type_Function,
-
-    AST_StructMember,
 
     AST_BlockStmt,
     AST_IfStmt,

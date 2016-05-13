@@ -174,6 +174,7 @@ static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
         case SYM_Variable:          sym_type = "variable"; break;
         case SYM_Parameter:         sym_type = "parameter"; break;
         case SYM_Struct:            sym_type = "struct"; break;
+        case SYM_Typealias:         sym_type = "typealias"; break;
         case SYM_PrimitiveType:     sym_type = "primitive type"; break;
     }
     fprintf((FILE*)err_ctx->file, "' was declared as %s earlier\n", sym_type);
@@ -320,9 +321,10 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
                     case SYM_Struct:
                         return symbol->type;
                     //case SYM_Enum:
-                    //case SYM_Typealias:
                     //    NOT_IMPLEMENTED("enum and typealias in CheckType");
                     //    break;
+                    case SYM_Typealias:
+                        return symbol->type;
 
                     case SYM_PrimitiveType:
                         return symbol->type;
@@ -1746,9 +1748,10 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
         case AST_Import:
         case AST_ForeignBlock:
         case AST_FunctionDef:
+        case AST_Parameter:
         case AST_StructDef:
         case AST_StructMember:
-        case AST_Parameter:
+        case AST_Typealias:
         case AST_Type_Plain:
         case AST_Type_Pointer:
         case AST_Type_Array:
@@ -1914,6 +1917,22 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     }
 }
 
+static void CheckTypealias(Sem_Check_Context *ctx, Ast_Node *node)
+{
+    ASSERT(node->typealias.type);
+
+    Ast_Typealias *typealias = &node->typealias;
+    Type *type = CheckType(ctx, typealias->type);
+
+    Symbol *old_symbol = LookupSymbolInCurrentScope(ctx->env, typealias->name);
+    if (old_symbol)
+    {
+        ErrorDeclaredEarlierAs(ctx, node, typealias->name, old_symbol);
+    }
+
+    AddSymbol(ctx->env, SYM_Typealias, typealias->name, type);
+}
+
 static void CheckStructMember(Sem_Check_Context *ctx,
         Struct_Member *struct_member, Ast_Node *node)
 {
@@ -1935,6 +1954,13 @@ static void CheckStruct(Sem_Check_Context *ctx, Ast_Node *node)
     type->struct_type.name = struct_def->name;
     type->struct_type.member_count = member_count;
     type->struct_type.members = PushArray<Struct_Member>(&ctx->env->arena, member_count);
+
+    Symbol *old_symbol = LookupSymbolInCurrentScope(ctx->env, struct_def->name);
+    if (old_symbol)
+    {
+        ErrorDeclaredEarlierAs(ctx, node, struct_def->name, old_symbol);
+    }
+
     AddSymbol(ctx->env, SYM_Struct, struct_def->name, type);
 
     for (s64 i = 0; i < member_count && ContinueChecking(ctx); i++)
@@ -1973,10 +1999,6 @@ static void CheckForeignFunction(Sem_Check_Context *ctx, Ast_Node *node)
     AddSymbol(ctx->env, SYM_ForeignFunction, name, ftype);
 
     CheckForeignFunctionParameters(ctx, node, ftype);
-
-    //PrintString(stderr, name.str);
-    //PrintType(stderr, ftype);
-    //fprintf(stderr, "\n");
 }
 
 static void CheckForeignBlockStmt(Sem_Check_Context *ctx, Ast_Node *node)
@@ -2022,6 +2044,7 @@ static void CheckTopLevelStmt(Sem_Check_Context *ctx, Ast_Node *node)
         case AST_ForeignBlock:  CheckForeignBlock(ctx, node); break;
         case AST_FunctionDef:   CheckFunction(ctx, node); break;
         case AST_StructDef:     CheckStruct(ctx, node); break;
+        case AST_Typealias:     CheckTypealias(ctx, node); break;
         case AST_VariableDecl:  CheckVariableDecl(ctx, node); break;
         default:
             INVALID_CODE_PATH;

@@ -16,14 +16,12 @@ call_f :: (f : !(s32, f32) : bool, a : s32, b : f32) : bool
 
 
 //TODO: implement typealias
-/*
 ftype :: typealias !(s32, f32) : bool;
 
 call_f2 :: (f : ftype, a : s32, b : f32) : bool
 {
     return f(a, b);
 }
-*/
 
 test :: ()
 {
@@ -34,4 +32,7 @@ test :: ()
 
     result = call_f(f, 15, -2.5f);
     /*assert(*/ result == false /*)*/;
+
+    result = call_f2(f, 0, 2.5f);
+    /*assert(*/ result == true /*)*/;
 }

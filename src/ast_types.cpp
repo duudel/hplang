@@ -114,6 +114,10 @@ static void FreeAstNode(Ast_Node *node)
             FreeAstNodeList(&node->struct_def.members);
             break;
 
+        case AST_Typealias:
+            FreeAstNode(node->typealias.type);
+            break;
+
         case AST_Parameter:
             FreeAstNode(node->parameter.type);
             break;

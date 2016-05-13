@@ -141,7 +141,7 @@ enum Symbol_Type
 
     SYM_Struct,
     //SYM_Enum,
-    //SYM_Typealias
+    SYM_Typealias,
 
     SYM_PrimitiveType,
 };

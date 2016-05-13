@@ -1415,14 +1415,32 @@ static Ast_Node* ParseStructMember(Parser_Context *ctx)
     return member;
 }
 
+static Ast_Node* ParseTypealias(Parser_Context *ctx, const Token *ident_tok)
+{
+    const Token *typealias_tok = Accept(ctx, TOK_Typealias);
+    if (!typealias_tok) return nullptr;
+
+    Ast_Node *typealias = PushNode<Ast_Typealias>(ctx, AST_Typealias, typealias_tok);
+    Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
+    typealias->typealias.name = name;
+    typealias->typealias.type = ParseType(ctx);
+
+    if (!typealias->typealias.type)
+    {
+        Error(ctx, "Expecting type for typealias");
+    }
+    ExpectAfterLast(ctx, TOK_Semicolon);
+
+    return typealias;
+}
+
 static Ast_Node* ParseStruct(Parser_Context *ctx, const Token *ident_tok)
 {
     const Token *struct_tok = Accept(ctx, TOK_Struct);
     if (!struct_tok) return nullptr;
 
     Ast_Node *struct_def = PushNode<Ast_Struct_Def>(ctx, AST_StructDef, ident_tok);
-    Name name = PushName(&ctx->ast->arena,
-            ident_tok->value, ident_tok->value_end);
+    Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
     struct_def->struct_def.name = name;
 
     Expect(ctx, TOK_OpenBlock);
@@ -1450,8 +1468,7 @@ static Ast_Node* ParseNamedImport(Parser_Context *ctx, const Token *ident_tok)
     ExpectAfterLast(ctx, TOK_Semicolon);
 
     Ast_Node *import_node = PushNode<Ast_Import>(ctx, AST_Import, import_tok);
-    Name name = PushName(&ctx->ast->arena,
-            ident_tok->value, ident_tok->value_end);
+    Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
     String mod_name_str = ConvertString(ctx,
             module_name_tok->value, module_name_tok->value_end);
     import_node->import.name = name;
@@ -1572,6 +1589,7 @@ static Ast_Node* ParseTopLevelNamedStmt(Parser_Context *ctx)
     Accept(ctx, TOK_ColonColon);
 
     Ast_Node *stmt = ParseNamedImport(ctx, ident_tok);
+    if (!stmt) stmt = ParseTypealias(ctx, ident_tok);
     if (!stmt) stmt = ParseStruct(ctx, ident_tok);
     if (!stmt) stmt = ParseFunction(ctx, ident_tok);
     return stmt;
