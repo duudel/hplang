@@ -10,6 +10,7 @@ SOURCES := \
 	src/error.cpp \
 	src/hplang.cpp \
 	src/io.cpp \
+	src/ir_exec.cpp \
 	src/ir_gen.cpp \
 	src/lexer.cpp \
 	src/memory.cpp \

@@ -58,10 +58,8 @@ struct File_Location
 {
     Open_File *file;
     s32 line, column;
-    s64 offset_start;   // token file offset start
-    s64 offset_end;     // token file offset end
-    //// offset from the begin of the file to the start of this line
-    //s64 line_offset;
+    s32 offset_start;   // token file offset start
+    s32 offset_end;     // token file offset end
 };
 
 struct Name

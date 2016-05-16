@@ -96,25 +96,27 @@ static Ir_Operand NewImmediateNull(Ir_Routine *routine)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Immediate;
-    oper.type = IR_TYP_ptr;
+    oper.ir_type = IR_TYP_ptr;
+    oper.type = GetBuiltinType(TYP_pointer);
     oper.imm_ptr = nullptr;
     return oper;
 }
 
-#define IR_IMM(t, ir_t, member)\
+#define IR_IMM(t, ir_t, typ, member)\
 static Ir_Operand NewImmediate(Ir_Routine *routine, t value)\
 {\
     (void)routine;\
     Ir_Operand oper = { };\
     oper.oper_type = IR_OPER_Immediate;\
-    oper.type = ir_t;\
+    oper.ir_type = ir_t;\
+    oper.type = GetBuiltinType(typ);\
     oper.member = value;\
     return oper;\
 }
 
 //IR_IMM(void*, IR_TYP_ptr, imm_ptr)
-IR_IMM(bool, IR_TYP_bool, imm_bool)
-IR_IMM(u8, IR_TYP_u8, imm_u8)
+IR_IMM(bool, IR_TYP_bool, TYP_bool, imm_bool)
+IR_IMM(u8, IR_TYP_u8, TYP_u8, imm_u8)
 //IR_IMM(s8, IR_TYP_s8, imm_s8)
 //IR_IMM(u16, IR_TYP_u16, imm_u16)
 //IR_IMM(s16, IR_TYP_s16, imm_s16)
@@ -122,9 +124,9 @@ IR_IMM(u8, IR_TYP_u8, imm_u8)
 //IR_IMM(s32, IR_TYP_s32, imm_s32)
 //IR_IMM(u64, IR_TYP_u64, imm_u64)
 //IR_IMM(s64, IR_TYP_s64, imm_s64)
-IR_IMM(f32, IR_TYP_f32, imm_f32)
-IR_IMM(f64, IR_TYP_f64, imm_f64)
-IR_IMM(String, IR_TYP_str, imm_str)
+IR_IMM(f32, IR_TYP_f32, TYP_f32, imm_f32)
+IR_IMM(f64, IR_TYP_f64, TYP_f64, imm_f64)
+IR_IMM(String, IR_TYP_str, TYP_string, imm_str)
 
 #undef IR_IMM
 
@@ -133,7 +135,8 @@ static Ir_Operand NewImmediateInt(Ir_Routine *routine, u64 value, Type *type)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Immediate;
-    oper.type = GetIrType(type);
+    oper.ir_type = GetIrType(type);
+    oper.type = type;
     oper.imm_u64 = value;
     return oper;
 }
@@ -143,7 +146,8 @@ static Ir_Operand NewImmediateOffset(Ir_Routine *routine, s64 value)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Immediate;
-    oper.type = IR_TYP_s64;
+    oper.ir_type = IR_TYP_s64;
+    oper.type = GetBuiltinType(TYP_s64);
     oper.imm_s64 = value;
     return oper;
 }
@@ -153,9 +157,9 @@ static Ir_Operand NewVariableRef(Ir_Routine *routine, Type *type, Name name)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Variable;
-    oper.type = GetIrType(type);
+    oper.ir_type = GetIrType(type);
+    oper.type = type;
     oper.var.name = name;
-    oper.var.type = type;
     return oper;
 }
 
@@ -164,9 +168,9 @@ static Ir_Operand NewRoutineRef(Ir_Routine *routine, Type *type, Name name)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Routine;
-    oper.type = GetIrType(type);
+    oper.ir_type = GetIrType(type);
+    oper.type = type;
     oper.var.name = name;
-    oper.var.type = type;
     return oper;
 }
 
@@ -175,9 +179,9 @@ static Ir_Operand NewForeignRoutineRef(Ir_Routine *routine, Type *type, Name nam
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_ForeignRoutine;
-    oper.type = GetIrType(type);
+    oper.ir_type = GetIrType(type);
+    oper.type = type;
     oper.var.name = name;
-    oper.var.type = type;
     return oper;
 }
 
@@ -185,9 +189,9 @@ static Ir_Operand NewTemp(Ir_Routine *routine, Type *type)
 {
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Temp;
-    oper.type = GetIrType(type);
+    oper.ir_type = GetIrType(type);
+    oper.type = type;
     oper.temp.temp_id = routine->temp_count++;
-    oper.temp.type = type;
     return oper;
 }
 
@@ -258,7 +262,7 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
 
     Ir_Type oper_type = GetIrType(oper_expr->expr_type);
     Ir_Operand res = NewTemp(routine, expr->expr_type);
-    Ir_Type res_type = res.type;
+    Ir_Type res_type = res.ir_type;
     switch (oper_type)
     {
         case IR_TYP_str:
@@ -675,7 +679,7 @@ static Ir_Operand GenVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
     Symbol *symbol = expr->variable_ref.symbol;
     if (symbol->sym_type == SYM_Function)
     {
-        return NewRoutineRef(routine, expr->expr_type, expr->variable_ref.name);
+        return NewRoutineRef(routine, expr->expr_type, symbol->unique_name);
     }
     else if (symbol->sym_type == SYM_ForeignFunction)
     {
@@ -1018,7 +1022,7 @@ static s64 PrintBool(FILE *file, bool value)
 static s64 PrintImmediate(FILE *file, Ir_Operand oper)
 {
     s64 len = 0;
-    switch (oper.type)
+    switch (oper.ir_type)
     {
         case IR_TYP_ptr:    len = PrintPtr(file, oper.imm_ptr); break;
         case IR_TYP_bool:   len = PrintBool(file, oper.imm_bool); break;
@@ -1063,7 +1067,7 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
             len = PrintName(file, oper.var.name, 17);
             break;
         case IR_OPER_Temp:
-            len = fprintf(file, "temp%" PRId64, oper.temp.temp_id);
+            len = fprintf(file, "@temp%" PRId64, oper.temp.temp_id);
             break;
         case IR_OPER_Immediate:
             len = PrintImmediate(file, oper);

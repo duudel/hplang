@@ -52,11 +52,11 @@ void PrintVersion()
 int main(int argc, char **argv)
 {
 #if 0
-    fprintf(stderr, "sizeof(Ast_Node) %lld\n", sizeof(Ast_Node));
-    fprintf(stderr, "sizeof(Ast_Function_Def) %lld\n", sizeof(Ast_Function_Def));
     fprintf(stderr, "sizeof(File_Location) %lld\n", sizeof(File_Location));
-    fprintf(stderr, "sizeof(Ast_Expression) %lld\n", sizeof(Ast_Expr));
-    fprintf(stderr, "sizeof(Ast_Node_Type) %lld\n", sizeof(Ast_Node_Type));
+    fprintf(stderr, "sizeof(Name) %lld\n", sizeof(Name));
+    fprintf(stderr, "sizeof(Ast_Node) %lld\n", sizeof(Ast_Node));
+    fprintf(stderr, "sizeof(Ast_Expr) %lld\n", sizeof(Ast_Expr));
+    fprintf(stderr, "sizeof(Ast_Function_Def) %lld\n", sizeof(Ast_Function_Def));
     fflush(stderr);
     return 0;
 #endif

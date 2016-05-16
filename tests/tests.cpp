@@ -131,6 +131,7 @@ Test tests[] = {
     (Test){ CP_CodeGen, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
     (Test){ CP_CodeGen, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/function_var.hp",        {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/struct_as_arg.hp",       {}, {}, {}, nullptr },
 };
 
 void PrintError(const char *filename, s64 line, s64 column, const char *message)

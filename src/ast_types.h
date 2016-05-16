@@ -11,8 +11,11 @@ enum Ast_Node_Type
 {
     AST_TopLevel,
 
+    // import "module_name";
+    // or
+    // name :: import "module_name";
     AST_Import,
-    AST_ForeignBlock,
+    AST_ForeignBlock,   // foreign { ... }
     AST_VariableDecl,
     AST_FunctionDef,    // <ident> :: (<param_list>) : <type> {<stmt_block>}
     AST_Parameter,
@@ -271,9 +274,6 @@ struct Ast_Foreign_Block
 
 struct Ast_Import
 {
-    // import "module_name";
-    // or
-    // name :: import "module_name";
     Name name;  // NOTE(henrik): This is optional, so may be empty.
     String module_name;
 };
@@ -407,10 +407,6 @@ struct Ast
 
 struct Token;
 
-Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, File_Location file_loc);
-Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, const Token *token);
-Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, File_Location file_loc);
-Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, const Token *token);
 void FreeAst(Ast *ast);
 
 struct Ast_NT_FL

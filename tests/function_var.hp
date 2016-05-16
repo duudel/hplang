@@ -8,6 +8,11 @@ func :: (a : s32, b : f32) : bool
     return a > 0;
 }
 
+func :: (a : s8) : f32
+{
+    return 0.5f;
+}
+
 call_f :: (f : !(s32, f32) : bool, a : s32, b : f32) : bool
 {
     return f(a, b);
@@ -23,6 +28,10 @@ call_f2 :: (f : ftype, a : s32, b : f32) : bool
 test :: ()
 {
     f := func;
+    // TODO: Here is a problem: cannot cast. Also, how to determine, which
+    // overload of func should this "func" here refer to.
+    //f := func -> !(s32, f32):bool;
+    //f := func!(s32, f32)bool; // Should this syntax be used for "explicit overload resolution"
 
     result := f(15, 0.5f);
     /*assert(*/ result == true /*)*/;

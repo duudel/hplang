@@ -99,14 +99,12 @@ struct Type;
 struct Ir_Variable
 {
     Name name;
-    Type *type;
 };
 
 struct Ir_Temp
 {
     //Name name;
     s64 temp_id;
-    Type *type;
 };
 
 struct Ir_Label
@@ -120,7 +118,8 @@ struct Ir_Routine;
 struct Ir_Operand
 {
     Ir_Oper_Type oper_type;
-    Ir_Type type;
+    Ir_Type ir_type;
+    Type *type;
     union {
         Ir_Variable var;
         Ir_Temp temp;

@@ -1,0 +1,22 @@
+// Passing a struct as an argument
+// 2016-05-16
+
+Test :: struct
+{
+    x : f64;
+    y : f64;
+    index : s64;
+}
+
+func :: (a : Test)
+{
+    if (a.y > a.x)
+        return a.y;
+    return a.x;
+}
+
+test :: ()
+{
+    a : Test;
+    func(a);
+}
