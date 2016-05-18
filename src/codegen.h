@@ -43,11 +43,25 @@ enum Operand_Type
     OT_Immediate,
     OT_Label,
     OT_IrOperand,
+    OT_Addr,
+    OT_IrAddrOper,
 };
 
 struct Label
 {
     Name name;
+};
+
+struct Addr_Base_Offs
+{
+    Reg base;
+    s64 offset;
+};
+
+struct Addr_Ir_Base_Offs
+{
+    Ir_Operand base;
+    s64 offset;
 };
 
 struct Operand
@@ -57,7 +71,10 @@ struct Operand
         Reg reg;
         Label label;
         Ir_Operand ir_oper;
+        Addr_Base_Offs base_offs;
+        Addr_Ir_Base_Offs ir_base_offs;
         union {
+            bool imm_bool;
             u64 imm_u64;
             s64 imm_s64;
             f32 imm_f32;

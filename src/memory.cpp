@@ -92,16 +92,16 @@ void GetMemoryArenaUsage(Memory_Arena *arena, s64 *used, s64 *unused)
     }
 }
 
-static s64 Align(s64 x, s64 alignment)
+uptr Align(uptr x, uptr alignment)
 {
     ASSERT(alignment > 0);
-    s64 mask = alignment - 1;
+    uptr mask = alignment - 1;
     return (x + mask) & ~mask;
 }
 
-static void* Align(void* ptr, s64 alignment)
+void* Align(void* ptr, uptr alignment)
 {
-    return (void*)Align((s64)ptr, alignment);
+    return (void*)Align((uptr)ptr, alignment);
 }
 
 static s64 PointerDiff(void *p1, void *p2)

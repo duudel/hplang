@@ -9,6 +9,10 @@ Pointer Alloc(s64 size);
 Pointer Realloc(Pointer ptr, s64 new_size);
 void Free(Pointer ptr);
 
+uptr Align(uptr x, uptr alignment);
+void* Align(void* ptr, uptr alignment);
+
+
 struct Memory_Block;
 
 struct Memory_Arena

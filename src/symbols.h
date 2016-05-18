@@ -49,6 +49,7 @@ struct Struct_Member
 {
     Name name;
     Type *type;
+    s64 offset;
 };
 
 struct Struct_Type
@@ -68,8 +69,8 @@ struct Function_Type
 struct Type
 {
     Type_Tag tag;
-    s32 size;       // this need not be here
-    s32 alignment;  // this need not be here
+    u32 size;
+    u32 alignment;
     union {
         Name            type_name;
         Type            *base_type;
@@ -214,6 +215,9 @@ Symbol* LookupSymbol(Environment *env, Name name);
 Symbol* LookupSymbolInCurrentScope(Environment *env, Name name);
 
 b32 TypesEqual(Type *a, Type *b);
+
+void ResolvePhysicalTypeInfo(Type *type);
+s64 GetStructMemberOffset(Type *type, s64 member_index);
 
 } // hplang
 

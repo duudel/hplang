@@ -40,7 +40,6 @@ namespace hplang
     PASTE_IR(IR_Jump)\
     PASTE_IR(IR_Jz)\
     PASTE_IR(IR_Jnz)\
-    PASTE_IR(IR_Jgt)\
     \
     PASTE_IR(IR_S_TO_F32)\
     PASTE_IR(IR_S_TO_F64)\

@@ -28,7 +28,7 @@ Type builtin_types[] = {
     {TYP_s64,       8, 8, { }, nullptr},
     {TYP_f32,       4, 4, { }, nullptr},
     {TYP_f64,       8, 8, { }, nullptr},
-    {TYP_string,    16, 8, { }, nullptr},
+    {TYP_string,    0, 0, { }, nullptr},
 };
 
 struct Type_Info
@@ -150,7 +150,7 @@ b32 TypeIsStruct(Type *t)
 {
     if (!t) return false;
     if (TypeIsPending(t)) return TypeIsStruct(t->base_type);
-    return t->tag == TYP_Struct;
+    return t->tag == TYP_Struct || t->tag == TYP_string;
 }
 
 b32 TypeIsSigned(Type *t)
@@ -256,6 +256,58 @@ b32 TypesEqual(Type *a, Type *b)
     }
     INVALID_CODE_PATH;
     return false;
+}
+
+void ResolvePhysicalTypeInfo(Type *type)
+{
+    if (type->alignment == 0)
+    {
+        if (type->tag == TYP_pointer)
+        {
+            type->size = 8;
+            type->alignment = 8;
+        }
+        else if (type->tag == TYP_Function)
+        {
+            type->size = 8;
+            type->alignment = 8;
+        }
+        else if (TypeIsStruct(type))
+        {
+            u32 size = 0;
+            u32 align = 0;
+            for (s64 i = 0; i < type->struct_type.member_count; i++)
+            {
+                Struct_Member *member = &type->struct_type.members[i];
+                ResolvePhysicalTypeInfo(member->type);
+
+                u32 member_align = member->type->alignment;
+                size = Align(size, member_align);
+                align = align > member_align ? align : member_align;
+
+                member->offset = size;
+                size += member->type->size;
+            }
+            type->size = size;
+            type->alignment = align;
+        }
+        else
+        {
+            INVALID_CODE_PATH;
+        }
+    }
+}
+
+s64 GetStructMemberOffset(Type *type, s64 member_index)
+{
+    if (TypeIsStruct(type))
+    {
+        ASSERT(member_index < type->struct_type.member_count);
+        ResolvePhysicalTypeInfo(type);
+        return type->struct_type.members[member_index].offset;
+    }
+    INVALID_CODE_PATH;
+    return 0;
 }
 
 Type* GetBuiltinType(Type_Tag tt)
