@@ -5,6 +5,7 @@
 #include "ast_types.h"
 #include "semantic_check.h"
 #include "ir_gen.h"
+#include "codegen.h"
 
 #include <cstdio>
 #include <cinttypes>
@@ -297,17 +298,23 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     Ir_Gen_Context ir_ctx = NewIrGenContext(ctx);
 
     GenIr(&ir_ctx);
-    PrintIr(stderr, &ir_ctx);
-
-    FreeIrGenContext(&ir_ctx);
+    PrintIr(ctx->error_ctx.file, &ir_ctx);
 
     PrintMemoryDiagnostic(ctx);
 
     if (ctx->options.stop_after == CP_IrGen)
     {
+        FreeIrGenContext(&ir_ctx);
         ctx->result = RES_OK;
         return true;
     }
+
+    Codegen_Context cg_ctx = NewCodegenContext(ctx, CGT_AMD64_Windows);
+    GenerateCode(&cg_ctx, ir_ctx.routines);
+    OutputCode(&cg_ctx);
+
+    FreeIrGenContext(&ir_ctx);
+    FreeCodegenContext(&cg_ctx);
 
     ctx->result = RES_OK;
     return true;

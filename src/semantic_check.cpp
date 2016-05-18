@@ -343,6 +343,7 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
                         return symbol->type;
                 }
             }
+            // TODO(henrik): error?
         } break;
     case AST_Type_Pointer:
         {

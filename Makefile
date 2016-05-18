@@ -4,13 +4,14 @@ COMPILER_FLAGS := -std=c++11 -Wall -Wextra -fno-exceptions -fno-rtti -g
 EXENAME := hplangc.exe
 
 SOURCES := \
+	src/amd64_codegen.cpp \
 	src/assert.cpp \
 	src/ast_types.cpp \
+	src/codegen.cpp \
 	src/compiler.cpp \
 	src/error.cpp \
 	src/hplang.cpp \
 	src/io.cpp \
-	src/ir_exec.cpp \
 	src/ir_gen.cpp \
 	src/lexer.cpp \
 	src/memory.cpp \

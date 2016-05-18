@@ -71,16 +71,26 @@ inline void SeekToEnd(File_Location *file_loc)
     file_loc->offset_start = pos;
 }
 
-inline bool operator == (const Name &a, const Name &b)
+inline bool operator == (const String &a, const String &b)
 {
-    if (a.hash != b.hash) return false;
-    if (a.str.size != b.str.size) return false;
-    for (s64 i = 0; i < a.str.size; i++)
+    if (a.size != b.size) return false;
+    for (s64 i = 0; i < a.size; i++)
     {
-        if (a.str.data[i] != b.str.data[i])
+        if (a.data[i] != b.data[i])
             return false;
     }
     return true;
+}
+
+inline bool operator != (const String &a, const String &b)
+{
+    return !(a == b);
+}
+
+inline bool operator == (const Name &a, const Name &b)
+{
+    if (a.hash != b.hash) return false;
+    return a.str == b.str;
 }
 
 inline bool operator != (const Name &a, const Name &b)
