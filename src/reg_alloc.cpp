@@ -82,7 +82,7 @@ void DirtyCalleeSaveRegs(Reg_Alloc *reg_alloc)
         for (s64 i = 0; last_dirty_count; i++)
         {
             Reg dirty_reg = array::At(reg_alloc->dirty_regs, i);
-            if (dirty_reg.name == save_reg->name)
+            if (dirty_reg == *save_reg)
             {
                 // save_reg is already in dirty_regs
                 save_reg = nullptr;
@@ -99,7 +99,7 @@ void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
     for (s64 i = 0; reg_alloc->dirty_regs.count; i++)
     {
         Reg dirty_reg = array::At(reg_alloc->dirty_regs, i);
-        if (dirty_reg.name == reg.name)
+        if (dirty_reg == reg)
         {
             return;
         }
@@ -112,13 +112,13 @@ void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg)
     for (s64 i = 0; i < reg_alloc->mapped_regs.count; i++)
     {
         Reg_Var reg_var = array::At(reg_alloc->mapped_regs, i);
-        if (reg_var.name == name)
+        if (reg_var.var_name == name)
         {
             return;
         }
     }
     Reg_Var reg_var = { };
-    reg_var.name = name;
+    reg_var.var_name = name;
     reg_var.reg = reg;
     array::Push(reg_alloc->mapped_regs, reg_var);
 }
@@ -128,7 +128,7 @@ const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name)
     for (s64 i = 0; i < reg_alloc->mapped_regs.count; i++)
     {
         const Reg_Var *reg_var = reg_alloc->mapped_regs.data + i;
-        if (reg_var->name == name)
+        if (reg_var->var_name == name)
         {
             return &reg_var->reg;
         }

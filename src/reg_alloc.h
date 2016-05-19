@@ -8,12 +8,18 @@ namespace hplang
 
 struct Reg
 {
-    Name name;
+    u8 reg_index;
+    //Name name;
 };
+
+inline operator == (Reg r1, Reg r2)
+{ return r1.reg_index == r2.reg_index; }
+inline operator != (Reg r1, Reg r2)
+{ return r1.reg_index != r2.reg_index; } 
 
 struct Reg_Var
 {
-    Name name;
+    Name var_name;
     Reg reg;
 };
 

@@ -92,155 +92,207 @@ const char *opcode_names[] = {
 };
 #undef PASTE_OP
 
+/* AMD64 registers
+ * rip and mmx registers not listed.
+ */
+#define REGS\
+    PASTE_REG(NONE)\
+    PASTE_REG(rax)\
+    PASTE_REG(rbx)\
+    PASTE_REG(rcx)\
+    PASTE_REG(rdx)\
+    PASTE_REG(rbp)\
+    PASTE_REG(rsi)\
+    PASTE_REG(rdi)\
+    PASTE_REG(rsp)\
+    PASTE_REG(r8)\
+    PASTE_REG(r9)\
+    PASTE_REG(r10)\
+    PASTE_REG(r11)\
+    PASTE_REG(r12)\
+    PASTE_REG(r13)\
+    PASTE_REG(r14)\
+    PASTE_REG(r15)\
+    \
+    PASTE_REG(xmm0)\
+    PASTE_REG(xmm1)\
+    PASTE_REG(xmm2)\
+    PASTE_REG(xmm3)\
+    PASTE_REG(xmm4)\
+    PASTE_REG(xmm5)\
+    PASTE_REG(xmm6)\
+    PASTE_REG(xmm7)\
+    PASTE_REG(xmm8)\
+    PASTE_REG(xmm9)\
+    PASTE_REG(xmm10)\
+    PASTE_REG(xmm11)\
+    PASTE_REG(xmm12)\
+    PASTE_REG(xmm13)\
+    PASTE_REG(xmm14)\
+    PASTE_REG(xmm15)\
 
-template <s64 N>
-Reg MakeReg(const char (&name)[N])
+#define PASTE_REG(r) REG_##r,
+enum Amd64_Register
 {
-    Reg result = { };
-    String str = { };
-    str.size = N - 1;
-    str.data = const_cast<char*>(name);
-    result.name = MakeName(str);
-    return result;
+    REGS
+};
+#undef PASTE_REG
+
+#define PASTE_REG(r) #r,
+const char *reg_names[] = {
+    REGS
+};
+#undef PASTE_REG
+
+static const char* GetRegName(Reg reg)
+{
+    return reg_names[reg.reg_index];
+}
+
+Reg MakeReg(Amd64_Register r)
+{
+    Reg reg;
+    reg.reg_index = r;
+    return reg;
 }
 
 static Reg general_regs[] = {
-    MakeReg("rax"),
-    MakeReg("rbx"),
-    MakeReg("rcx"),
-    MakeReg("rdx"),
-    MakeReg("rdi"),
-    MakeReg("rsi"),
-    MakeReg("r8"),
-    MakeReg("r9"),
-    MakeReg("r10"),
-    MakeReg("r12"),
-    MakeReg("r13"),
-    MakeReg("r14"),
-    MakeReg("r15"),
+    MakeReg(REG_rax),
+    MakeReg(REG_rbx),
+    MakeReg(REG_rcx),
+    MakeReg(REG_rdx),
+    MakeReg(REG_rdi),
+    MakeReg(REG_rsi),
+    MakeReg(REG_r8),
+    MakeReg(REG_r9),
+    MakeReg(REG_r10),
+    MakeReg(REG_r12),
+    MakeReg(REG_r13),
+    MakeReg(REG_r14),
+    MakeReg(REG_r15),
 };
 
 static Reg float_regs[] = {
-    MakeReg("xmm0"),
-    MakeReg("xmm1"),
-    MakeReg("xmm2"),
-    MakeReg("xmm3"),
-    MakeReg("xmm4"),
-    MakeReg("xmm5"),
-    MakeReg("xmm6"),
-    MakeReg("xmm7"),
-    MakeReg("xmm8"),
-    MakeReg("xmm9"),
-    MakeReg("xmm10"),
-    MakeReg("xmm11"),
-    MakeReg("xmm12"),
-    MakeReg("xmm13"),
-    MakeReg("xmm14"),
-    MakeReg("xmm15"),
+    MakeReg(REG_xmm0),
+    MakeReg(REG_xmm1),
+    MakeReg(REG_xmm2),
+    MakeReg(REG_xmm3),
+    MakeReg(REG_xmm4),
+    MakeReg(REG_xmm5),
+    MakeReg(REG_xmm6),
+    MakeReg(REG_xmm7),
+    MakeReg(REG_xmm8),
+    MakeReg(REG_xmm9),
+    MakeReg(REG_xmm10),
+    MakeReg(REG_xmm11),
+    MakeReg(REG_xmm12),
+    MakeReg(REG_xmm13),
+    MakeReg(REG_xmm14),
+    MakeReg(REG_xmm15),
 };
 
+// Windows AMD64 ABI register usage
 static Reg win_arg_regs[] = {
-    MakeReg("rcx"),
-    MakeReg("rdx"),
-    MakeReg("r8"),
-    MakeReg("r9"),
+    MakeReg(REG_rcx),
+    MakeReg(REG_rdx),
+    MakeReg(REG_r8),
+    MakeReg(REG_r9),
 };
 static Reg win_float_arg_regs[] = {
-    MakeReg("xmm0"),
-    MakeReg("xmm1"),
-    MakeReg("xmm2"),
-    MakeReg("xmm3"),
+    MakeReg(REG_xmm0),
+    MakeReg(REG_xmm1),
+    MakeReg(REG_xmm2),
+    MakeReg(REG_xmm3),
 };
 
 static Reg win_caller_save[] = {
-    MakeReg("rax"),
-    MakeReg("rcx"),
-    MakeReg("rdx"),
-    MakeReg("r8"),
-    MakeReg("r9"),
-    MakeReg("r10"),
-    MakeReg("r11"),
-    MakeReg("xmm0"),
-    MakeReg("xmm1"),
-    MakeReg("xmm2"),
-    MakeReg("xmm3"),
-    MakeReg("xmm4"),
-    MakeReg("xmm5"),
-    MakeReg("xmm6"),
-    MakeReg("xmm7"),
+    MakeReg(REG_rax),
+    MakeReg(REG_rcx),
+    MakeReg(REG_rdx),
+    MakeReg(REG_r8),
+    MakeReg(REG_r9),
+    MakeReg(REG_r10),
+    MakeReg(REG_r11),
+    MakeReg(REG_xmm0),
+    MakeReg(REG_xmm1),
+    MakeReg(REG_xmm2),
+    MakeReg(REG_xmm3),
+    MakeReg(REG_xmm4),
+    MakeReg(REG_xmm5),
+    MakeReg(REG_xmm6),
+    MakeReg(REG_xmm7),
 };
 static Reg win_callee_save[] = {
-    // MakeReg("rbp") // NOTE(henrik): This register is handled explicitly
-    MakeReg("rbx"),
-    MakeReg("rdi"),
-    MakeReg("rsi"),
-    MakeReg("r12"),
-    MakeReg("r13"),
-    MakeReg("r14"),
-    MakeReg("r15"),
-    MakeReg("xmm8"),
-    MakeReg("xmm9"),
-    MakeReg("xmm10"),
-    MakeReg("xmm11"),
-    MakeReg("xmm12"),
-    MakeReg("xmm13"),
-    MakeReg("xmm14"),
-    MakeReg("xmm15"),
+    MakeReg(REG_rbx),
+    MakeReg(REG_rdi),
+    MakeReg(REG_rsi),
+    MakeReg(REG_r12),
+    MakeReg(REG_r13),
+    MakeReg(REG_r14),
+    MakeReg(REG_r15),
+    MakeReg(REG_xmm8),
+    MakeReg(REG_xmm9),
+    MakeReg(REG_xmm10),
+    MakeReg(REG_xmm11),
+    MakeReg(REG_xmm12),
+    MakeReg(REG_xmm13),
+    MakeReg(REG_xmm14),
+    MakeReg(REG_xmm15),
 };
 
+// Unix System V ABI
 static Reg nix_arg_regs[] = {
-    MakeReg("rdi"),
-    MakeReg("rsi"),
-    MakeReg("rdx"),
-    MakeReg("rcx"),
-    MakeReg("r8"),
-    MakeReg("r9"),
+    MakeReg(REG_rdi),
+    MakeReg(REG_rsi),
+    MakeReg(REG_rdx),
+    MakeReg(REG_rcx),
+    MakeReg(REG_r8),
+    MakeReg(REG_r9),
 };
 static Reg nix_float_arg_regs[] = {
-    MakeReg("xmm0"),
-    MakeReg("xmm1"),
-    MakeReg("xmm2"),
-    MakeReg("xmm3"),
-    MakeReg("xmm4"),
-    MakeReg("xmm5"),
-    MakeReg("xmm6"),
-    MakeReg("xmm7"),
+    MakeReg(REG_xmm0),
+    MakeReg(REG_xmm1),
+    MakeReg(REG_xmm2),
+    MakeReg(REG_xmm3),
+    MakeReg(REG_xmm4),
+    MakeReg(REG_xmm5),
+    MakeReg(REG_xmm6),
+    MakeReg(REG_xmm7),
 };
 
 static Reg nix_caller_save[] = {
-    MakeReg("rax"),
-    MakeReg("rcx"),
-    MakeReg("rdx"),
-    MakeReg("rdi"),
-    MakeReg("rsi"),
-    MakeReg("r8"),
-    MakeReg("r9"),
-    MakeReg("r10"),
-    MakeReg("r11"),
-    MakeReg("xmm0"),
-    MakeReg("xmm1"),
-    MakeReg("xmm2"),
-    MakeReg("xmm3"),
-    MakeReg("xmm4"),
-    MakeReg("xmm5"),
-    MakeReg("xmm6"),
-    MakeReg("xmm7"),
-    MakeReg("xmm8"),
-    MakeReg("xmm9"),
-    MakeReg("xmm10"),
-    MakeReg("xmm11"),
-    MakeReg("xmm12"),
-    MakeReg("xmm13"),
-    MakeReg("xmm14"),
-    MakeReg("xmm15"),
+    MakeReg(REG_rax),
+    MakeReg(REG_rcx),
+    MakeReg(REG_rdx),
+    MakeReg(REG_rdi),
+    MakeReg(REG_rsi),
+    MakeReg(REG_r8),
+    MakeReg(REG_r9),
+    MakeReg(REG_r10),
+    MakeReg(REG_r11),
+    MakeReg(REG_xmm0),
+    MakeReg(REG_xmm1),
+    MakeReg(REG_xmm2),
+    MakeReg(REG_xmm3),
+    MakeReg(REG_xmm4),
+    MakeReg(REG_xmm5),
+    MakeReg(REG_xmm6),
+    MakeReg(REG_xmm7),
+    MakeReg(REG_xmm8),
+    MakeReg(REG_xmm9),
+    MakeReg(REG_xmm10),
+    MakeReg(REG_xmm11),
+    MakeReg(REG_xmm12),
+    MakeReg(REG_xmm13),
+    MakeReg(REG_xmm14),
+    MakeReg(REG_xmm15),
 };
 static Reg nix_callee_save[] = {
-    // MakeReg("rbp") // NOTE(henrik): This register is handled explicitly
-    MakeReg("rbx"),
-    MakeReg("r12"),
-    MakeReg("r13"),
-    MakeReg("r14"),
-    MakeReg("r15"),
+    MakeReg(REG_rbx),
+    MakeReg(REG_r12),
+    MakeReg(REG_r13),
+    MakeReg(REG_r14),
+    MakeReg(REG_r15),
 };
 
 void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
@@ -288,6 +340,11 @@ static Operand RegOperand(Reg reg, Oper_Access_Flags access_flags)
     return result;
 }
 
+static Operand RegOperand(Amd64_Register reg, Oper_Access_Flags access_flags)
+{
+    return RegOperand(MakeReg(reg), access_flags);
+}
+
 static Operand AddrOperand(Reg base, s64 offset, Oper_Access_Flags access_flags)
 {
     Operand result = { };
@@ -296,6 +353,11 @@ static Operand AddrOperand(Reg base, s64 offset, Oper_Access_Flags access_flags)
     result.base_index_offs.base = base;
     result.base_index_offs.offset = offset;
     return result;
+}
+
+static Operand AddrOperand(Amd64_Register base, s64 offset, Oper_Access_Flags access_flags)
+{
+    return AddrOperand(MakeReg(base), offset, access_flags);
 }
 
 static Operand AddrOperand(Reg base, Reg index, s64 scale, s64 offset, Oper_Access_Flags access_flags)
@@ -442,12 +504,18 @@ static void InsertLoadAddr(Codegen_Context *ctx, Operand oper1, Operand oper2)
 
 static void InsertZeroReg(Codegen_Context *ctx, Operand oper)
 {
+    oper.access_flags = AF_Write;
     InsertInstruction(ctx, OP_xor, oper, oper);
 }
 
 static void InsertZeroReg(Codegen_Context *ctx, Reg reg)
 {
     InsertZeroReg(ctx, RegOperand(reg, AF_Write));
+}
+
+static void InsertZeroReg(Codegen_Context *ctx, Amd64_Register reg)
+{
+    InsertZeroReg(ctx, MakeReg(reg));
 }
 
 static void InsertLabel(Codegen_Context *ctx, Name name)
@@ -610,12 +678,10 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             }
             else // unsigned
             {
-                Reg rax = MakeReg("rax");
-                Reg rdx = MakeReg("rdx");
-                InsertZeroReg(ctx, rdx);
-                InsertLoad(ctx, RegOperand(rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                InsertZeroReg(ctx, REG_rdx);
+                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
                 InsertInstruction(ctx, OP_mul, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(rax, AF_Read));
+                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
             }
         } break;
     case IR_Div:
@@ -631,21 +697,17 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             }
             else if (is_signed)
             {
-                Reg rax = MakeReg("rax");
-                Reg rdx = MakeReg("rdx");
-                InsertZeroReg(ctx, rdx);
-                InsertLoad(ctx, RegOperand(rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                InsertZeroReg(ctx, REG_rdx);
+                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
                 InsertInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(rax, AF_Read));
+                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
             }
             else // unsigned
             {
-                Reg rax = MakeReg("rax");
-                Reg rdx = MakeReg("rdx");
-                InsertZeroReg(ctx, rdx);
-                InsertLoad(ctx, RegOperand(rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                InsertZeroReg(ctx, REG_rdx);
+                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
                 InsertInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(rax, AF_Read));
+                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
             }
         } break;
     case IR_Mod:
@@ -656,21 +718,17 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             }
             else if (is_signed)
             {
-                Reg rax = MakeReg("rax");
-                Reg rdx = MakeReg("rdx");
-                InsertZeroReg(ctx, rdx);
-                InsertLoad(ctx, RegOperand(rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                InsertZeroReg(ctx, REG_rdx);
+                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
                 InsertInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(rdx, AF_Read));
+                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rdx, AF_Read));
             }
             else // unsigned
             {
-                Reg rax = MakeReg("rax");
-                Reg rdx = MakeReg("rdx");
-                InsertZeroReg(ctx, rdx);
-                InsertLoad(ctx, RegOperand(rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                InsertZeroReg(ctx, REG_rdx);
+                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
                 InsertInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(rdx, AF_Read));
+                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rdx, AF_Read));
             }
         } break;
 
@@ -728,10 +786,8 @@ static void PushArgs(Codegen_Context *ctx,
     s64 arg_reg_idx = arg_index;
     s64 float_arg_reg_idx = arg_index;
 
-    Reg rsp = MakeReg("rsp");
-
     s64 arg_stack_alloc = (arg_count > 4 ? arg_count : 4) * 8;
-    InsertInstruction(ctx, OP_sub, RegOperand(rsp, AF_Write), ImmOperand(arg_stack_alloc, AF_Read));
+    InsertInstruction(ctx, OP_sub, RegOperand(REG_rsp, AF_Write), ImmOperand(arg_stack_alloc, AF_Read));
 
     ASSERT(ir_instr->oper2.oper_type == IR_OPER_Immediate);
     s64 arg_instr_idx = ir_instr->oper2.imm_s64;
@@ -772,13 +828,13 @@ static void PushArgs(Codegen_Context *ctx,
                 if (arg_type->size > 8)
                 {
                     InsertLoadAddr(ctx,
-                            AddrOperand(rsp, arg_index * 8, AF_Write),
+                            AddrOperand(REG_rsp, arg_index * 8, AF_Write),
                             IrOperand(&arg_instr->target, AF_Read));
                 }
                 else
                 {
                     InsertLoad(ctx,
-                            AddrOperand(rsp, arg_index * 8, AF_Write),
+                            AddrOperand(REG_rsp, arg_index * 8, AF_Write),
                             IrAddrOperand(&arg_instr->target, 0, AF_Read));
                 }
             }
@@ -906,7 +962,7 @@ static void GenerateCode(Codegen_Context *ctx,
             if (ir_instr->target.oper_type != IR_OPER_None)
                 InsertLoad(ctx,
                         IrOperand(&ir_instr->target, AF_Write),
-                        RegOperand(MakeReg("rax"), AF_Read));
+                        RegOperand(REG_rax, AF_Read));
             ctx->current_arg_count = 0;
             break;
         case IR_CallForeign:
@@ -915,7 +971,7 @@ static void GenerateCode(Codegen_Context *ctx,
             if (ir_instr->target.oper_type != IR_OPER_None)
                 InsertLoad(ctx,
                         IrOperand(&ir_instr->target, AF_Write),
-                        RegOperand(MakeReg("rax"), AF_Read));
+                        RegOperand(REG_rax, AF_Read));
             ctx->current_arg_count = 0;
             break;
 
@@ -937,7 +993,7 @@ static void GenerateCode(Codegen_Context *ctx,
         case IR_Return:
             if (ir_instr->target.oper_type != IR_OPER_None)
                 InsertLoad(ctx,
-                        RegOperand(MakeReg("rax"), AF_Write),
+                        RegOperand(REG_rax, AF_Write),
                         IrOperand(&ir_instr->target, AF_Read));
             InsertInstruction(ctx, OP_ret);
             break;
@@ -1027,6 +1083,9 @@ static void AllocateRegister(Codegen_Context *ctx, Operand *oper)
                         break;
                 }
             } break;
+        case OT_IrAddrOper:
+            NOT_IMPLEMENTED("OT_IrAddrOper");
+            break;
     }
 }
 
@@ -1220,7 +1279,7 @@ static s64 PrintOperand(IoFile *file, Operand oper, b32 first)
             NOT_IMPLEMENTED("OT_Temp");
             break;
         case OT_Register:
-            len += PrintName(file, oper.reg.name);
+            len += fprintf((FILE*)file, "%s", GetRegName(oper.reg));
             break;
         case OT_IrOperand:
             len += PrintIrOperand(file, *oper.ir_oper);
@@ -1232,11 +1291,11 @@ static s64 PrintOperand(IoFile *file, Operand oper, b32 first)
             {
                 Addr_Base_Index_Offs base_idx_offs = oper.base_index_offs;
                 len += fprintf((FILE*)file, "[");
-                if (base_idx_offs.base.name.str.size != 0)
+                if (base_idx_offs.base.reg_index != REG_NONE)
                 {
-                    len += PrintName(file, base_idx_offs.base.name);
+                    len += fprintf((FILE*)file, "%s", GetRegName(base_idx_offs.base));
                 }
-                if (base_idx_offs.index.name.str.size != 0)
+                if (base_idx_offs.index.reg_index != REG_NONE)
                 {
                     s32 scale = base_idx_offs.scale;
                     if (scale > 0)
@@ -1248,8 +1307,8 @@ static s64 PrintOperand(IoFile *file, Operand oper, b32 first)
                         len += fprintf((FILE*)file, "-");
                         scale = -scale;
                     }
-                    len += PrintName(file, base_idx_offs.index.name);
-                    len += fprintf((FILE*)file, "*%" PRId32, scale);
+                    len += fprintf((FILE*)file, "%s*%" PRId32,
+                            GetRegName(base_idx_offs.index), scale);
                 }
                 if (base_idx_offs.offset != 0)
                 {
