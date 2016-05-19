@@ -23,29 +23,38 @@ b32 operator == (Ir_Operand oper1, Ir_Operand oper2)
         case IR_OPER_ForeignRoutine:
             return oper1.var.name == oper2.var.name;
         case IR_OPER_Temp:
-            return oper1.temp.temp_id == oper2.temp.temp_id;
+            return oper1.temp.name == oper2.temp.name;
+            //return oper1.temp.temp_id == oper2.temp.temp_id;
         case IR_OPER_Immediate:
-            if (oper1.ir_type != oper2.ir_type) return false;
-            switch (oper1.ir_type)
+            if (oper1.type != oper2.type) return false;
+            switch (oper1.type->tag)
             {
-                case IR_TYP_ptr:    return oper1.imm_ptr == oper2.imm_ptr;
-                case IR_TYP_bool:   return oper1.imm_bool == oper2.imm_bool;
-                case IR_TYP_u8: case IR_TYP_s8:
+                case TYP_none:
+                case TYP_pending:
+                case TYP_null:
+                case TYP_void:
+                    INVALID_CODE_PATH;
+                    break;
+
+                case TYP_pointer:   return oper1.imm_ptr == oper2.imm_ptr;
+                case TYP_bool:      return oper1.imm_bool == oper2.imm_bool;
+                case TYP_char: case TYP_u8: case TYP_s8:
                     return oper1.imm_u8 == oper2.imm_u8;
-                case IR_TYP_u16: case IR_TYP_s16:
+                case TYP_u16: case TYP_s16:
                     return oper1.imm_u16 == oper2.imm_u16;
-                case IR_TYP_u32: case IR_TYP_s32:
+                case TYP_u32: case TYP_s32:
                     return oper1.imm_u32 == oper2.imm_u32;
-                case IR_TYP_u64: case IR_TYP_s64:
+                case TYP_u64: case TYP_s64:
                     return oper1.imm_u64 == oper2.imm_u64;
-                case IR_TYP_f32:
+                case TYP_f32:
                     return oper1.imm_f32 == oper2.imm_f32;
-                case IR_TYP_f64:
+                case TYP_f64:
                     return oper1.imm_f64 == oper2.imm_f64;
-                case IR_TYP_str:
+                case TYP_string:
                     return oper1.imm_str == oper2.imm_str;
-                case IR_TYP_struct:
-                case IR_TYP_routine:
+
+                case TYP_Struct:
+                case TYP_Function:
                     INVALID_CODE_PATH;
                     return false;
             }
@@ -112,35 +121,6 @@ static Ir_Routine* PushRoutine(Ir_Gen_Context *ctx, Name name, s64 arg_count)
     return routine;
 }
 
-Ir_Type GetIrType(Type *type)
-{
-    switch (type->tag)
-    {
-        case TYP_pending:   return GetIrType(type->base_type);
-        case TYP_pointer:   return IR_TYP_ptr;
-        case TYP_bool:      return IR_TYP_bool;
-        case TYP_char:      return IR_TYP_u8;
-        case TYP_u8:        return IR_TYP_u8;
-        case TYP_s8:        return IR_TYP_s8;
-        case TYP_u16:       return IR_TYP_u16;
-        case TYP_s16:       return IR_TYP_s16;
-        case TYP_u32:       return IR_TYP_u32;
-        case TYP_s32:       return IR_TYP_s32;
-        case TYP_u64:       return IR_TYP_u64;
-        case TYP_s64:       return IR_TYP_s64;
-        case TYP_f32:       return IR_TYP_f32;
-        case TYP_f64:       return IR_TYP_f64;
-        case TYP_string:    return IR_TYP_str;
-        case TYP_Function:  return IR_TYP_routine;
-        case TYP_Struct:    return IR_TYP_struct;
-        default:
-                            break;
-    }
-    fprintf(stderr, "\ntype->tag = %d\n", type->tag);
-    INVALID_CODE_PATH;
-    return IR_TYP_ptr;
-}
-
 static Ir_Operand NoneOperand()
 {
     Ir_Operand oper = { };
@@ -153,37 +133,35 @@ static Ir_Operand NewImmediateNull(Ir_Routine *routine)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Immediate;
-    oper.ir_type = IR_TYP_ptr;
     oper.type = GetBuiltinType(TYP_pointer);
     oper.imm_ptr = nullptr;
     return oper;
 }
 
-#define IR_IMM(t, ir_t, typ, member)\
+#define IR_IMM(t, typ, member)\
 static Ir_Operand NewImmediate(Ir_Routine *routine, t value)\
 {\
     (void)routine;\
     Ir_Operand oper = { };\
     oper.oper_type = IR_OPER_Immediate;\
-    oper.ir_type = ir_t;\
     oper.type = GetBuiltinType(typ);\
     oper.member = value;\
     return oper;\
 }
 
-//IR_IMM(void*, IR_TYP_ptr, imm_ptr)
-IR_IMM(bool, IR_TYP_bool, TYP_bool, imm_bool)
-IR_IMM(u8, IR_TYP_u8, TYP_u8, imm_u8)
-//IR_IMM(s8, IR_TYP_s8, imm_s8)
-//IR_IMM(u16, IR_TYP_u16, imm_u16)
-//IR_IMM(s16, IR_TYP_s16, imm_s16)
-//IR_IMM(u32, IR_TYP_u32, imm_u32)
-//IR_IMM(s32, IR_TYP_s32, imm_s32)
-//IR_IMM(u64, IR_TYP_u64, imm_u64)
-//IR_IMM(s64, IR_TYP_s64, imm_s64)
-IR_IMM(f32, IR_TYP_f32, TYP_f32, imm_f32)
-IR_IMM(f64, IR_TYP_f64, TYP_f64, imm_f64)
-IR_IMM(String, IR_TYP_str, TYP_string, imm_str)
+//IR_IMM(void*, TYP_pointer, imm_ptr)
+IR_IMM(bool, TYP_bool, imm_bool)
+IR_IMM(u8, TYP_u8, imm_u8)
+//IR_IMM(s8, TYP_s8, imm_s8)
+//IR_IMM(u16, TYP_u16, imm_u16)
+//IR_IMM(s16, TYP_s16, imm_s16)
+//IR_IMM(u32, TYP_u32, imm_u32)
+//IR_IMM(s32, TYP_s32, imm_s32)
+//IR_IMM(u64, TYP_u64, imm_u64)
+//IR_IMM(s64, TYP_s64, imm_s64)
+IR_IMM(f32, TYP_f32, imm_f32)
+IR_IMM(f64, TYP_f64, imm_f64)
+IR_IMM(String, TYP_string, imm_str)
 
 #undef IR_IMM
 
@@ -192,7 +170,6 @@ static Ir_Operand NewImmediateInt(Ir_Routine *routine, u64 value, Type *type)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Immediate;
-    oper.ir_type = GetIrType(type);
     oper.type = type;
     oper.imm_u64 = value;
     return oper;
@@ -203,7 +180,6 @@ static Ir_Operand NewImmediateOffset(Ir_Routine *routine, s64 value)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Immediate;
-    oper.ir_type = IR_TYP_s64;
     oper.type = GetBuiltinType(TYP_s64);
     oper.imm_s64 = value;
     return oper;
@@ -214,7 +190,6 @@ static Ir_Operand NewVariableRef(Ir_Routine *routine, Type *type, Name name)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Variable;
-    oper.ir_type = GetIrType(type);
     oper.type = type;
     oper.var.name = name;
     return oper;
@@ -225,7 +200,6 @@ static Ir_Operand NewRoutineRef(Ir_Routine *routine, Type *type, Name name)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Routine;
-    oper.ir_type = GetIrType(type);
     oper.type = type;
     oper.var.name = name;
     return oper;
@@ -236,7 +210,6 @@ static Ir_Operand NewForeignRoutineRef(Ir_Routine *routine, Type *type, Name nam
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_ForeignRoutine;
-    oper.ir_type = GetIrType(type);
     oper.type = type;
     oper.var.name = name;
     return oper;
@@ -244,16 +217,16 @@ static Ir_Operand NewForeignRoutineRef(Ir_Routine *routine, Type *type, Name nam
 
 static Ir_Operand NewTemp(Ir_Gen_Context *ctx, Ir_Routine *routine, Type *type)
 {
-    Ir_Operand oper = { };
-    oper.oper_type = IR_OPER_Temp;
-    oper.ir_type = GetIrType(type);
-    oper.type = type;
-    oper.temp.temp_id = routine->temp_count++;
+    s64 temp_id = routine->temp_count++;
 
     const s64 buf_size = 40;
     char buf[buf_size];
-    snprintf(buf, buf_size, "@temp%" PRId64, oper.temp.temp_id);
+    snprintf(buf, buf_size, "@temp%" PRId64, temp_id);
 
+    Ir_Operand oper = { };
+    oper.oper_type = IR_OPER_Temp;
+    oper.type = type;
+    //oper.temp.temp_id = routine->temp_count++;
     oper.temp.name = PushName(&ctx->arena, buf);
     return oper;
 }
@@ -333,73 +306,82 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     Ast_Expr *oper_expr = expr->typecast_expr.expr;
     Ir_Operand oper_res = GenExpression(ctx, oper_expr, routine);
 
-    Ir_Type oper_type = GetIrType(oper_expr->expr_type);
-    Ir_Operand res = NewTemp(ctx, routine, expr->expr_type);
-    Ir_Type res_type = res.ir_type;
-    switch (oper_type)
+    Type *oper_type = oper_expr->expr_type;
+    Ir_Operand res = NewTemp(ctx, routine, oper_type);
+    Type *res_type = res.type;
+    switch (oper_type->tag)
     {
-        case IR_TYP_str:
+        case TYP_none:
+        case TYP_pending:
+        case TYP_null:
+        case TYP_void:
             INVALID_CODE_PATH;
             break;
-        case IR_TYP_struct:
+        case TYP_string:
             INVALID_CODE_PATH;
             break;
-        case IR_TYP_routine:
+        case TYP_Struct:
+            INVALID_CODE_PATH;
+            break;
+        case TYP_Function:
             INVALID_CODE_PATH;
             break;
 
-        case IR_TYP_ptr:
+        case TYP_pointer:
             PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             break;
-        case IR_TYP_bool:
+        case TYP_bool:
             PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             break;
-        case IR_TYP_u8:
-            switch (res_type)
+        case TYP_char:
+            PushInstruction(ctx, routine, IR_Mov, res, oper_res);
+            break;
+        case TYP_u8:
+            switch (res_type->tag)
             {
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
-        case IR_TYP_s8:
-            switch (res_type)
+        case TYP_s8:
+            switch (res_type->tag)
             {
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
-        case IR_TYP_u16:
-            switch (res_type)
+        case TYP_u16:
+            switch (res_type->tag)
             {
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
-        case IR_TYP_s16:
-            switch (res_type)
+        case TYP_s16:
+            switch (res_type->tag)
             {
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
@@ -407,110 +389,110 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
             }
             break;
             // TODO(henrik): There are no AMD64 instructions from unsigned int -> float/double
-        case IR_TYP_u32:
-            switch (res_type)
+        case TYP_u32:
+            switch (res_type->tag)
             {
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
-        case IR_TYP_s32:
-            switch (res_type)
+        case TYP_s32:
+            switch (res_type->tag)
             {
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
-        case IR_TYP_u64:
-            switch (res_type)
+        case TYP_u64:
+            switch (res_type->tag)
             {
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
-        case IR_TYP_s64:
-            switch (res_type)
+        case TYP_s64:
+            switch (res_type->tag)
             {
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_S_TO_F32, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
-        case IR_TYP_f32:
-            switch (res_type)
+        case TYP_f32:
+            switch (res_type->tag)
             {
-            case IR_TYP_ptr:
-            case IR_TYP_bool:
+            case TYP_pointer:
+            case TYP_bool:
                 INVALID_CODE_PATH;
                 break;
-            case IR_TYP_u8:
-            case IR_TYP_u16:
-            case IR_TYP_u32:
-            case IR_TYP_u64:
+            case TYP_u8:
+            case TYP_u16:
+            case TYP_u32:
+            case TYP_u64:
                 PushInstruction(ctx, routine, IR_F32_TO_S, res, oper_res);
                 break;
-            case IR_TYP_s8:
-            case IR_TYP_s16:
-            case IR_TYP_s32:
-            case IR_TYP_s64:
+            case TYP_s8:
+            case TYP_s16:
+            case TYP_s32:
+            case TYP_s64:
                 PushInstruction(ctx, routine, IR_F32_TO_S, res, oper_res);
                 break;
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_F32_TO_F64, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
-        case IR_TYP_f64:
-            switch (res_type)
+        case TYP_f64:
+            switch (res_type->tag)
             {
-            case IR_TYP_ptr:
-            case IR_TYP_bool:
+            case TYP_pointer:
+            case TYP_bool:
                 INVALID_CODE_PATH;
                 break;
-            case IR_TYP_u8:
-            case IR_TYP_u16:
-            case IR_TYP_u32:
-            case IR_TYP_u64:
+            case TYP_u8:
+            case TYP_u16:
+            case TYP_u32:
+            case TYP_u64:
                 PushInstruction(ctx, routine, IR_F64_TO_S, res, oper_res);
                 break;
-            case IR_TYP_s8:
-            case IR_TYP_s16:
-            case IR_TYP_s32:
-            case IR_TYP_s64:
+            case TYP_s8:
+            case TYP_s16:
+            case TYP_s32:
+            case TYP_s64:
                 PushInstruction(ctx, routine, IR_F64_TO_S, res, oper_res);
                 break;
-            case IR_TYP_f32:
+            case TYP_f32:
                 PushInstruction(ctx, routine, IR_F64_TO_F32, res, oper_res);
                 break;
-            case IR_TYP_f64:
+            case TYP_f64:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
                 break;
             default:
@@ -1128,28 +1110,36 @@ static s64 PrintBool(FILE *file, bool value)
 static s64 PrintImmediate(FILE *file, Ir_Operand oper)
 {
     s64 len = 0;
-    switch (oper.ir_type)
+    switch (oper.type->tag)
     {
-        case IR_TYP_ptr:    len = PrintPtr(file, oper.imm_ptr); break;
-        case IR_TYP_bool:   len = PrintBool(file, oper.imm_bool); break;
-        case IR_TYP_u8:     len = fprintf(file, "%u", oper.imm_u8); break;
-        case IR_TYP_s8:     len = fprintf(file, "%d", oper.imm_s8); break;
-        case IR_TYP_u16:    len = fprintf(file, "%u", oper.imm_u16); break;
-        case IR_TYP_s16:    len = fprintf(file, "%d", oper.imm_s16); break;
-        case IR_TYP_u32:    len = fprintf(file, "%u", oper.imm_u32); break;
-        case IR_TYP_s32:    len = fprintf(file, "%d", oper.imm_s32); break;
-        case IR_TYP_u64:    len = fprintf(file, "%" PRIu64, oper.imm_u64); break;
-        case IR_TYP_s64:    len = fprintf(file, "%" PRId64, oper.imm_s64); break;
-        case IR_TYP_f32:    len = fprintf(file, "%ff", oper.imm_f32); break;
-        case IR_TYP_f64:    len = fprintf(file, "%fd", oper.imm_f64); break;
-        case IR_TYP_str:
+        case TYP_none:
+        case TYP_pending:
+        case TYP_null:
+        case TYP_void:
+            INVALID_CODE_PATH;
+            break;
+
+        case TYP_pointer:   len = PrintPtr(file, oper.imm_ptr); break;
+        case TYP_bool:      len = PrintBool(file, oper.imm_bool); break;
+        case TYP_char:      len = fprintf(file, "'%c'", oper.imm_u8); break;
+        case TYP_u8:        len = fprintf(file, "%u", oper.imm_u8); break;
+        case TYP_s8:        len = fprintf(file, "%d", oper.imm_s8); break;
+        case TYP_u16:       len = fprintf(file, "%u", oper.imm_u16); break;
+        case TYP_s16:       len = fprintf(file, "%d", oper.imm_s16); break;
+        case TYP_u32:       len = fprintf(file, "%u", oper.imm_u32); break;
+        case TYP_s32:       len = fprintf(file, "%d", oper.imm_s32); break;
+        case TYP_u64:       len = fprintf(file, "%" PRIu64, oper.imm_u64); break;
+        case TYP_s64:       len = fprintf(file, "%" PRId64, oper.imm_s64); break;
+        case TYP_f32:       len = fprintf(file, "%ff", oper.imm_f32); break;
+        case TYP_f64:       len = fprintf(file, "%fd", oper.imm_f64); break;
+        case TYP_string:
             len += fprintf(file, "\"");
             len += PrintString(file, oper.imm_str, 16);
             len += fprintf(file, "\"");
             break;
 
-        case IR_TYP_struct:
-        case IR_TYP_routine:
+        case TYP_Struct:
+        case TYP_Function:
             INVALID_CODE_PATH;
             break;
     }
@@ -1173,7 +1163,7 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
             len = PrintName(file, oper.var.name, 17);
             break;
         case IR_OPER_Temp:
-            len = fprintf(file, "@temp%" PRId64, oper.temp.temp_id);
+            len = PrintName(file, oper.temp.name, 17);
             break;
         case IR_OPER_Immediate:
             len = PrintImmediate(file, oper);

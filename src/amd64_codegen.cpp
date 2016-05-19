@@ -360,17 +360,17 @@ static Operand AddrOperand(Amd64_Register base, s64 offset, Oper_Access_Flags ac
     return AddrOperand(MakeReg(base), offset, access_flags);
 }
 
-static Operand AddrOperand(Reg base, Reg index, s64 scale, s64 offset, Oper_Access_Flags access_flags)
-{
-    Operand result = { };
-    result.type = OT_Addr;
-    result.access_flags = access_flags;
-    result.base_index_offs.base = base;
-    result.base_index_offs.index = index;
-    result.base_index_offs.scale = scale;
-    result.base_index_offs.offset = offset;
-    return result;
-}
+//static Operand AddrOperand(Reg base, Reg index, s64 scale, s64 offset, Oper_Access_Flags access_flags)
+//{
+//    Operand result = { };
+//    result.type = OT_Addr;
+//    result.access_flags = access_flags;
+//    result.base_index_offs.base = base;
+//    result.base_index_offs.index = index;
+//    result.base_index_offs.scale = scale;
+//    result.base_index_offs.offset = offset;
+//    return result;
+//}
 
 static Operand ImmOperand(bool imm, Oper_Access_Flags access_flags)
 {
@@ -528,9 +528,9 @@ static void InsertLabel(Codegen_Context *ctx, Name name)
 static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
 {
     Amd64_Opcode cmp_op;
-    if (ir_instr->oper1.ir_type == IR_TYP_f32)
+    if (ir_instr->oper1.type->tag == TYP_f32)
         cmp_op = OP_comiss;
-    else if (ir_instr->oper1.ir_type == IR_TYP_f64)
+    else if (ir_instr->oper1.type->tag == TYP_f64)
         cmp_op = OP_comisd;
     else
         cmp_op = OP_cmp;
@@ -1093,7 +1093,7 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
 {
     ClearRegAllocs(&ctx->reg_alloc);
     DirtyCalleeSaveRegs(&ctx->reg_alloc);
-    for (s64 i = 0; ir_routine->arg_count; i++)
+    for (s64 i = 0; i < ir_routine->arg_count; i++)
     {
         Ir_Operand *arg = &ir_routine->args[i];
         const Reg *arg_reg = GetArgRegister(&ctx->reg_alloc, i);
@@ -1193,21 +1193,27 @@ static s64 PrintBool(FILE *file, bool value)
 
 static s64 PrintIrImmediate(FILE *file, Ir_Operand oper)
 {
-    switch (oper.ir_type)
+    switch (oper.type->tag)
     {
-        case IR_TYP_ptr:    return PrintPtr(file, oper.imm_ptr); break;
-        case IR_TYP_bool:   return PrintBool(file, oper.imm_bool); break;
-        case IR_TYP_u8:     return fprintf(file, "%u", oper.imm_u8); break;
-        case IR_TYP_s8:     return fprintf(file, "%d", oper.imm_s8); break;
-        case IR_TYP_u16:    return fprintf(file, "%u", oper.imm_u16); break;
-        case IR_TYP_s16:    return fprintf(file, "%d", oper.imm_s16); break;
-        case IR_TYP_u32:    return fprintf(file, "%u", oper.imm_u32); break;
-        case IR_TYP_s32:    return fprintf(file, "%d", oper.imm_s32); break;
-        case IR_TYP_u64:    return fprintf(file, "%" PRIu64, oper.imm_u64); break;
-        case IR_TYP_s64:    return fprintf(file, "%" PRId64, oper.imm_s64); break;
-        case IR_TYP_f32:    return fprintf(file, "%ff", oper.imm_f32); break;
-        case IR_TYP_f64:    return fprintf(file, "%fd", oper.imm_f64); break;
-        case IR_TYP_str:
+        case TYP_none:
+        case TYP_pending:
+        case TYP_null:
+        case TYP_void:
+
+        case TYP_pointer:   return PrintPtr(file, oper.imm_ptr); break;
+        case TYP_bool:      return PrintBool(file, oper.imm_bool); break;
+        case TYP_char:      return fprintf(file, "'%c'", oper.imm_u8); break;
+        case TYP_u8:        return fprintf(file, "%u", oper.imm_u8); break;
+        case TYP_s8:        return fprintf(file, "%d", oper.imm_s8); break;
+        case TYP_u16:       return fprintf(file, "%u", oper.imm_u16); break;
+        case TYP_s16:       return fprintf(file, "%d", oper.imm_s16); break;
+        case TYP_u32:       return fprintf(file, "%u", oper.imm_u32); break;
+        case TYP_s32:       return fprintf(file, "%d", oper.imm_s32); break;
+        case TYP_u64:       return fprintf(file, "%" PRIu64, oper.imm_u64); break;
+        case TYP_s64:       return fprintf(file, "%" PRId64, oper.imm_s64); break;
+        case TYP_f32:       return fprintf(file, "%ff", oper.imm_f32); break;
+        case TYP_f64:       return fprintf(file, "%fd", oper.imm_f64); break;
+        case TYP_string:
         {
             s64 len = 0;
             len += fprintf(file, "\"");
@@ -1216,8 +1222,8 @@ static s64 PrintIrImmediate(FILE *file, Ir_Operand oper)
             return len;
         }
 
-        case IR_TYP_struct:
-        case IR_TYP_routine:
+        case TYP_Struct:
+        case TYP_Function:
             INVALID_CODE_PATH;
             break;
     }
@@ -1242,7 +1248,8 @@ static s64 PrintIrOperand(IoFile *file, Ir_Operand oper)
             len += PrintName(file, oper.var.name);
             break;
         case IR_OPER_Temp:
-            len += fprintf((FILE*)file, "@temp%" PRId64, oper.temp.temp_id);
+            //len += fprintf((FILE*)file, "@temp%" PRId64, oper.temp.temp_id);
+            len += PrintName(file, oper.temp.name);
             break;
         case IR_OPER_Immediate:
             len += PrintIrImmediate((FILE*)file, oper);

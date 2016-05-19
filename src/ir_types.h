@@ -58,26 +58,6 @@ enum Ir_Opcode
 };
 #undef PASTE_IR
 
-enum Ir_Type
-{
-    IR_TYP_ptr,
-    IR_TYP_bool,
-    IR_TYP_u8,
-    IR_TYP_s8,
-    IR_TYP_u16,
-    IR_TYP_s16,
-    IR_TYP_u32,
-    IR_TYP_s32,
-    IR_TYP_u64,
-    IR_TYP_s64,
-    IR_TYP_f32,
-    IR_TYP_f64,
-    IR_TYP_str,
-
-    IR_TYP_struct,
-    IR_TYP_routine,
-};
-
 enum Ir_Oper_Type
 {
     IR_OPER_None,
@@ -99,7 +79,7 @@ struct Ir_Variable
 struct Ir_Temp
 {
     Name name;
-    s64 temp_id;
+    //s64 temp_id;
 };
 
 struct Ir_Label
@@ -113,7 +93,6 @@ struct Ir_Routine;
 struct Ir_Operand
 {
     Ir_Oper_Type oper_type;
-    Ir_Type ir_type;
     Type *type;
     union {
         Ir_Variable var;

@@ -79,7 +79,7 @@ void DirtyCalleeSaveRegs(Reg_Alloc *reg_alloc)
     for (s64 cs = 0; cs < reg_alloc->callee_save_count; cs++)
     {
         const Reg *save_reg = &reg_alloc->callee_save_regs[cs];
-        for (s64 i = 0; last_dirty_count; i++)
+        for (s64 i = 0; i < last_dirty_count; i++)
         {
             Reg dirty_reg = array::At(reg_alloc->dirty_regs, i);
             if (dirty_reg == *save_reg)
@@ -96,7 +96,7 @@ void DirtyCalleeSaveRegs(Reg_Alloc *reg_alloc)
 
 void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
 {
-    for (s64 i = 0; reg_alloc->dirty_regs.count; i++)
+    for (s64 i = 0; i < reg_alloc->dirty_regs.count; i++)
     {
         Reg dirty_reg = array::At(reg_alloc->dirty_regs, i);
         if (dirty_reg == reg)
