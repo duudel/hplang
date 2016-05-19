@@ -26,6 +26,7 @@ namespace hplang
     \
     PASTE_IR(IR_Mov)\
     PASTE_IR(IR_MovMember)\
+    PASTE_IR(IR_MovElement)\
     \
     PASTE_IR(IR_Neg)\
     PASTE_IR(IR_Not)\
@@ -35,7 +36,7 @@ namespace hplang
     \
     PASTE_IR(IR_Call)\
     PASTE_IR(IR_CallForeign)\
-    PASTE_IR(IR_Param)\
+    PASTE_IR(IR_Arg)\
     PASTE_IR(IR_Return)\
     PASTE_IR(IR_Jump)\
     PASTE_IR(IR_Jz)\
@@ -97,7 +98,7 @@ struct Ir_Variable
 
 struct Ir_Temp
 {
-    //Name name;
+    Name name;
     s64 temp_id;
 };
 
@@ -160,6 +161,9 @@ struct Ir_Routine
 {
     Symbol *symbol;
     Name name;
+
+    s64 arg_count;
+    Ir_Operand *args;
 
     Ir_Instruction_List instructions;
     s64 temp_count;

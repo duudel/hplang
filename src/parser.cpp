@@ -124,10 +124,6 @@ static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Binary_O
         case BIN_OP_GreaterEq:  op_str = ">="; break;
 
         case BIN_OP_Range:      op_str = ".."; break;
-
-        // NOTE(henrik): These are not used here, but as they are binary ops,
-        // need to have them here to suppress warnings.
-        case BIN_OP_Subscript:  op_str = "[]"; break;
     }
     fprintf((FILE*)err_ctx->file, "Expecting right hand side operand for operator %s\n", op_str);
     PrintSourceLineAndArrow(ctx->comp_ctx, token->file_loc);
@@ -672,8 +668,8 @@ static Ast_Expr* ParsePostfixOperator(Parser_Context *ctx, Ast_Expr *factor)
                     ident_tok->value, ident_tok->value_end);
             member_ref->variable_ref.name = name;
 
-            access_expr->access_expr.left = factor;
-            access_expr->access_expr.right = member_ref;
+            access_expr->access_expr.base = factor;
+            access_expr->access_expr.member = member_ref;
         }
         else
         {
@@ -684,11 +680,10 @@ static Ast_Expr* ParsePostfixOperator(Parser_Context *ctx, Ast_Expr *factor)
     op_token = Accept(ctx, TOK_OpenBracket);
     if (op_token)
     {
-        Ast_Expr *subscript_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
-        subscript_expr->binary_expr.op = BIN_OP_Subscript;
-        subscript_expr->binary_expr.left = factor;
-        subscript_expr->binary_expr.right = ParseExpression(ctx);
-        if (!subscript_expr->binary_expr.right)
+        Ast_Expr *subscript_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_SubscriptExpr, op_token);
+        subscript_expr->subscript_expr.base = factor;
+        subscript_expr->subscript_expr.index = ParseExpression(ctx);
+        if (!subscript_expr->subscript_expr.index)
             Error(ctx, "Expecting subscript expression");
         Expect(ctx, TOK_CloseBracket);
         return subscript_expr;

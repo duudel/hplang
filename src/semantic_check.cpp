@@ -207,6 +207,18 @@ static void ErrorVaribleShadowsParam(Sem_Check_Context *ctx,
     PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
 }
 
+static void ErrorInvalidSubscriptOf(Sem_Check_Context *ctx,
+        File_Location file_loc, Type *type)
+{
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "Invalid subscript of type '");
+    PrintType(err_ctx->file, type);
+    fprintf((FILE*)err_ctx->file, "'\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
+}
+
 
 static b32 CheckTypeCoercion(Type *from, Type *to)
 {
@@ -634,52 +646,90 @@ static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Typ
 // TODO: Implement module.member
 static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
 {
-    Ast_Expr *left = expr->access_expr.left;
-    Ast_Expr *right = expr->access_expr.right;
+    Ast_Expr *base_expr = expr->access_expr.base;
+    Ast_Expr *member_expr = expr->access_expr.member;
 
-    Value_Type lvt;
-    Type *ltype = CheckExpr(ctx, left, &lvt);
+    Value_Type base_vt;
+    Type *base_type = CheckExpr(ctx, base_expr, &base_vt);
 
     *vt = VT_Assignable;
-    if (TypeIsNone(ltype))
-        return ltype;
+    if (TypeIsNone(base_type))
+        return base_type;
 
-    if (TypeIsNull(ltype))
+    if (TypeIsNull(base_type))
     {
         Error(ctx, expr->file_loc, "Trying to access null with operator .");
         return GetBuiltinType(TYP_none);
     }
 
-    if (TypeIsPointer(ltype))
+    if (TypeIsPointer(base_type))
     {
-        ltype = ltype->base_type;
-        ASSERT(ltype != nullptr);
+        base_type = base_type->base_type;
+        ASSERT(base_type != nullptr);
     }
-    if (!TypeIsStruct(ltype) && !TypeIsString(ltype))
+    if (!TypeIsStruct(base_type) && !TypeIsString(base_type))
     {
         Error(ctx, expr->file_loc, "Left hand side of operator . must be a struct or module");
         return GetBuiltinType(TYP_none);
     }
-    if (right->type != AST_VariableRef)
+    if (member_expr->type != AST_VariableRef)
     {
         Error(ctx, expr->file_loc, "Right hand side of operator . must be a member name");
         return GetBuiltinType(TYP_none);
     }
-    for (s64 i = 0; i < ltype->struct_type.member_count; i++)
+    for (s64 i = 0; i < base_type->struct_type.member_count; i++)
     {
-        Struct_Member *member = &ltype->struct_type.members[i];
-        if (member->name == right->variable_ref.name)
+        Struct_Member *member = &base_type->struct_type.members[i];
+        if (member->name == member_expr->variable_ref.name)
         {
             //fprintf(stderr, "access '");
             //PrintString(stderr, member->name.str);
             //fprintf(stderr, "' -> ");
             //PrintType(stderr, member->type);
             //fprintf(stderr, "\n");
-            right->expr_type = member->type;
+            member_expr->expr_type = member->type;
             return member->type;
         }
     }
-    Error(ctx, right->file_loc, "Struct member not found");
+    Error(ctx, member_expr->file_loc, "Struct member not found");
+    return GetBuiltinType(TYP_none);
+}
+
+static Type* CheckSubscriptExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
+{
+    Ast_Expr *base_expr = expr->subscript_expr.base;
+    Ast_Expr *index_expr = expr->subscript_expr.index;
+
+    Value_Type base_vt, index_vt;
+    Type *base_type = CheckExpr(ctx, base_expr, &base_vt);
+    Type *index_type = CheckExpr(ctx, index_expr, &index_vt);
+
+    *vt = VT_Assignable;
+    if (!TypeIsIntegral(index_type))
+    {
+        Error(ctx, expr->file_loc, "Invalid non-integral subscript operand");
+        return GetBuiltinType(TYP_none);
+    }
+    if (TypeIsNull(base_type))
+    {
+        Error(ctx, expr->file_loc, "Invalid subscript of null");
+        return GetBuiltinType(TYP_none);
+    }
+    if (TypeIsPointer(base_type))
+    {
+        return base_type->base_type;
+    }
+    //else if (TypeIsArray(base_type))
+    //{
+    //    // TODO(henrik): Static array check for negative or too large
+    //    // subscript operands.
+    //    // When implemented, static arrays have a known size.
+    //    // If the subscript operand is a constant, we can catch the error
+    //    // and give an error message.
+    //    return base_type->base_type;
+    //}
+    ErrorInvalidSubscriptOf(ctx, expr->file_loc, base_type);
+    Error(ctx, expr->file_loc, "Invalid subscript of type");
     return GetBuiltinType(TYP_none);
 }
 
@@ -1309,9 +1359,6 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         NOT_IMPLEMENTED("Range expression semantic check");
         break;
 
-    case BIN_OP_Subscript:
-        NOT_IMPLEMENTED("Subscript expression semantic check");
-        break;
     }
     return type;
 }
@@ -1466,6 +1513,9 @@ static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
             break;
         case AST_AccessExpr:
             result_type = CheckAccessExpr(ctx, expr, vt);
+            break;
+        case AST_SubscriptExpr:
+            result_type = CheckSubscriptExpr(ctx, expr, vt);
             break;
         case AST_TypecastExpr:
             result_type = CheckTypecastExpr(ctx, expr, vt);

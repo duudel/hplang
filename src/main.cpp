@@ -4,6 +4,9 @@
 #include "compiler.h"
 #include "error.h"
 
+#include "ir_types.h"
+#include "codegen.h"
+
 #include <cstdio>
 #include <cstring>
 
@@ -57,6 +60,10 @@ int main(int argc, char **argv)
     fprintf(stderr, "sizeof(Ast_Node) %lld\n", sizeof(Ast_Node));
     fprintf(stderr, "sizeof(Ast_Expr) %lld\n", sizeof(Ast_Expr));
     fprintf(stderr, "sizeof(Ast_Function_Def) %lld\n", sizeof(Ast_Function_Def));
+    fprintf(stderr, "sizeof(Ir_Operand) %lld\n", sizeof(Ir_Operand));
+    fprintf(stderr, "sizeof(Ir_Instruction) %lld\n", sizeof(Ir_Instruction));
+    fprintf(stderr, "sizeof(Operand) %lld\n", sizeof(Operand));
+    fprintf(stderr, "sizeof(Instruction) %lld\n", sizeof(Instruction));
     fflush(stderr);
     return 0;
 #endif

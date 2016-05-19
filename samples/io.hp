@@ -9,6 +9,7 @@ foreign {
 
     fwrite :: (file : FILE*, size : s64, data : u8*) : s64;
     fprint_int :: (file : FILE*, x : s64) : s64;
+    fprint_f64 :: (file : FILE*, x : f64) : s64;
 }
 
 stdout : FILE* = get_stdout();
@@ -59,3 +60,7 @@ print :: (x : s64) : s64
     //return fprint_int(stdout, x);
 }
 
+print :: (x : f64) : s64
+{
+    return fprint_f64(stdout, x);
+}

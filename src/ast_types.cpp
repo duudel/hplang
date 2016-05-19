@@ -192,8 +192,12 @@ void FreeAstExpr(Ast_Expr *expr)
             FreeAstExpr(expr->ternary_expr.false_expr);
             break;
         case AST_AccessExpr:
-            FreeAstExpr(expr->access_expr.left);
-            FreeAstExpr(expr->access_expr.right);
+            FreeAstExpr(expr->access_expr.base);
+            FreeAstExpr(expr->access_expr.member);
+            break;
+        case AST_SubscriptExpr:
+            FreeAstExpr(expr->subscript_expr.base);
+            FreeAstExpr(expr->subscript_expr.index);
             break;
         case AST_TypecastExpr:
             FreeAstExpr(expr->typecast_expr.expr);

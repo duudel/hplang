@@ -27,6 +27,9 @@ namespace array
     bool Resize(Array<T> &arr, s64 count);
 
     template <class T>
+    void Clear(Array<T> &arr);
+
+    template <class T>
     bool Push(Array<T> &arr, const T &x);
 
     template <class T>
@@ -75,6 +78,12 @@ namespace array
         }
         arr.count = count;
         return true;
+    }
+
+    template <class T>
+    void Clear(Array<T> &arr)
+    {
+        arr.count = 0;
     }
 
     template <class T>

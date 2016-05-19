@@ -17,6 +17,7 @@ SOURCES := \
 	src/memory.cpp \
 	src/compiler_options.cpp \
 	src/parser.cpp \
+	src/reg_alloc.cpp \
 	src/semantic_check.cpp \
 	src/symbols.cpp \
 	src/token.cpp
@@ -33,7 +34,9 @@ run:
 	@#-./$(EXENAME) samples/compiletime.hp
 	@#-./$(EXENAME) samples/fibo.hp
 	@#-./$(EXENAME) samples/beer.hp
-	-./$(EXENAME) samples/factorial.hp
+	@#-./$(EXENAME) samples/factorial.hp
+	@#-./$(EXENAME) samples/nbody.hp
+	-./$(EXENAME) samples/simple.hp
 
 
 GDB := /usr/bin/gdb

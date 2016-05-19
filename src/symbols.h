@@ -218,6 +218,8 @@ b32 TypesEqual(Type *a, Type *b);
 
 void ResolvePhysicalTypeInfo(Type *type);
 s64 GetStructMemberOffset(Type *type, s64 member_index);
+s64 GetAlignedSize(Type *type);
+s64 GetAlignedElementSize(Type *type);
 
 } // hplang
 

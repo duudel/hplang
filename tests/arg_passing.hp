@@ -1,0 +1,21 @@
+// Tests argument passing
+// 2016-05-19
+
+My_Struct :: struct
+{
+    bval : bool;
+    fval : f64;
+}
+
+func :: (a : s32, b : f64, c : My_Struct, d : bool, e : My_Struct)
+{
+    x := c.bval ? 10 : 16;
+    e.fval = 0.5;
+}
+
+test :: ()
+{
+    s1 : My_Struct;
+    s2 : My_Struct;
+    func(15, 12.5, s1, false, s2);
+}

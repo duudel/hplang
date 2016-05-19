@@ -55,6 +55,7 @@ enum Ast_Expr_Type
     AST_UnaryExpr,
     AST_TernaryExpr,    // <expr> ? <expr> : <expr>
     AST_AccessExpr,     // <expr>.<variable_ref>
+    AST_SubscriptExpr,  // <expr>[<expr>]
     AST_TypecastExpr,   // <expr> -> <type>
 };
 
@@ -85,8 +86,6 @@ enum Binary_Op
     BIN_OP_GreaterEq,
 
     BIN_OP_Range,       // a .. b
-
-    BIN_OP_Subscript,   // a[x]
 };
 
 enum Unary_Op
@@ -168,7 +167,12 @@ struct Ast_Ternary_Expr
 
 struct Ast_Access_Expr
 {
-    Ast_Expr *left, *right;
+    Ast_Expr *base, *member;
+};
+
+struct Ast_Subscript_Expr
+{
+    Ast_Expr *base, *index;
 };
 
 struct Ast_Typecast_Expr
@@ -215,6 +219,7 @@ struct Ast_Expr
         Ast_Unary_Expr      unary_expr;
         Ast_Ternary_Expr    ternary_expr;
         Ast_Access_Expr     access_expr;
+        Ast_Subscript_Expr  subscript_expr;
         Ast_Typecast_Expr   typecast_expr;
         Ast_Variable_Ref    variable_ref;
         Ast_Function_Call   function_call;

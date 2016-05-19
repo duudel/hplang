@@ -98,11 +98,16 @@ static b32 ContinueGen(Ir_Gen_Context *ctx)
     return true;
 }
 
-static Ir_Routine* PushRoutine(Ir_Gen_Context *ctx, Name name)
+static Ir_Routine* PushRoutine(Ir_Gen_Context *ctx, Name name, s64 arg_count)
 {
     Ir_Routine *routine = PushStruct<Ir_Routine>(&ctx->arena);
     *routine = { };
     routine->name = name;
+    if (arg_count > 0)
+    {
+        routine->arg_count = arg_count;
+        routine->args = PushArray<Ir_Operand>(&ctx->arena, arg_count);
+    }
     array::Push(ctx->routines, routine);
     return routine;
 }
@@ -237,13 +242,19 @@ static Ir_Operand NewForeignRoutineRef(Ir_Routine *routine, Type *type, Name nam
     return oper;
 }
 
-static Ir_Operand NewTemp(Ir_Routine *routine, Type *type)
+static Ir_Operand NewTemp(Ir_Gen_Context *ctx, Ir_Routine *routine, Type *type)
 {
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Temp;
     oper.ir_type = GetIrType(type);
     oper.type = type;
     oper.temp.temp_id = routine->temp_count++;
+
+    const s64 buf_size = 40;
+    char buf[buf_size];
+    snprintf(buf, buf_size, "@temp%" PRId64, oper.temp.temp_id);
+
+    oper.temp.name = PushName(&ctx->arena, buf);
     return oper;
 }
 
@@ -323,7 +334,7 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     Ir_Operand oper_res = GenExpression(ctx, oper_expr, routine);
 
     Ir_Type oper_type = GetIrType(oper_expr->expr_type);
-    Ir_Operand res = NewTemp(routine, expr->expr_type);
+    Ir_Operand res = NewTemp(ctx, routine, expr->expr_type);
     Ir_Type res_type = res.ir_type;
     switch (oper_type)
     {
@@ -512,8 +523,8 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
 
 static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
-    Ast_Expr *base_expr = expr->access_expr.left;
-    Ast_Expr *member_expr = expr->access_expr.right;
+    Ast_Expr *base_expr = expr->access_expr.base;
+    Ast_Expr *member_expr = expr->access_expr.member;
     Type *base_type = base_expr->expr_type;
     Type *member_type = member_expr->expr_type;
 
@@ -529,10 +540,22 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     }
 
     Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
-    Ir_Operand member_res = NewTemp(routine, member_type);
+    Ir_Operand member_res = NewTemp(ctx, routine, member_type);
     Ir_Operand member_offs = NewImmediateOffset(routine, member_index);
     PushInstruction(ctx, routine, IR_MovMember, member_res, base_res, member_offs);
     return member_res;
+}
+
+static Ir_Operand GenSubscriptExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
+{
+    Ast_Expr *base_expr = expr->subscript_expr.base;
+    Ast_Expr *index_expr = expr->subscript_expr.index;
+
+    Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
+    Ir_Operand index_res = GenExpression(ctx, index_expr, routine);
+    Ir_Operand elem_res = NewTemp(ctx, routine, expr->expr_type);
+    PushInstruction(ctx, routine, IR_MovElement, elem_res, base_res, index_res);
+    return elem_res;
 }
 
 static Ir_Operand GenTernaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
@@ -543,7 +566,7 @@ static Ir_Operand GenTernaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
 
     Ir_Operand false_label = NewLabel(ctx);
     Ir_Operand ternary_end = NewLabel(ctx);
-    Ir_Operand res = NewTemp(routine, expr->expr_type);
+    Ir_Operand res = NewTemp(ctx, routine, expr->expr_type);
 
     Ir_Operand cond_res = GenExpression(ctx, cond_expr, routine);
     PushJump(ctx, routine, IR_Jz, false_label, cond_res);
@@ -565,7 +588,7 @@ static Ir_Operand GenUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *
     Unary_Op op = expr->unary_expr.op;
     Ast_Expr *oper_expr = expr->unary_expr.expr;
     Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
-    Ir_Operand target = NewTemp(routine, expr->expr_type);
+    Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
     switch (op)
     {
         case UN_OP_Positive:
@@ -601,7 +624,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         case BIN_OP_And:
             {
                 Ir_Operand and_end = NewLabel(ctx);
-                Ir_Operand target = NewTemp(routine, expr->expr_type);
+                Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
 
                 Ir_Operand loper = GenExpression(ctx, left, routine);
                 PushInstruction(ctx, routine, IR_Mov, target, loper);
@@ -616,7 +639,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         case BIN_OP_Or:
             {
                 Ir_Operand or_end = NewLabel(ctx);
-                Ir_Operand target = NewTemp(routine, expr->expr_type);
+                Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
 
                 Ir_Operand loper = GenExpression(ctx, left, routine);
                 PushInstruction(ctx, routine, IR_Mov, target, loper);
@@ -634,7 +657,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
 
     Ir_Operand loper = GenExpression(ctx, left, routine);
     Ir_Operand roper = GenExpression(ctx, right, routine);
-    Ir_Operand target = NewTemp(routine, expr->expr_type);
+    Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
     switch (op)
     {
         case BIN_OP_Add:
@@ -688,9 +711,6 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         case BIN_OP_Range:
             NOT_IMPLEMENTED("IR gen for range op");
             INVALID_CODE_PATH;
-            break;
-        case BIN_OP_Subscript:
-            NOT_IMPLEMENTED("IR gen for subscript");
             break;
     }
     return target;
@@ -770,23 +790,34 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     if (TypeIsVoid(expr->expr_type))
         res = NoneOperand();
     else
-        res = NewTemp(routine, expr->expr_type);
+        res = NewTemp(ctx, routine, expr->expr_type);
 
+    Ir_Operand fv_res = GenExpression(ctx, expr->function_call.fexpr, routine);
+
+    // NOTE(henrik): Here we link the arguments to a list based on their
+    // indices.  This makes it impossible (or impractical) to delete or insert
+    // instructions later to the ir instruction list.
+    s64 arg_instr_idx = -1;
     for (s64 i = 0; i < expr->function_call.args.count; i++)
     {
         Ast_Expr *arg = array::At(expr->function_call.args, i);
         Ir_Operand arg_res = GenExpression(ctx, arg, routine);
-        PushInstruction(ctx, routine, IR_Param, arg_res);
+
+        s64 instr_idx = routine->instructions.count;
+        PushInstruction(ctx, routine, IR_Arg, arg_res,
+                NewImmediateOffset(routine, arg_instr_idx));
+        arg_instr_idx = instr_idx;
     }
 
-    Ir_Operand fv_res = GenExpression(ctx, expr->function_call.fexpr, routine);
     if (fv_res.oper_type == IR_OPER_ForeignRoutine)
     {
-        PushInstruction(ctx, routine, IR_CallForeign, res, fv_res);
+        PushInstruction(ctx, routine, IR_CallForeign, res, fv_res,
+                NewImmediateOffset(routine, arg_instr_idx));
     }
     else
     {
-        PushInstruction(ctx, routine, IR_Call, res, fv_res);
+        PushInstruction(ctx, routine, IR_Call, res, fv_res,
+                NewImmediateOffset(routine, arg_instr_idx));
     }
 
     return res;
@@ -827,6 +858,8 @@ static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
             return GenTernaryExpr(ctx, expr, routine);
         case AST_AccessExpr:
             return GenAccessExpr(ctx, expr, routine);
+        case AST_SubscriptExpr:
+            return GenSubscriptExpr(ctx, expr, routine);
         case AST_TypecastExpr:
             return GenTypecastExpr(ctx, expr, routine);
         default:
@@ -907,7 +940,15 @@ static void GenBlockStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *r
 
 static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
 {
-    Ir_Routine *func_routine = PushRoutine(ctx, node->function.symbol->unique_name);
+    Symbol *symbol = node->function.symbol;
+    s64 arg_count = symbol->type->function_type.parameter_count;
+    Ir_Routine *func_routine = PushRoutine(ctx, symbol->unique_name, arg_count);
+    for (s64 i = 0; i < arg_count; i++)
+    {
+        Ast_Node *param_node = array::At(node->function.parameters, i);
+        Type *type = symbol->type->function_type.parameter_types[i];
+        func_routine->args[i] = NewVariableRef(func_routine, type, param_node->parameter.name);
+    }
     GenIr(ctx, node->function.body, func_routine);
 }
 
@@ -1009,7 +1050,7 @@ static void GenIrAst(Ir_Gen_Context *ctx, Ast *ast, Ir_Routine *routine)
 b32 GenIr(Ir_Gen_Context *ctx)
 {
     Name top_level_name = PushName(&ctx->arena, "@toplevel");
-    Ir_Routine *top_level_routine = PushRoutine(ctx, top_level_name);
+    Ir_Routine *top_level_routine = PushRoutine(ctx, top_level_name, 0);
     Module_List modules = ctx->comp_ctx->modules;
     for (s64 index = 0;
          index < modules.count && ContinueGen(ctx);

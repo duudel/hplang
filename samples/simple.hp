@@ -1,0 +1,10 @@
+// A simple sample program
+
+main :: ()
+{
+    x : s64 = 1;
+    y : s64 = 2;
+    result := (x - 128) * 98;
+    //result = (x - 128) * 98;
+    return x + y * result;
+}

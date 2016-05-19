@@ -310,6 +310,18 @@ s64 GetStructMemberOffset(Type *type, s64 member_index)
     return 0;
 }
 
+s64 GetAlignedSize(Type *type)
+{
+    ResolvePhysicalTypeInfo(type);
+    return Align(type->size, type->alignment);
+}
+
+s64 GetAlignedElementSize(Type *type)
+{
+    ASSERT(TypeIsPointer(type) /* || TypeIsArray(type)*/);
+    return GetAlignedSize(type->base_type);
+}
+
 Type* GetBuiltinType(Type_Tag tt)
 {
     ASSERT(tt <= TYP_LAST_BUILTIN);

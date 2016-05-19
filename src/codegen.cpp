@@ -6,17 +6,6 @@
 namespace hplang
 {
 
-void InitRegAlloc(Reg_Alloc *reg_alloc,
-        s64 caller_save_count, const Reg *caller_save_regs,
-        s64 callee_save_count, const Reg *callee_save_regs)
-{
-    *reg_alloc = { };
-    reg_alloc->caller_save_count = caller_save_count;
-    reg_alloc->caller_save_regs = caller_save_regs;
-    reg_alloc->callee_save_count = callee_save_count;
-    reg_alloc->callee_save_regs = callee_save_regs;
-}
-
 Codegen_Context NewCodegenContext(
         Compiler_Context *comp_ctx, Codegen_Target cg_target)
 {
@@ -25,6 +14,9 @@ Codegen_Context NewCodegenContext(
     cg_ctx.code_out = comp_ctx->error_ctx.file; // NOTE(henrik): Just for testing
     switch (cg_target)
     {
+        case CGT_COUNT:
+            INVALID_CODE_PATH;
+            break;
         case CGT_AMD64_Windows:
         case CGT_AMD64_Unix:
             InitializeCodegen_Amd64(&cg_ctx, cg_target);
@@ -36,13 +28,24 @@ Codegen_Context NewCodegenContext(
 
 void FreeCodegenContext(Codegen_Context *ctx)
 {
-    array::Free(ctx->instructions);
+    FreeRegAlloc(&ctx->reg_alloc);
+    for (s64 i = 0; i < ctx->routine_count; i++)
+    {
+        Routine *routine = &ctx->routines[i];
+        array::Free(routine->instructions);
+    }
+    ctx->routine_count = 0;
+    ctx->routines = nullptr;
+    FreeMemoryArena(&ctx->arena);
 }
 
 void GenerateCode(Codegen_Context *ctx, Ir_Routine_List routines)
 {
     switch (ctx->target)
     {
+        case CGT_COUNT:
+            INVALID_CODE_PATH;
+            break;
         case CGT_AMD64_Windows:
         case CGT_AMD64_Unix:
             GenerateCode_Amd64(ctx, routines);
@@ -54,11 +57,24 @@ void OutputCode(Codegen_Context *ctx)
 {
     switch (ctx->target)
     {
+        case CGT_COUNT:
+            INVALID_CODE_PATH;
+            break;
         case CGT_AMD64_Windows:
         case CGT_AMD64_Unix:
             OutputCode_Amd64(ctx);
             break;
     }
+}
+
+static const char *target_strings[CGT_COUNT] = {
+    /*[CGT_AMD64_Windows] =*/   "AMD64 Windows",
+    /*[CGT_AMD64_Unix] =*/      "AMD64 Unix",
+};
+
+const char* GetTargetString(Codegen_Target target)
+{
+    return target_strings[target];
 }
 
 } // hplang

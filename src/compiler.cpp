@@ -311,6 +311,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
 
     Codegen_Context cg_ctx = NewCodegenContext(ctx, CGT_AMD64_Windows);
     GenerateCode(&cg_ctx, ir_ctx.routines);
+
     OutputCode(&cg_ctx);
 
     FreeIrGenContext(&ir_ctx);
