@@ -310,13 +310,25 @@ s64 GetStructMemberOffset(Type *type, s64 member_index)
     return 0;
 }
 
-s64 GetAlignedSize(Type *type)
+u32 GetSize(Type *type)
+{
+    ResolvePhysicalTypeInfo(type);
+    return type->size;
+}
+
+u32 GetAlign(Type *type)
+{
+    ResolvePhysicalTypeInfo(type);
+    return type->alignment;
+}
+
+u32 GetAlignedSize(Type *type)
 {
     ResolvePhysicalTypeInfo(type);
     return Align(type->size, type->alignment);
 }
 
-s64 GetAlignedElementSize(Type *type)
+u32 GetAlignedElementSize(Type *type)
 {
     ASSERT(TypeIsPointer(type) /* || TypeIsArray(type)*/);
     return GetAlignedSize(type->base_type);

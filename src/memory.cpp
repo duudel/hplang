@@ -32,6 +32,23 @@ void Free(Pointer ptr)
     free(ptr.ptr);
 }
 
+uptr Align(uptr x, uptr alignment)
+{
+    ASSERT(alignment > 0);
+    uptr mask = alignment - 1;
+    return (x + mask) & ~mask;
+}
+
+void* Align(void* ptr, uptr alignment)
+{
+    return (void*)Align((uptr)ptr, alignment);
+}
+
+static iptr PointerDiff(void *p1, void *p2)
+{
+    return (iptr)((char*)p1 - (char*)p2);
+}
+
 // TODO(henrik): Extend memory arena implementation to somethin presented below.
 // This would remove or decrease the unused space left in the previous
 // memory blocks.
@@ -92,23 +109,6 @@ void GetMemoryArenaUsage(Memory_Arena *arena, s64 *used, s64 *unused)
     }
 }
 
-uptr Align(uptr x, uptr alignment)
-{
-    ASSERT(alignment > 0);
-    uptr mask = alignment - 1;
-    return (x + mask) & ~mask;
-}
-
-void* Align(void* ptr, uptr alignment)
-{
-    return (void*)Align((uptr)ptr, alignment);
-}
-
-static s64 PointerDiff(void *p1, void *p2)
-{
-    return (s64)((char*)p1 - (char*)p2);
-}
-
 static b32 AllocateNewMemoryBlock(Memory_Arena *arena, s64 min_size)
 {
     s64 memory_block_size = MBytes(4);
@@ -134,6 +134,8 @@ static void* AllocateFromMemoryBlock(Memory_Block *block, s64 size, s64 alignmen
     if (!block)
         return nullptr;
 
+    // TODO(henrik): Is this alignment right? Should we align the ptr or 
+    // ptr + top_pointer?
     s64 top_offset = PointerDiff(Align(block->memory.ptr, alignment),
                                  block->memory.ptr);
 

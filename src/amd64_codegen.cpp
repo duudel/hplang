@@ -2,6 +2,7 @@
 #include "amd64_codegen.h"
 #include "common.h"
 #include "symbols.h"
+#include "hashtable.h"
 
 #include <cstdio>
 #include <cinttypes>
@@ -327,14 +328,14 @@ void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
 static Operand NoneOperand()
 {
     Operand result = { };
-    result.type = OT_None;
+    result.type = Oper_Type::None;
     return result;
 }
 
 static Operand RegOperand(Reg reg, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = OT_Register;
+    result.type = Oper_Type::Register;
     result.access_flags = access_flags;
     result.reg = reg;
     return result;
@@ -348,7 +349,7 @@ static Operand RegOperand(Amd64_Register reg, Oper_Access_Flags access_flags)
 static Operand AddrOperand(Reg base, s64 offset, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = OT_Addr;
+    result.type = Oper_Type::Addr;
     result.access_flags = access_flags;
     result.base_index_offs.base = base;
     result.base_index_offs.offset = offset;
@@ -375,7 +376,7 @@ static Operand AddrOperand(Amd64_Register base, s64 offset, Oper_Access_Flags ac
 static Operand ImmOperand(bool imm, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = OT_Immediate;
+    result.type = Oper_Type::Immediate;
     result.access_flags = access_flags;
     result.imm_bool = imm;
     return result;
@@ -392,7 +393,7 @@ static Operand ImmOperand(bool imm, Oper_Access_Flags access_flags)
 static Operand ImmOperand(s64 imm, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = OT_Immediate;
+    result.type = Oper_Type::Immediate;
     result.access_flags = access_flags;
     result.imm_s64 = imm;
     return result;
@@ -401,7 +402,7 @@ static Operand ImmOperand(s64 imm, Oper_Access_Flags access_flags)
 static Operand ImmOperand(f32 imm, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = OT_Immediate;
+    result.type = Oper_Type::Immediate;
     result.access_flags = access_flags;
     result.imm_f32 = imm;
     return result;
@@ -410,7 +411,7 @@ static Operand ImmOperand(f32 imm, Oper_Access_Flags access_flags)
 static Operand ImmOperand(f64 imm, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = OT_Immediate;
+    result.type = Oper_Type::Immediate;
     result.access_flags = access_flags;
     result.imm_f64 = imm;
     return result;
@@ -419,7 +420,7 @@ static Operand ImmOperand(f64 imm, Oper_Access_Flags access_flags)
 static Operand IrOperand(Ir_Operand *ir_oper, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = OT_IrOperand;
+    result.type = Oper_Type::IrOperand;
     result.access_flags = access_flags;
     result.ir_oper = ir_oper;
     return result;
@@ -428,7 +429,7 @@ static Operand IrOperand(Ir_Operand *ir_oper, Oper_Access_Flags access_flags)
 static Operand IrAddrOperand(Ir_Operand *base, s64 offset, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = OT_IrAddrOper;
+    result.type = Oper_Type::IrAddrOper;
     result.access_flags = access_flags;
     result.ir_base_index_offs.base = base;
     result.ir_base_index_offs.offset = offset;
@@ -438,7 +439,7 @@ static Operand IrAddrOperand(Ir_Operand *base, s64 offset, Oper_Access_Flags acc
 static Operand IrAddrOperand(Ir_Operand *base, Ir_Operand *index, s64 scale, s64 offset, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = OT_IrAddrOper;
+    result.type = Oper_Type::IrAddrOper;
     result.access_flags = access_flags;
     result.ir_base_index_offs.base = base;
     result.ir_base_index_offs.index = index;
@@ -447,7 +448,7 @@ static Operand IrAddrOperand(Ir_Operand *base, Ir_Operand *index, s64 scale, s64
     return result;
 }
 
-static void InsertInstruction(Codegen_Context *ctx,
+static void PushInstruction(Codegen_Context *ctx,
         Amd64_Opcode opcode,
         Operand oper1 = NoneOperand(),
         Operand oper2 = NoneOperand(),
@@ -466,63 +467,83 @@ static void InsertInstruction(Codegen_Context *ctx,
     array::Push(ctx->current_routine->instructions, instr);
 }
 
-static void InsertLoad(Codegen_Context *ctx, Operand oper1, Operand oper2)
+static void InsertInstruction(Codegen_Context *ctx,
+        s64 instr_index,
+        Amd64_Opcode opcode,
+        Operand oper1 = NoneOperand(),
+        Operand oper2 = NoneOperand(),
+        Operand oper3 = NoneOperand())
 {
-    if (oper1.type == OT_IrOperand)
+    Instruction instr = { };
+    instr.opcode = (Opcode)opcode;
+    instr.oper1 = oper1;
+    instr.oper2 = oper2;
+    instr.oper3 = oper3;
+    if (ctx->comment)
+    {
+        instr.comment = *ctx->comment;
+        ctx->comment = nullptr;
+    }
+    array::Insert(ctx->current_routine->instructions, instr_index, instr);
+}
+
+static void PushLoad(Codegen_Context *ctx, Operand oper1, Operand oper2)
+{
+    if (oper1.type == Oper_Type::IrOperand)
     {
         if (oper1.ir_oper->type->tag == TYP_f32)
-            InsertInstruction(ctx, OP_movss, oper1, oper2);
+            PushInstruction(ctx, OP_movss, oper1, oper2);
         else if (oper1.ir_oper->type->tag == TYP_f64)
-            InsertInstruction(ctx, OP_movsd, oper1, oper2);
+            PushInstruction(ctx, OP_movsd, oper1, oper2);
         else
-            InsertInstruction(ctx, OP_mov, oper1, oper2);
+            PushInstruction(ctx, OP_mov, oper1, oper2);
     }
-    else if (oper2.type == OT_IrOperand)
+    else if (oper2.type == Oper_Type::IrOperand)
     {
         if (oper2.ir_oper->type->tag == TYP_f32)
-            InsertInstruction(ctx, OP_movss, oper1, oper2);
+            PushInstruction(ctx, OP_movss, oper1, oper2);
         else if (oper2.ir_oper->type->tag == TYP_f64)
-            InsertInstruction(ctx, OP_movsd, oper1, oper2);
+            PushInstruction(ctx, OP_movsd, oper1, oper2);
         else
-            InsertInstruction(ctx, OP_mov, oper1, oper2);
+            PushInstruction(ctx, OP_mov, oper1, oper2);
     }
     else
     {
-        InsertInstruction(ctx, OP_mov, oper1, oper2);
+        PushInstruction(ctx, OP_mov, oper1, oper2);
     }
 }
 
-static void InsertLoad(Codegen_Context *ctx, Ir_Operand *ir_oper1, Ir_Operand *ir_oper2)
+static void PushLoad(Codegen_Context *ctx, Ir_Operand *ir_oper1, Ir_Operand *ir_oper2)
 {
-    InsertLoad(ctx, IrOperand(ir_oper1, AF_Write), IrOperand(ir_oper2, AF_Read));
+    PushLoad(ctx, IrOperand(ir_oper1, AF_Write), IrOperand(ir_oper2, AF_Read));
 }
 
-static void InsertLoadAddr(Codegen_Context *ctx, Operand oper1, Operand oper2)
+static void PushLoadAddr(Codegen_Context *ctx, Operand oper1, Operand oper2)
 {
-    InsertInstruction(ctx, OP_lea, oper1, oper2);
+    PushInstruction(ctx, OP_lea, oper1, oper2);
 }
 
-static void InsertZeroReg(Codegen_Context *ctx, Operand oper)
+static void PushZeroReg(Codegen_Context *ctx, Operand oper)
 {
     oper.access_flags = AF_Write;
-    InsertInstruction(ctx, OP_xor, oper, oper);
+    PushInstruction(ctx, OP_xor, oper, oper);
 }
 
-static void InsertZeroReg(Codegen_Context *ctx, Reg reg)
+static void PushZeroReg(Codegen_Context *ctx, Reg reg)
 {
-    InsertZeroReg(ctx, RegOperand(reg, AF_Write));
+    PushZeroReg(ctx, RegOperand(reg, AF_Write));
 }
 
-static void InsertZeroReg(Codegen_Context *ctx, Amd64_Register reg)
+static void PushZeroReg(Codegen_Context *ctx, Amd64_Register reg)
 {
-    InsertZeroReg(ctx, MakeReg(reg));
+    PushZeroReg(ctx, MakeReg(reg));
 }
 
-static void InsertLabel(Codegen_Context *ctx, Name name)
+static void PushLabel(Codegen_Context *ctx, Name name)
 {
     Operand oper = { };
     oper.label.name = name;
-    InsertInstruction(ctx, OP_LABEL, oper);
+    PushInstruction(ctx, OP_LABEL, oper);
 }
 
 static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
@@ -535,7 +556,7 @@ static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
     else
         cmp_op = OP_cmp;
 
-    InsertInstruction(ctx, cmp_op,
+    PushInstruction(ctx, cmp_op,
             IrOperand(&ir_instr->oper1, AF_Read),
             IrOperand(&ir_instr->oper2, AF_Read));
 
@@ -545,64 +566,64 @@ static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
     {
     case IR_Eq:
         {
-            InsertInstruction(ctx, OP_mov,
+            PushInstruction(ctx, OP_mov,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(false, AF_Read));
-            InsertInstruction(ctx, OP_cmove,
+            PushInstruction(ctx, OP_cmove,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(true, AF_Read));
             break;
         }
     case IR_Neq:
         {
-            InsertInstruction(ctx, OP_mov,
+            PushInstruction(ctx, OP_mov,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(false, AF_Read));
-            InsertInstruction(ctx, OP_cmovne,
+            PushInstruction(ctx, OP_cmovne,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(true, AF_Read));
             break;
         }
     case IR_Lt:
         {
-            InsertInstruction(ctx, OP_mov,
+            PushInstruction(ctx, OP_mov,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(false, AF_Read));
             Amd64_Opcode mov_op = signed_or_float ? OP_cmovl : OP_cmovb;
-            InsertInstruction(ctx, mov_op,
+            PushInstruction(ctx, mov_op,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(true, AF_Read));
             break;
         }
     case IR_Leq:
         {
-            InsertInstruction(ctx, OP_mov,
+            PushInstruction(ctx, OP_mov,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(false, AF_Read));
             Amd64_Opcode mov_op = signed_or_float ? OP_cmovle : OP_cmovbe;
-            InsertInstruction(ctx, mov_op,
+            PushInstruction(ctx, mov_op,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(true, AF_Read));
             break;
         }
     case IR_Gt:
         {
-            InsertInstruction(ctx, OP_mov,
+            PushInstruction(ctx, OP_mov,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(false, AF_Read));
             Amd64_Opcode mov_op = signed_or_float ? OP_cmovg : OP_cmova;
-            InsertInstruction(ctx, mov_op,
+            PushInstruction(ctx, mov_op,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(true, AF_Read));
             break;
         }
     case IR_Geq:
         {
-            InsertInstruction(ctx, OP_mov,
+            PushInstruction(ctx, OP_mov,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(false, AF_Read));
             Amd64_Opcode mov_op = signed_or_float ? OP_cmovge : OP_cmovae;
-            InsertInstruction(ctx, mov_op,
+            PushInstruction(ctx, mov_op,
                     IrOperand(&ir_instr->target, AF_Write),
                     ImmOperand(true, AF_Read));
             break;
@@ -624,17 +645,17 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
     case IR_Add:
         {
             if (ir_instr->target != ir_instr->oper1)
-                InsertLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+                PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
             if (is_float)
             {
                 Amd64_Opcode add_op = (ltype->tag == TYP_f32) ? OP_addss : OP_addsd;
-                InsertInstruction(ctx, add_op,
+                PushInstruction(ctx, add_op,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrOperand(&ir_instr->oper2, AF_Read));
             }
             else
             {
-                InsertInstruction(ctx, OP_add,
+                PushInstruction(ctx, OP_add,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrOperand(&ir_instr->oper2, AF_Read));
             }
@@ -642,17 +663,17 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
     case IR_Sub:
         {
             if (ir_instr->target != ir_instr->oper1)
-                InsertLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+                PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
             if (is_float)
             {
                 Amd64_Opcode sub_op = (ltype->tag == TYP_f32) ? OP_subss : OP_subsd;
-                InsertInstruction(ctx, sub_op,
+                PushInstruction(ctx, sub_op,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrOperand(&ir_instr->oper2, AF_Read));
             }
             else
             {
-                InsertInstruction(ctx, OP_sub,
+                PushInstruction(ctx, OP_sub,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrOperand(&ir_instr->oper2, AF_Read));
             }
@@ -662,26 +683,26 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             if (is_float)
             {
                 if (ir_instr->target != ir_instr->oper1)
-                    InsertLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+                    PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
                 Amd64_Opcode mul_op = (ltype->tag == TYP_f32) ? OP_mulss : OP_mulsd;
-                InsertInstruction(ctx, mul_op,
+                PushInstruction(ctx, mul_op,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrOperand(&ir_instr->oper2, AF_Read));
             }
             else if (is_signed)
             {
                 if (ir_instr->target != ir_instr->oper1)
-                    InsertLoad(ctx, &ir_instr->target, &ir_instr->oper1);
-                InsertInstruction(ctx, OP_imul,
+                    PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+                PushInstruction(ctx, OP_imul,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrOperand(&ir_instr->oper2, AF_Read));
             }
             else // unsigned
             {
-                InsertZeroReg(ctx, REG_rdx);
-                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                InsertInstruction(ctx, OP_mul, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
+                PushZeroReg(ctx, REG_rdx);
+                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_mul, IrOperand(&ir_instr->oper2, AF_Read));
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
             }
         } break;
     case IR_Div:
@@ -689,25 +710,25 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             if (is_float)
             {
                 if (ir_instr->target != ir_instr->oper1)
-                    InsertLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+                    PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
                 Amd64_Opcode div_op = (ltype->tag == TYP_f32) ? OP_divss : OP_divsd;
-                InsertInstruction(ctx, div_op,
+                PushInstruction(ctx, div_op,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrOperand(&ir_instr->oper2, AF_Read));
             }
             else if (is_signed)
             {
-                InsertZeroReg(ctx, REG_rdx);
-                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                InsertInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
+                PushZeroReg(ctx, REG_rdx);
+                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read));
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
             }
             else // unsigned
             {
-                InsertZeroReg(ctx, REG_rdx);
-                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                InsertInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
+                PushZeroReg(ctx, REG_rdx);
+                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read));
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
             }
         } break;
     case IR_Mod:
@@ -718,32 +739,32 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             }
             else if (is_signed)
             {
-                InsertZeroReg(ctx, REG_rdx);
-                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                InsertInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rdx, AF_Read));
+                PushZeroReg(ctx, REG_rdx);
+                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read));
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rdx, AF_Read));
             }
             else // unsigned
             {
-                InsertZeroReg(ctx, REG_rdx);
-                InsertLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                InsertInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read));
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rdx, AF_Read));
+                PushZeroReg(ctx, REG_rdx);
+                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read));
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rdx, AF_Read));
             }
         } break;
 
     case IR_And:
-        InsertInstruction(ctx, OP_and,
+        PushInstruction(ctx, OP_and,
                 IrOperand(&ir_instr->oper1, AF_Write),
                 IrOperand(&ir_instr->oper2, AF_Read));
         break;
     case IR_Or:
-        InsertInstruction(ctx, OP_or,
+        PushInstruction(ctx, OP_or,
                 IrOperand(&ir_instr->oper1, AF_Write),
                 IrOperand(&ir_instr->oper2, AF_Read));
         break;
     case IR_Xor:
-        InsertInstruction(ctx, OP_xor,
+        PushInstruction(ctx, OP_xor,
                 IrOperand(&ir_instr->oper1, AF_Write),
                 IrOperand(&ir_instr->oper2, AF_Read));
         break;
@@ -753,28 +774,28 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
         {
             if (ltype->tag == TYP_f32)
             {
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), ImmOperand(0.0f, AF_Read));
-                InsertInstruction(ctx, OP_subss,
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), ImmOperand(0.0f, AF_Read));
+                PushInstruction(ctx, OP_subss,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrOperand(&ir_instr->oper1, AF_Read));
             }
             else if (ltype->tag == TYP_f64)
             {
-                InsertLoad(ctx, IrOperand(&ir_instr->target, AF_Write), ImmOperand(0.0, AF_Read));
-                InsertInstruction(ctx, OP_subsd,
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), ImmOperand(0.0, AF_Read));
+                PushInstruction(ctx, OP_subsd,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrOperand(&ir_instr->oper1, AF_Read));
             }
         }
         else
         {
-            InsertLoad(ctx, &ir_instr->target, &ir_instr->oper1);
-            InsertInstruction(ctx, OP_neg, IrOperand(&ir_instr->target, AF_ReadWrite));
+            PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+            PushInstruction(ctx, OP_neg, IrOperand(&ir_instr->target, AF_ReadWrite));
         }
     case IR_Not:
     case IR_Compl:
-        InsertLoad(ctx, &ir_instr->target, &ir_instr->oper1);
-        InsertInstruction(ctx, OP_not, IrOperand(&ir_instr->target, AF_ReadWrite));
+        PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+        PushInstruction(ctx, OP_not, IrOperand(&ir_instr->target, AF_ReadWrite));
     }
 }
 
@@ -787,7 +808,7 @@ static void PushArgs(Codegen_Context *ctx,
     s64 float_arg_reg_idx = arg_index;
 
     s64 arg_stack_alloc = (arg_count > 4 ? arg_count : 4) * 8;
-    InsertInstruction(ctx, OP_sub, RegOperand(REG_rsp, AF_Write), ImmOperand(arg_stack_alloc, AF_Read));
+    PushInstruction(ctx, OP_sub, RegOperand(REG_rsp, AF_Write), ImmOperand(arg_stack_alloc, AF_Read));
 
     ASSERT(ir_instr->oper2.oper_type == IR_OPER_Immediate);
     s64 arg_instr_idx = ir_instr->oper2.imm_s64;
@@ -812,13 +833,13 @@ static void PushArgs(Codegen_Context *ctx,
             {
                 if (arg_type->size > 8)
                 {
-                    InsertLoadAddr(ctx,
+                    PushLoadAddr(ctx,
                             RegOperand(*arg_reg, AF_Write),
                             IrOperand(&arg_instr->target, AF_Read));
                 }
                 else
                 {
-                    InsertLoad(ctx,
+                    PushLoad(ctx,
                             RegOperand(*arg_reg, AF_Write),
                             IrOperand(&arg_instr->target, AF_Read));
                 }
@@ -827,13 +848,13 @@ static void PushArgs(Codegen_Context *ctx,
             {
                 if (arg_type->size > 8)
                 {
-                    InsertLoadAddr(ctx,
+                    PushLoadAddr(ctx,
                             AddrOperand(REG_rsp, arg_index * 8, AF_Write),
                             IrOperand(&arg_instr->target, AF_Read));
                 }
                 else
                 {
-                    InsertLoad(ctx,
+                    PushLoad(ctx,
                             AddrOperand(REG_rsp, arg_index * 8, AF_Write),
                             IrAddrOperand(&arg_instr->target, 0, AF_Read));
                 }
@@ -856,7 +877,7 @@ static void PushArgs(Codegen_Context *ctx,
             }
             if (arg_reg)
             {
-                InsertLoad(ctx,
+                PushLoad(ctx,
                         RegOperand(*arg_reg, AF_Write),
                         IrOperand(&arg_instr->target, AF_Read));
             }
@@ -903,21 +924,21 @@ static void GenerateCode(Codegen_Context *ctx,
 
         case IR_Deref:
             // mov target, [oper1]
-            InsertLoad(ctx,
+            PushLoad(ctx,
                     IrOperand(&ir_instr->target, AF_Write),
                     IrAddrOperand(&ir_instr->oper1, 0, AF_Read));
             break;
 
         case IR_Addr:
             // lea target, [oper1]
-            InsertLoadAddr(ctx,
+            PushLoadAddr(ctx,
                     IrOperand(&ir_instr->target, AF_Write),
                     IrAddrOperand(&ir_instr->oper1, 0, AF_Read));
             break;
 
         case IR_Mov:
             // mov target, oper1
-            InsertLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+            PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
             break;
         case IR_MovMember:
             {
@@ -926,10 +947,10 @@ static void GenerateCode(Codegen_Context *ctx,
                 if (TypeIsPointer(oper_type))
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type->base_type, member_index);
-                    InsertLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+                    PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
                     if (member_offset != 0)
                     {
-                        InsertInstruction(ctx, OP_add,
+                        PushInstruction(ctx, OP_add,
                                 IrOperand(&ir_instr->target, AF_Write),
                                 ImmOperand((s64)member_offset, AF_Read));
                     }
@@ -937,7 +958,7 @@ static void GenerateCode(Codegen_Context *ctx,
                 else
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                    InsertLoadAddr(ctx,
+                    PushLoadAddr(ctx,
                             IrOperand(&ir_instr->target, AF_Write),
                             IrAddrOperand(&ir_instr->oper1, member_offset, AF_Read));
                 }
@@ -947,7 +968,7 @@ static void GenerateCode(Codegen_Context *ctx,
                 //NOT_IMPLEMENTED("mov elem");
                 // target <- base + index*size
                 s64 size = GetAlignedElementSize(ir_instr->oper1.type);
-                InsertLoadAddr(ctx,
+                PushLoadAddr(ctx,
                         IrOperand(&ir_instr->target, AF_Write),
                         IrAddrOperand(&ir_instr->oper1, &ir_instr->oper2, size, 0, AF_Read));
             } break;
@@ -958,91 +979,136 @@ static void GenerateCode(Codegen_Context *ctx,
 
         case IR_Call:
             PushArgs(ctx, routine, ir_instr);
-            InsertInstruction(ctx, OP_call, IrOperand(&ir_instr->oper1, AF_Read));
+            PushInstruction(ctx, OP_call, IrOperand(&ir_instr->oper1, AF_Read));
             if (ir_instr->target.oper_type != IR_OPER_None)
-                InsertLoad(ctx,
+                PushLoad(ctx,
                         IrOperand(&ir_instr->target, AF_Write),
                         RegOperand(REG_rax, AF_Read));
             ctx->current_arg_count = 0;
             break;
         case IR_CallForeign:
             PushArgs(ctx, routine, ir_instr);
-            InsertInstruction(ctx, OP_call, IrOperand(&ir_instr->oper1, AF_Read));
+            PushInstruction(ctx, OP_call, IrOperand(&ir_instr->oper1, AF_Read));
             if (ir_instr->target.oper_type != IR_OPER_None)
-                InsertLoad(ctx,
+                PushLoad(ctx,
                         IrOperand(&ir_instr->target, AF_Write),
                         RegOperand(REG_rax, AF_Read));
             ctx->current_arg_count = 0;
             break;
 
         case IR_Jump:
-            InsertInstruction(ctx, OP_jmp, IrOperand(&ir_instr->target, AF_Read));
+            PushInstruction(ctx, OP_jmp, IrOperand(&ir_instr->target, AF_Read));
             break;
         case IR_Jz:
-            InsertInstruction(ctx, OP_cmp,
+            PushInstruction(ctx, OP_cmp,
                     IrOperand(&ir_instr->oper1, AF_Read),
                     ImmOperand((s64)0, AF_Read));
-            InsertInstruction(ctx, OP_je, IrOperand(&ir_instr->target, AF_Read));
+            PushInstruction(ctx, OP_je, IrOperand(&ir_instr->target, AF_Read));
             break;
         case IR_Jnz:
-            InsertInstruction(ctx, OP_cmp,
+            PushInstruction(ctx, OP_cmp,
                     IrOperand(&ir_instr->oper1, AF_Read),
                     ImmOperand((s64)0, AF_Read));
-            InsertInstruction(ctx, OP_jne, IrOperand(&ir_instr->target, AF_Read));
+            PushInstruction(ctx, OP_jne, IrOperand(&ir_instr->target, AF_Read));
             break;
         case IR_Return:
             if (ir_instr->target.oper_type != IR_OPER_None)
-                InsertLoad(ctx,
+                PushLoad(ctx,
                         RegOperand(REG_rax, AF_Write),
                         IrOperand(&ir_instr->target, AF_Read));
-            InsertInstruction(ctx, OP_ret);
+            PushInstruction(ctx, OP_ret);
             break;
 
         case IR_S_TO_F32:
-            InsertInstruction(ctx, OP_cvtsi2ss,
+            PushInstruction(ctx, OP_cvtsi2ss,
                     IrOperand(&ir_instr->target, AF_Write),
                     IrOperand(&ir_instr->oper1, AF_Read));
             break;
         case IR_S_TO_F64:
-            InsertInstruction(ctx, OP_cvtsi2sd,
+            PushInstruction(ctx, OP_cvtsi2sd,
                     IrOperand(&ir_instr->target, AF_Write),
                     IrOperand(&ir_instr->oper1, AF_Read));
             break;
         case IR_F32_TO_S:
-            InsertInstruction(ctx, OP_cvtss2si,
+            PushInstruction(ctx, OP_cvtss2si,
                     IrOperand(&ir_instr->target, AF_Write),
                     IrOperand(&ir_instr->oper1, AF_Read));
             break;
         case IR_F64_TO_S:
-            InsertInstruction(ctx, OP_cvtsd2si,
+            PushInstruction(ctx, OP_cvtsd2si,
                     IrOperand(&ir_instr->target, AF_Write),
                     IrOperand(&ir_instr->oper1, AF_Read));
             break;
         case IR_F32_TO_F64:
-            InsertInstruction(ctx, OP_cvtss2sd,
+            PushInstruction(ctx, OP_cvtss2sd,
                     IrOperand(&ir_instr->target, AF_Write),
                     IrOperand(&ir_instr->oper1, AF_Read));
             break;
         case IR_F64_TO_F32:
-            InsertInstruction(ctx, OP_cvtsd2ss,
+            PushInstruction(ctx, OP_cvtsd2ss,
                     IrOperand(&ir_instr->target, AF_Write),
                     IrOperand(&ir_instr->oper1, AF_Read));
             break;
     }
 }
 
-static void AllocateRegister(Codegen_Context *ctx, Operand *oper)
+static s64 GetLocalOffset(Codegen_Context *ctx, Ir_Operand *ir_oper)
 {
+    ASSERT(ir_oper->oper_type == IR_OPER_Variable ||
+           ir_oper->oper_type == IR_OPER_Temp);
+    Routine *routine = ctx->current_routine;
+    Name name;
+    if (ir_oper->oper_type == IR_OPER_Variable)
+        name = ir_oper->var.name;
+    else
+        name = ir_oper->temp.name;
+    Local_Offset *offs = hashtable::Lookup(routine->local_offsets, name);
+    if (offs) return offs->offset;
+
+    offs = PushStruct<Local_Offset>(&ctx->arena);
+
+    //routine->locals_size += GetAlignedSize(ir_oper->type);
+    routine->locals_size += GetSize(ir_oper->type);
+    routine->locals_size = Align(routine->locals_size, GetAlign(ir_oper->type));
+    offs->name = name;
+    offs->offset = routine->locals_size;
+
+    hashtable::Put(routine->local_offsets, name, offs);
+    return offs->offset;
+}
+
+static void SaveDirtyRegister(Codegen_Context *ctx, s64 instr_index, Ir_Operand *ir_oper, Reg reg)
+{
+    if (UndirtyRegister(&ctx->reg_alloc, reg))
+    {
+        s64 local_offs = GetLocalOffset(ctx, ir_oper);
+        InsertInstruction(ctx, instr_index, OP_mov,
+                AddrOperand(REG_rbp, local_offs, AF_Write),
+                RegOperand(reg, AF_Read));
+        if (IsCalleeSave(&ctx->reg_alloc, reg))
+        {
+            AddEpilogue(ctx, OP_mov,
+                RegOperand(reg, AF_Write),
+                AddrOperand(REG_rbp, local_offs, AF_Read));
+        }
+    }
+}
+
+static void AllocateRegister(Codegen_Context *ctx, s64 instr_index, Operand *oper)
+{
+    Reg_Alloc *reg_alloc = &ctx->reg_alloc;
     switch (oper->type)
     {
-        case OT_None: break;
-        case OT_Label: break;
-        case OT_Temp: NOT_IMPLEMENTED("TEMP alloc"); break;
-        case OT_Register:
-        case OT_Addr:
-        case OT_Immediate:
+        case Oper_Type::None: break;
+        case Oper_Type::Label: break;
+        case Oper_Type::Register:
             break;
-        case OT_IrOperand:
+        case Oper_Type::Addr:
+            break;
+        case Oper_Type::Temp: NOT_IMPLEMENTED("TEMP alloc"); break;
+        case Oper_Type::Immediate:
+            break;
+        case Oper_Type::IrOperand:
             {
                 Ir_Operand *ir_oper = oper->ir_oper;
                 switch (ir_oper->oper_type)
@@ -1053,8 +1119,9 @@ static void AllocateRegister(Codegen_Context *ctx, Operand *oper)
                             const Reg *mapped_reg = GetMappedRegister(&ctx->reg_alloc, ir_oper->var.name);
                             if (!mapped_reg)
                             {
-                                Reg reg = GetFreeRegister(&ctx->reg_alloc);
-                                MapRegister(&ctx->reg_alloc, ir_oper->var.name, reg);
+                                Reg reg = GetFreeRegister(reg_alloc);
+                                SaveDirtyRegister(ctx, instr_index, ir_oper, reg);
+                                MapRegister(reg_alloc, ir_oper->var.name, reg);
                                 *oper = RegOperand(reg, oper->access_flags);
                             }
                             else
@@ -1068,6 +1135,7 @@ static void AllocateRegister(Codegen_Context *ctx, Operand *oper)
                             if (!mapped_reg)
                             {
                                 Reg reg = GetFreeRegister(&ctx->reg_alloc);
+                                SaveDirtyRegister(ctx, instr_index, ir_oper, reg);
                                 MapRegister(&ctx->reg_alloc, ir_oper->temp.name, reg);
                                 *oper = RegOperand(reg, oper->access_flags);
                             }
@@ -1083,7 +1151,57 @@ static void AllocateRegister(Codegen_Context *ctx, Operand *oper)
                         break;
                 }
             } break;
-        case OT_IrAddrOper:
+        case Oper_Type::IrAddrOper:
+            NOT_IMPLEMENTED("OT_IrAddrOper");
+            break;
+    }
+}
+
+static void SaveDirtyOperand(Codegen_Context *ctx, s64 instr_index, Operand *oper)
+{
+    if ((oper->access_flags & AF_Write) == 0)
+        return;
+    switch (oper->type)
+    {
+        case Oper_Type::None: break;
+        case Oper_Type::Label: break;
+        case Oper_Type::Register:
+            break;
+        case Oper_Type::Addr:
+            break;
+        case Oper_Type::Temp: NOT_IMPLEMENTED("TEMP alloc"); break;
+        case Oper_Type::Immediate:
+            break;
+        case Oper_Type::IrOperand:
+            {
+                Ir_Operand *ir_oper = oper->ir_oper;
+                switch (ir_oper->oper_type)
+                {
+                    case IR_OPER_None: INVALID_CODE_PATH; break;
+                    case IR_OPER_Variable:
+                        {
+                            const Reg *mapped_reg = GetMappedRegister(
+                                    &ctx->reg_alloc,
+                                    ir_oper->var.name);
+                            if (!mapped_reg) return;
+                            SaveDirtyRegister(ctx, instr_index, ir_oper, *mapped_reg);
+                        } break;
+                    case IR_OPER_Temp:
+                        {
+                            const Reg *mapped_reg = GetMappedRegister(
+                                    &ctx->reg_alloc,
+                                    ir_oper->temp.name);
+                            if (!mapped_reg) return;
+                            SaveDirtyRegister(ctx, instr_index, ir_oper, *mapped_reg);
+                        } break;
+                    case IR_OPER_Immediate:
+                    case IR_OPER_Label:
+                    case IR_OPER_Routine:
+                    case IR_OPER_ForeignRoutine:
+                        break;
+                }
+            } break;
+        case Oper_Type::IrAddrOper:
             NOT_IMPLEMENTED("OT_IrAddrOper");
             break;
     }
@@ -1106,15 +1224,18 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
     for (s64 i = 0; i < ctx->current_routine->instructions.count; i++)
     {
         Instruction *instr = ctx->current_routine->instructions.data + i;
-        AllocateRegister(ctx, &instr->oper1);
-        AllocateRegister(ctx, &instr->oper2);
-        AllocateRegister(ctx, &instr->oper3);
+        SaveDirtyOperand(ctx, i, &instr->oper1);
+        SaveDirtyOperand(ctx, i, &instr->oper2);
+        SaveDirtyOperand(ctx, i, &instr->oper3);
+        AllocateRegister(ctx, i, &instr->oper1);
+        AllocateRegister(ctx, i, &instr->oper2);
+        AllocateRegister(ctx, i, &instr->oper3);
     }
 }
 
 static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine)
 {
-    InsertLabel(ctx, routine->name);
+    PushLabel(ctx, routine->name);
     for (s64 i = 0; i < routine->instructions.count; i++)
     {
         //Ir_Instruction ir_instr = array::At(routine->instructions, i);
@@ -1270,31 +1391,31 @@ static s64 PrintIrOperand(IoFile *file, Ir_Operand oper)
 
 static s64 PrintOperand(IoFile *file, Operand oper, b32 first)
 {
-    if (oper.type == OT_None) return 0;
+    if (oper.type == Oper_Type::None) return 0;
 
     s64 len = 0;
     if (!first)
         len += fprintf((FILE*)file, ", ");
     switch (oper.type)
     {
-        case OT_None:
+        case Oper_Type::None:
             break;
-        case OT_Label:
+        case Oper_Type::Label:
             NOT_IMPLEMENTED("OT_Label");
             break;
-        case OT_Temp:
+        case Oper_Type::Temp:
             NOT_IMPLEMENTED("OT_Temp");
             break;
-        case OT_Register:
+        case Oper_Type::Register:
             len += fprintf((FILE*)file, "%s", GetRegName(oper.reg));
             break;
-        case OT_IrOperand:
+        case Oper_Type::IrOperand:
             len += PrintIrOperand(file, *oper.ir_oper);
             break;
-        case OT_Immediate:
+        case Oper_Type::Immediate:
             len += fprintf((FILE*)file, "%" PRIu64, oper.imm_u64);
             break;
-        case OT_Addr:
+        case Oper_Type::Addr:
             {
                 Addr_Base_Index_Offs base_idx_offs = oper.base_index_offs;
                 len += fprintf((FILE*)file, "[");
@@ -1325,7 +1446,7 @@ static s64 PrintOperand(IoFile *file, Operand oper, b32 first)
                 }
                 len += fprintf((FILE*)file, "]");
             } break;
-        case OT_IrAddrOper:
+        case Oper_Type::IrAddrOper:
             {
                 Addr_Ir_Base_Index_Offs base_idx_offs = oper.ir_base_index_offs;
                 len += fprintf((FILE*)file, "[");

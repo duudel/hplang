@@ -19,16 +19,16 @@ enum Codegen_Target
 };
 
 
-enum Operand_Type
+enum class Oper_Type : u8
 {
-    OT_None,
-    OT_Register,
-    OT_Temp,
-    OT_Immediate,
-    OT_Label,
-    OT_IrOperand,
-    OT_Addr,
-    OT_IrAddrOper,
+    None,
+    Register,
+    Temp,
+    Immediate,
+    Label,
+    IrOperand,
+    Addr,
+    IrAddrOper,
 };
 
 struct Label
@@ -85,11 +85,17 @@ Flag<E, U> operator | (Flag<E, U> flag, E bit)
     return flag;
 }
 
-typedef Flag<Oper_Access_Flag_Bits, u32> Oper_Access_Flags;
+template <class E, class U>
+U operator & (Flag<E, U> flag, E bit)
+{
+    return flag.value & bit;
+}
+
+typedef Flag<Oper_Access_Flag_Bits, u8> Oper_Access_Flags;
 
 struct Operand
 {
-    Operand_Type type;
+    Oper_Type type;
     Oper_Access_Flags access_flags;
     union {
         Reg reg;
@@ -121,10 +127,19 @@ struct Instruction
 
 typedef Array<Instruction> Instructon_List;
 
+struct Local_Offset
+{
+    Name name;
+    s64 offset;
+};
+
 struct Routine
 {
     Name name;
     s64 temp_count;
+
+    s64 locals_size;
+    Array<Local_Offset*> local_offsets;
 
     Instructon_List instructions;
 };

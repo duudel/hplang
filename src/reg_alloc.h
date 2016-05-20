@@ -15,7 +15,7 @@ struct Reg
 inline operator == (Reg r1, Reg r2)
 { return r1.reg_index == r2.reg_index; }
 inline operator != (Reg r1, Reg r2)
-{ return r1.reg_index != r2.reg_index; } 
+{ return r1.reg_index != r2.reg_index; }
 
 struct Reg_Var
 {
@@ -63,6 +63,8 @@ void ClearRegAllocs(Reg_Alloc *reg_alloc);
 void DirtyCalleeSaveRegs(Reg_Alloc *reg_alloc);
 
 void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
+bool UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
+
 void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg);
 const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name);
 Reg GetFreeRegister(Reg_Alloc *reg_alloc);

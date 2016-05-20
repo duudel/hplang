@@ -33,10 +33,16 @@ namespace array
     bool Push(Array<T> &arr, const T &x);
 
     template <class T>
+    bool Insert(Array<T> &arr, s64 index, const T &x);
+
+    template <class T>
     void Set(Array<T> &arr, s64 index, const T &x);
 
     template <class T>
     T At(Array<T> &arr, s64 index);
+
+    template <class T>
+    void EraseBySwap(Array<T> &arr, s64 index);
 
     template <class T>
     void Free(Array<T> &arr);
@@ -101,17 +107,47 @@ namespace array
     }
 
     template <class T>
+    bool Insert(Array<T> &arr, s64 index, const T &x)
+    {
+        if (arr.capacity <= arr.count)
+        {
+            s64 new_capacity = arr.capacity + arr.capacity / 2;
+            if (new_capacity < 8) new_capacity = 8;
+            if (!Reserve(arr, new_capacity))
+                return false;
+        }
+        for (s64 i = arr.count; i > index; i--)
+        {
+            arr.data[i] = arr.data[i - 1];
+        }
+        arr.data[index] = x;
+        arr.count++;
+        return true;
+    }
+
+    template <class T>
     void Set(Array<T> &arr, s64 index, const T &x)
     {
-        ASSERT(index < arr.count);
+        ASSERT(0 <= index && index < arr.count);
         arr.data[index] = x;
     }
 
     template <class T>
     T At(Array<T> &arr, s64 index)
     {
-        ASSERT(index < arr.count);
+        ASSERT(0 <= index && index < arr.count);
         return arr.data[index];
+    }
+
+    template <class T>
+    void EraseBySwap(Array<T> &arr, s64 index)
+    {
+        ASSERT(0 <= index && index < arr.count);
+        if (index < arr.count - 1)
+        {
+            arr.data[index] = arr.data[arr.count - 1];
+        }
+        arr.count--;
     }
 
     template <class T>

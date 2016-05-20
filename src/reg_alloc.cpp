@@ -107,6 +107,20 @@ void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
     array::Push(reg_alloc->dirty_regs, reg);
 }
 
+bool UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
+{
+    for (s64 i = 0; i < reg_alloc->dirty_regs.count; i++)
+    {
+        Reg dirty_reg = array::At(reg_alloc->dirty_regs, i);
+        if (dirty_reg == reg)
+        {
+            array::EraseBySwap(reg_alloc->dirty_regs, i);
+            return true;
+        }
+    }
+    return false;
+}
+
 void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg)
 {
     for (s64 i = 0; i < reg_alloc->mapped_regs.count; i++)
@@ -136,11 +150,23 @@ const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name)
     return nullptr;
 }
 
+static Reg FreeRegister(Reg_Alloc *reg_alloc)
+{
+    Reg_Var result = array::At(reg_alloc->mapped_regs, 0);
+    for (s64 i = 0; i < reg_alloc->mapped_regs.count - 1; i++)
+    {
+        Reg_Var rv = array::At(reg_alloc->mapped_regs, i + 1);
+        array::Set(reg_alloc->mapped_regs, i, rv);
+    }
+    reg_alloc->mapped_regs.count--;
+    return result.reg;
+}
+
 Reg GetFreeRegister(Reg_Alloc *reg_alloc)
 {
     if (reg_alloc->free_regs.count == 0)
     {
-        //FreeRegister(reg_alloc);
+        return FreeRegister(reg_alloc);
         NOT_IMPLEMENTED("No more free registers");
         INVALID_CODE_PATH;
     }
