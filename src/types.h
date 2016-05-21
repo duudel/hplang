@@ -71,6 +71,30 @@ struct Name
     u32 hash;
 };
 
+
+template <class E, class U>
+struct Flag
+{
+    U value;
+    Flag() { }
+    Flag(E bit) : value(bit) { }
+    //operator U() { return value; }
+};
+
+template <class E, class U>
+Flag<E, U> operator | (Flag<E, U> flag, E bit)
+{
+    flag.value |= bit;
+    return flag;
+}
+
+template <class E, class U>
+U operator & (Flag<E, U> flag, E bit)
+{
+    return flag.value & bit;
+}
+
+
 } // hplang
 
 #define H_HPLANG_TYPES_H

@@ -75,7 +75,7 @@ static iptr PointerDiff(void *p1, void *p2)
 struct Memory_Block
 {
     Pointer memory;
-    s64 top_pointer;
+    u8 *top_pointer;
     Memory_Block *prev;
 };
 
@@ -103,8 +103,9 @@ void GetMemoryArenaUsage(Memory_Arena *arena, s64 *used, s64 *unused)
     Memory_Block *block = arena->head;
     while (block)
     {
-        (*used) += block->top_pointer;
-        (*unused) += block->memory.size - block->top_pointer;
+        iptr used_mem = PointerDiff(block->top_pointer, block->memory.ptr);
+        (*used) += used_mem;
+        (*unused) += block->memory.size - used_mem;
         block = block->prev;
     }
 }
@@ -121,7 +122,7 @@ static b32 AllocateNewMemoryBlock(Memory_Arena *arena, s64 min_size)
     Memory_Block *block = (Memory_Block*)data.ptr;
     block->memory.ptr = (void*)(block + 1);
     block->memory.size = memory_block_size;
-    block->top_pointer = 0;
+    block->top_pointer = (u8*)block->memory.ptr;
 
     block->prev = arena->head;
     arena->head = block;
@@ -134,16 +135,15 @@ static void* AllocateFromMemoryBlock(Memory_Block *block, s64 size, s64 alignmen
     if (!block)
         return nullptr;
 
-    // TODO(henrik): Is this alignment right? Should we align the ptr or 
-    // ptr + top_pointer?
-    s64 top_offset = PointerDiff(Align(block->memory.ptr, alignment),
-                                 block->memory.ptr);
+    iptr top_offset = PointerDiff(Align(block->top_pointer, alignment),
+                                 block->top_pointer);
 
-    if (block->top_pointer + size + top_offset > block->memory.size)
+    iptr used = PointerDiff(block->top_pointer, block->memory.ptr);
+    if (used + size + top_offset > block->memory.size)
         return nullptr;
 
     block->top_pointer += top_offset;
-    char *ptr = (char*)block->memory.ptr + block->top_pointer;
+    u8 *ptr = block->top_pointer;
     block->top_pointer += size;
     return (void*)ptr;
 }

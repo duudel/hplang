@@ -61,6 +61,12 @@ struct Temp
     Type *type;
 };
 
+struct Fixed_Reg
+{
+    Reg reg;
+    Name name;
+};
+
 
 enum Oper_Access_Flag_Bits
 {
@@ -69,41 +75,21 @@ enum Oper_Access_Flag_Bits
     AF_ReadWrite    = AF_Read | AF_Write,
 };
 
-template <class E, class U>
-struct Flag
-{
-    U value;
-    Flag() { }
-    Flag(E bit) : value(bit) { }
-    //operator U() { return value; }
-};
-
-template <class E, class U>
-Flag<E, U> operator | (Flag<E, U> flag, E bit)
-{
-    flag.value |= bit;
-    return flag;
-}
-
-template <class E, class U>
-U operator & (Flag<E, U> flag, E bit)
-{
-    return flag.value & bit;
-}
-
 typedef Flag<Oper_Access_Flag_Bits, u8> Oper_Access_Flags;
 
 struct Operand
 {
     Oper_Type type;
     Oper_Access_Flags access_flags;
+    // NOTE(henrik): Here are 2 bytes of unused space.
     union {
-        Reg reg;
+        Reg         reg;
+        Fixed_Reg  fixed_reg;
+        Temp        temp;
+        Label       label;
         Ir_Operand *ir_oper;
         Addr_Base_Index_Offs base_index_offs;
         Addr_Ir_Base_Index_Offs ir_base_index_offs;
-        Temp temp;
-        Label label;
         union {
             bool imm_bool;
             u64 imm_u64;
@@ -142,6 +128,8 @@ struct Routine
     Array<Local_Offset*> local_offsets;
 
     Instructon_List instructions;
+    Instructon_List prologue;
+    Instructon_List epilogue;
 };
 
 struct Compiler_Context;
@@ -154,6 +142,7 @@ struct Codegen_Context
     Reg_Alloc reg_alloc;
 
     s64 current_arg_count;
+    s64 fixed_reg_id;
     Ir_Comment *comment;
 
     s64 routine_count;

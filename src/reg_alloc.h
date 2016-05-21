@@ -56,6 +56,10 @@ void InitRegAlloc(Reg_Alloc *reg_alloc,
 
 void FreeRegAlloc(Reg_Alloc *reg_alloc);
 
+
+b32 IsCallerSave(Reg_Alloc *reg_alloc, Reg reg);
+b32 IsCalleeSave(Reg_Alloc *reg_alloc, Reg reg);
+
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, s64 arg_index);
 const Reg* GetFloatArgRegister(Reg_Alloc *reg_alloc, s64 arg_index);
 
@@ -63,7 +67,7 @@ void ClearRegAllocs(Reg_Alloc *reg_alloc);
 void DirtyCalleeSaveRegs(Reg_Alloc *reg_alloc);
 
 void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
-bool UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
+b32 UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
 
 void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg);
 const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name);

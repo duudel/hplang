@@ -346,6 +346,27 @@ static Operand RegOperand(Amd64_Register reg, Oper_Access_Flags access_flags)
     return RegOperand(MakeReg(reg), access_flags);
 }
 
+static Operand FixedRegOperand(Codegen_Context *ctx, Reg reg, Oper_Access_Flags access_flags)
+{
+    const s64 buf_size = 40;
+    char buf[buf_size];
+    s64 reg_name_len = snprintf(buf, buf_size, "%s@%" PRId64,
+            GetRegName(reg), ctx->fixed_reg_id);
+    ctx->fixed_reg_id++;
+
+    Operand result = { };
+    result.type = Oper_Type::Register;
+    result.access_flags = access_flags;
+    result.fixed_reg.reg = reg;
+    result.fixed_reg.name = PushName(&ctx->arena, buf, reg_name_len);
+    return result;
+}
+
+static Operand FixedRegOperand(Codegen_Context *ctx, Amd64_Register reg, Oper_Access_Flags access_flags)
+{
+    return FixedRegOperand(ctx, MakeReg(reg), access_flags);
+}
+
 static Operand AddrOperand(Reg base, s64 offset, Oper_Access_Flags access_flags)
 {
     Operand result = { };
@@ -448,7 +469,8 @@ static Operand IrAddrOperand(Ir_Operand *base, Ir_Operand *index, s64 scale, s64
     return result;
 }
 
-static void PushInstruction(Codegen_Context *ctx,
+static inline Instruction NewInstruction(
+        Codegen_Context *ctx,
         Amd64_Opcode opcode,
         Operand oper1 = NoneOperand(),
         Operand oper2 = NoneOperand(),
@@ -464,6 +486,16 @@ static void PushInstruction(Codegen_Context *ctx,
         instr.comment = *ctx->comment;
         ctx->comment = nullptr;
     }
+    return instr;
+}
+
+static void PushInstruction(Codegen_Context *ctx,
+        Amd64_Opcode opcode,
+        Operand oper1 = NoneOperand(),
+        Operand oper2 = NoneOperand(),
+        Operand oper3 = NoneOperand())
+{
+    Instruction instr = NewInstruction(ctx, opcode, oper1, oper2, oper3);
     array::Push(ctx->current_routine->instructions, instr);
 }
 
@@ -474,17 +506,36 @@ static void InsertInstruction(Codegen_Context *ctx,
         Operand oper2 = NoneOperand(),
         Operand oper3 = NoneOperand())
 {
-    Instruction instr = { };
-    instr.opcode = (Opcode)opcode;
-    instr.oper1 = oper1;
-    instr.oper2 = oper2;
-    instr.oper3 = oper3;
-    if (ctx->comment)
-    {
-        instr.comment = *ctx->comment;
-        ctx->comment = nullptr;
-    }
+    Instruction instr = NewInstruction(ctx, opcode, oper1, oper2, oper3);
     array::Insert(ctx->current_routine->instructions, instr_index, instr);
+}
+
+static void PushEpilogue(Codegen_Context *ctx,
+        Amd64_Opcode opcode,
+        Operand oper1 = NoneOperand(),
+        Operand oper2 = NoneOperand(),
+        Operand oper3 = NoneOperand())
+{
+    Instruction instr = NewInstruction(ctx, opcode, oper1, oper2, oper3);
+    array::Push(ctx->current_routine->epilogue, instr);
+}
+
+static void PushPrologue(Codegen_Context *ctx,
+        Amd64_Opcode opcode,
+        Operand oper1 = NoneOperand(),
+        Operand oper2 = NoneOperand(),
+        Operand oper3 = NoneOperand())
+{
+    Instruction instr = NewInstruction(ctx, opcode, oper1, oper2, oper3);
+    array::Push(ctx->current_routine->prologue, instr);
+}
+
+static void PushPrologueLabel(Codegen_Context *ctx, Name name)
+{
+    Operand oper = { };
+    oper.type = Oper_Type::Label;
+    oper.label.name = name;
+    PushPrologue(ctx, OP_LABEL, oper);
 }
 
 static void PushLoad(Codegen_Context *ctx, Operand oper1, Operand oper2)
@@ -542,6 +593,7 @@ static void PushZeroReg(Codegen_Context *ctx, Amd64_Register reg)
 static void PushLabel(Codegen_Context *ctx, Name name)
 {
     Operand oper = { };
+    oper.type = Oper_Type::Label;
     oper.label.name = name;
     PushInstruction(ctx, OP_LABEL, oper);
 }
@@ -965,7 +1017,6 @@ static void GenerateCode(Codegen_Context *ctx,
             } break;
         case IR_MovElement:
             {
-                //NOT_IMPLEMENTED("mov elem");
                 // target <- base + index*size
                 s64 size = GetAlignedElementSize(ir_instr->oper1.type);
                 PushLoadAddr(ctx,
@@ -1052,6 +1103,7 @@ static void GenerateCode(Codegen_Context *ctx,
     }
 }
 
+
 static s64 GetLocalOffset(Codegen_Context *ctx, Ir_Operand *ir_oper)
 {
     ASSERT(ir_oper->oper_type == IR_OPER_Variable ||
@@ -1087,7 +1139,7 @@ static void SaveDirtyRegister(Codegen_Context *ctx, s64 instr_index, Ir_Operand 
                 RegOperand(reg, AF_Read));
         if (IsCalleeSave(&ctx->reg_alloc, reg))
         {
-            AddEpilogue(ctx, OP_mov,
+            PushEpilogue(ctx, OP_mov,
                 RegOperand(reg, AF_Write),
                 AddrOperand(REG_rbp, local_offs, AF_Read));
         }
@@ -1102,6 +1154,7 @@ static void AllocateRegister(Codegen_Context *ctx, s64 instr_index, Operand *ope
         case Oper_Type::None: break;
         case Oper_Type::Label: break;
         case Oper_Type::Register:
+            //GetMappedRegister(reg_alloc, oper->reg);
             break;
         case Oper_Type::Addr:
             break;
@@ -1116,7 +1169,7 @@ static void AllocateRegister(Codegen_Context *ctx, s64 instr_index, Operand *ope
                     case IR_OPER_None: INVALID_CODE_PATH; break;
                     case IR_OPER_Variable:
                         {
-                            const Reg *mapped_reg = GetMappedRegister(&ctx->reg_alloc, ir_oper->var.name);
+                            const Reg *mapped_reg = GetMappedRegister(reg_alloc, ir_oper->var.name);
                             if (!mapped_reg)
                             {
                                 Reg reg = GetFreeRegister(reg_alloc);
@@ -1131,12 +1184,12 @@ static void AllocateRegister(Codegen_Context *ctx, s64 instr_index, Operand *ope
                         } break;
                     case IR_OPER_Temp:
                         {
-                            const Reg *mapped_reg = GetMappedRegister(&ctx->reg_alloc, ir_oper->temp.name);
+                            const Reg *mapped_reg = GetMappedRegister(reg_alloc, ir_oper->temp.name);
                             if (!mapped_reg)
                             {
-                                Reg reg = GetFreeRegister(&ctx->reg_alloc);
+                                Reg reg = GetFreeRegister(reg_alloc);
                                 SaveDirtyRegister(ctx, instr_index, ir_oper, reg);
-                                MapRegister(&ctx->reg_alloc, ir_oper->temp.name, reg);
+                                MapRegister(reg_alloc, ir_oper->temp.name, reg);
                                 *oper = RegOperand(reg, oper->access_flags);
                             }
                             else
@@ -1235,7 +1288,7 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
 
 static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine)
 {
-    PushLabel(ctx, routine->name);
+    ctx->current_routine->name = routine->name;
     for (s64 i = 0; i < routine->instructions.count; i++)
     {
         //Ir_Instruction ir_instr = array::At(routine->instructions, i);
@@ -1529,19 +1582,34 @@ static void PrintInstruction(IoFile *file, const Instruction instr)
     fprintf((FILE*)file, "\n");
 }
 
+void PrintInstructions(IoFile *file, Instructon_List &instructions)
+{
+    for (s64 i = 0; i < instructions.count; i++)
+    {
+        PrintInstruction(file, array::At(instructions, i));
+    }
+}
+
 void OutputCode_Amd64(Codegen_Context *ctx)
 {
-    fprintf((FILE*)ctx->code_out, "; -----\n");
-    fprintf((FILE*)ctx->code_out, "; %s\n", GetTargetString(ctx->target));
-    fprintf((FILE*)ctx->code_out, "; -----\n\n");
+    IoFile *file = ctx->code_out;
+    fprintf((FILE*)file, "; -----\n");
+    fprintf((FILE*)file, "; %s\n", GetTargetString(ctx->target));
+    fprintf((FILE*)file, "; -----\n\n");
 
     for (s64 routine_idx = 0; routine_idx < ctx->routine_count; routine_idx++)
     {
         Routine *routine = &ctx->routines[routine_idx];
-        for (s64 i = 0; i < routine->instructions.count; i++)
-        {
-            PrintInstruction(ctx->code_out, array::At(routine->instructions, i));
-        }
+        PrintName(file, routine->name);
+        fprintf((FILE*)file, ":\n");
+
+        fprintf((FILE*)file, "; prologue\n");
+        PrintInstructions(file, routine->prologue);
+        fprintf((FILE*)file, "; routine body\n");
+        PrintInstructions(file, routine->instructions);
+        fprintf((FILE*)file, "; epilogue\n");
+        PrintInstructions(file, routine->epilogue);
+        fprintf((FILE*)file, "; -----\n\n");
     }
 }
 

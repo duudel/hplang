@@ -36,6 +36,31 @@ void FreeRegAlloc(Reg_Alloc *reg_alloc)
     array::Free(reg_alloc->dirty_regs);
 }
 
+
+b32 IsCallerSave(Reg_Alloc *reg_alloc, Reg reg)
+{
+    const Reg *caller_saves = reg_alloc->caller_save_regs;
+    s64 count = reg_alloc->caller_save_count;
+    for (s64 i = 0; i < count; i++)
+    {
+        if (caller_saves[i] == reg)
+            return true;
+    }
+    return false;
+}
+
+b32 IsCalleeSave(Reg_Alloc *reg_alloc, Reg reg)
+{
+    const Reg *callee_saves = reg_alloc->callee_save_regs;
+    s64 count = reg_alloc->callee_save_count;
+    for (s64 i = 0; i < count; i++)
+    {
+        if (callee_saves[i] == reg)
+            return true;
+    }
+    return false;
+}
+
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, s64 arg_index)
 {
     if (arg_index < reg_alloc->arg_reg_count)
@@ -107,7 +132,7 @@ void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
     array::Push(reg_alloc->dirty_regs, reg);
 }
 
-bool UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
+b32 UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
 {
     for (s64 i = 0; i < reg_alloc->dirty_regs.count; i++)
     {
