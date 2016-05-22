@@ -9,12 +9,11 @@ namespace hplang
 struct Reg
 {
     u8 reg_index;
-    //Name name;
 };
 
-inline operator == (Reg r1, Reg r2)
+inline b32 operator == (Reg r1, Reg r2)
 { return r1.reg_index == r2.reg_index; }
-inline operator != (Reg r1, Reg r2)
+inline b32 operator != (Reg r1, Reg r2)
 { return r1.reg_index != r2.reg_index; }
 
 struct Reg_Var
@@ -28,7 +27,8 @@ struct Reg_Alloc
     Array<Reg_Var> mapped_regs;
     Array<Reg> free_regs;
     Array<Reg> free_float_regs;
-    Array<Reg> dirty_regs;
+    //Array<u8> dirty_regs;
+    Array<u8> reg_flags;
 
     s64 general_reg_count;
     const Reg *general_regs;
@@ -47,6 +47,7 @@ struct Reg_Alloc
 };
 
 void InitRegAlloc(Reg_Alloc *reg_alloc,
+        s64 total_reg_count,
         s64 general_reg_count, const Reg *general_regs,
         s64 float_reg_count, const Reg *float_regs,
         s64 arg_reg_count, const Reg *arg_regs,
@@ -71,6 +72,7 @@ b32 UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
 
 void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg);
 const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name);
+const Name* GetMappedVar(Reg_Alloc *reg_alloc, Reg reg);
 Reg GetFreeRegister(Reg_Alloc *reg_alloc);
 
 } // hplang

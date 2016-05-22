@@ -16,7 +16,24 @@ struct Array
     s64 capacity;
     s64 count;
     T *data;
+    
+    T& operator [] (s64 index);
+    const T& operator [] (s64 index) const;
 };
+
+template <class T>
+T& Array<T>::operator [] (s64 index)
+{
+    ASSERT(0 <= index && index < count);
+    return data[index];
+}
+
+template <class T>
+const T& Array<T>::operator [] (s64 index) const
+{
+    ASSERT(0 <= index && index < count);
+    return data[index];
+}
 
 namespace array
 {

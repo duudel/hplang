@@ -306,6 +306,7 @@ void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
 
     case CGT_AMD64_Windows:
         InitRegAlloc(&ctx->reg_alloc,
+                16 + 16,
                 array_length(general_regs), general_regs,
                 array_length(float_regs), float_regs,
                 array_length(win_arg_regs), win_arg_regs,
@@ -315,6 +316,7 @@ void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
         break;
     case CGT_AMD64_Unix:
         InitRegAlloc(&ctx->reg_alloc,
+                16 + 16,
                 array_length(general_regs), general_regs,
                 array_length(float_regs), float_regs,
                 array_length(nix_arg_regs), nix_arg_regs,
@@ -330,6 +332,24 @@ static Operand NoneOperand()
     Operand result = { };
     result.type = Oper_Type::None;
     return result;
+}
+
+static Operand R_(Operand oper)
+{
+    oper.access_flags = AF_Read;
+    return oper;
+}
+
+static Operand W_(Operand oper)
+{
+    oper.access_flags = AF_Write;
+    return oper;
+}
+
+static Operand RW_(Operand oper)
+{
+    oper.access_flags = AF_ReadWrite;
+    return oper;
 }
 
 static Operand RegOperand(Reg reg, Oper_Access_Flags access_flags)
@@ -355,7 +375,7 @@ static Operand FixedRegOperand(Codegen_Context *ctx, Reg reg, Oper_Access_Flags 
     ctx->fixed_reg_id++;
 
     Operand result = { };
-    result.type = Oper_Type::Register;
+    result.type = Oper_Type::FixedRegister;
     result.access_flags = access_flags;
     result.fixed_reg.reg = reg;
     result.fixed_reg.name = PushName(&ctx->arena, buf, reg_name_len);
@@ -530,14 +550,6 @@ static void PushPrologue(Codegen_Context *ctx,
     array::Push(ctx->current_routine->prologue, instr);
 }
 
-static void PushPrologueLabel(Codegen_Context *ctx, Name name)
-{
-    Operand oper = { };
-    oper.type = Oper_Type::Label;
-    oper.label.name = name;
-    PushPrologue(ctx, OP_LABEL, oper);
-}
-
 static void PushLoad(Codegen_Context *ctx, Operand oper1, Operand oper2)
 {
     if (oper1.type == Oper_Type::IrOperand)
@@ -580,23 +592,23 @@ static void PushZeroReg(Codegen_Context *ctx, Operand oper)
     PushInstruction(ctx, OP_xor, oper, oper);
 }
 
-static void PushZeroReg(Codegen_Context *ctx, Reg reg)
-{
-    PushZeroReg(ctx, RegOperand(reg, AF_Write));
-}
+//static void PushZeroReg(Codegen_Context *ctx, Reg reg)
+//{
+//    PushZeroReg(ctx, RegOperand(reg, AF_Write));
+//}
+//
+//static void PushZeroReg(Codegen_Context *ctx, Amd64_Register reg)
+//{
+//    PushZeroReg(ctx, MakeReg(reg));
+//}
 
-static void PushZeroReg(Codegen_Context *ctx, Amd64_Register reg)
-{
-    PushZeroReg(ctx, MakeReg(reg));
-}
-
-static void PushLabel(Codegen_Context *ctx, Name name)
-{
-    Operand oper = { };
-    oper.type = Oper_Type::Label;
-    oper.label.name = name;
-    PushInstruction(ctx, OP_LABEL, oper);
-}
+//static void PushLabel(Codegen_Context *ctx, Name name)
+//{
+//    Operand oper = { };
+//    oper.type = Oper_Type::Label;
+//    oper.label.name = name;
+//    PushInstruction(ctx, OP_LABEL, oper);
+//}
 
 static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
 {
@@ -751,10 +763,12 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             }
             else // unsigned
             {
-                PushZeroReg(ctx, REG_rdx);
-                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                PushInstruction(ctx, OP_mul, IrOperand(&ir_instr->oper2, AF_Read));
-                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
+                Operand rax = FixedRegOperand(ctx, REG_rax, AF_Read);
+                Operand rdx = FixedRegOperand(ctx, REG_rdx, AF_Read);
+                PushZeroReg(ctx, rdx);
+                PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_mul, IrOperand(&ir_instr->oper2, AF_Read)); // writes to rdx
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rax));
             }
         } break;
     case IR_Div:
@@ -770,17 +784,21 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             }
             else if (is_signed)
             {
-                PushZeroReg(ctx, REG_rdx);
-                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                PushInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read));
-                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
+                Operand rax = FixedRegOperand(ctx, REG_rax, AF_Read);
+                Operand rdx = FixedRegOperand(ctx, REG_rdx, AF_Read);
+                PushZeroReg(ctx, rdx);
+                PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read)); // writes to rdx
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rax));
             }
             else // unsigned
             {
-                PushZeroReg(ctx, REG_rdx);
-                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                PushInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read));
-                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rax, AF_Read));
+                Operand rax = FixedRegOperand(ctx, REG_rax, AF_Read);
+                Operand rdx = FixedRegOperand(ctx, REG_rdx, AF_Read);
+                PushZeroReg(ctx, rdx);
+                PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read)); // writes to rdx
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rax));
             }
         } break;
     case IR_Mod:
@@ -791,17 +809,21 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             }
             else if (is_signed)
             {
-                PushZeroReg(ctx, REG_rdx);
-                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                PushInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read));
-                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rdx, AF_Read));
+                Operand rax = FixedRegOperand(ctx, REG_rax, AF_Read);
+                Operand rdx = FixedRegOperand(ctx, REG_rdx, AF_Read);
+                PushZeroReg(ctx, rdx);
+                PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_idiv, IrOperand(&ir_instr->oper2, AF_Read)); // writes to rdx
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rdx));
             }
             else // unsigned
             {
-                PushZeroReg(ctx, REG_rdx);
-                PushLoad(ctx, RegOperand(REG_rax, AF_Write), IrOperand(&ir_instr->oper1, AF_Read));
-                PushInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read));
-                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), RegOperand(REG_rdx, AF_Read));
+                Operand rax = FixedRegOperand(ctx, REG_rax, AF_Read);
+                Operand rdx = FixedRegOperand(ctx, REG_rdx, AF_Read);
+                PushZeroReg(ctx, rdx);
+                PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_div, IrOperand(&ir_instr->oper2, AF_Read)); // writes to rdx
+                PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rdx));
             }
         } break;
 
@@ -886,13 +908,15 @@ static void PushArgs(Codegen_Context *ctx,
                 if (arg_type->size > 8)
                 {
                     PushLoadAddr(ctx,
-                            RegOperand(*arg_reg, AF_Write),
+                            //RegOperand(*arg_reg, AF_Write),
+                            FixedRegOperand(ctx, *arg_reg, AF_Write),
                             IrOperand(&arg_instr->target, AF_Read));
                 }
                 else
                 {
                     PushLoad(ctx,
-                            RegOperand(*arg_reg, AF_Write),
+                            //RegOperand(*arg_reg, AF_Write),
+                            FixedRegOperand(ctx, *arg_reg, AF_Write),
                             IrOperand(&arg_instr->target, AF_Read));
                 }
             }
@@ -930,7 +954,8 @@ static void PushArgs(Codegen_Context *ctx,
             if (arg_reg)
             {
                 PushLoad(ctx,
-                        RegOperand(*arg_reg, AF_Write),
+                        //RegOperand(*arg_reg, AF_Write),
+                        FixedRegOperand(ctx, *arg_reg, AF_Write),
                         IrOperand(&arg_instr->target, AF_Read));
             }
         }
@@ -1129,11 +1154,46 @@ static s64 GetLocalOffset(Codegen_Context *ctx, Ir_Operand *ir_oper)
     return offs->offset;
 }
 
+static s64 GetLocalOffset(Codegen_Context *ctx, Name name)
+{
+    Routine *routine = ctx->current_routine;
+    Local_Offset *offs = hashtable::Lookup(routine->local_offsets, name);
+    if (offs) return offs->offset;
+
+    offs = PushStruct<Local_Offset>(&ctx->arena);
+
+    //routine->locals_size += GetAlignedSize(ir_oper->type);
+    routine->locals_size += 8;
+    routine->locals_size = Align(routine->locals_size, 8);
+    offs->name = name;
+    offs->offset = routine->locals_size;
+
+    hashtable::Put(routine->local_offsets, name, offs);
+    return offs->offset;
+}
+
 static void SaveDirtyRegister(Codegen_Context *ctx, s64 instr_index, Ir_Operand *ir_oper, Reg reg)
 {
     if (UndirtyRegister(&ctx->reg_alloc, reg))
     {
         s64 local_offs = GetLocalOffset(ctx, ir_oper);
+        InsertInstruction(ctx, instr_index, OP_mov,
+                AddrOperand(REG_rbp, local_offs, AF_Write),
+                RegOperand(reg, AF_Read));
+        if (IsCalleeSave(&ctx->reg_alloc, reg))
+        {
+            PushEpilogue(ctx, OP_mov,
+                RegOperand(reg, AF_Write),
+                AddrOperand(REG_rbp, local_offs, AF_Read));
+        }
+    }
+}
+
+static void SaveDirtyRegister(Codegen_Context *ctx, s64 instr_index, Name name, Reg reg)
+{
+    if (UndirtyRegister(&ctx->reg_alloc, reg))
+    {
+        s64 local_offs = GetLocalOffset(ctx, name);
         InsertInstruction(ctx, instr_index, OP_mov,
                 AddrOperand(REG_rbp, local_offs, AF_Write),
                 RegOperand(reg, AF_Read));
@@ -1154,13 +1214,31 @@ static void AllocateRegister(Codegen_Context *ctx, s64 instr_index, Operand *ope
         case Oper_Type::None: break;
         case Oper_Type::Label: break;
         case Oper_Type::Register:
-            //GetMappedRegister(reg_alloc, oper->reg);
+            break;
+        case Oper_Type::Immediate:
             break;
         case Oper_Type::Addr:
             break;
         case Oper_Type::Temp: NOT_IMPLEMENTED("TEMP alloc"); break;
-        case Oper_Type::Immediate:
-            break;
+        case Oper_Type::FixedRegister:
+            {
+                const Reg *mapped_reg = GetMappedRegister(reg_alloc, oper->fixed_reg.name);
+                if (!mapped_reg)
+                {
+                    Reg reg = oper->fixed_reg.reg;
+                    const Name *old_var = GetMappedVar(reg_alloc, reg);
+                    if (old_var)
+                    {
+                        SaveDirtyRegister(ctx, instr_index, *old_var, reg);
+                    }
+                    MapRegister(reg_alloc, oper->fixed_reg.name, reg);
+                    *oper = RegOperand(reg, oper->access_flags);
+                }
+                else
+                {
+                    *oper = RegOperand(*mapped_reg, oper->access_flags);
+                }
+            } break;
         case Oper_Type::IrOperand:
             {
                 Ir_Operand *ir_oper = oper->ir_oper;
@@ -1173,7 +1251,11 @@ static void AllocateRegister(Codegen_Context *ctx, s64 instr_index, Operand *ope
                             if (!mapped_reg)
                             {
                                 Reg reg = GetFreeRegister(reg_alloc);
-                                SaveDirtyRegister(ctx, instr_index, ir_oper, reg);
+                                const Name *old_var = GetMappedVar(reg_alloc, reg);
+                                if (old_var)
+                                {
+                                    SaveDirtyRegister(ctx, instr_index, *old_var, reg);
+                                }
                                 MapRegister(reg_alloc, ir_oper->var.name, reg);
                                 *oper = RegOperand(reg, oper->access_flags);
                             }
@@ -1188,7 +1270,11 @@ static void AllocateRegister(Codegen_Context *ctx, s64 instr_index, Operand *ope
                             if (!mapped_reg)
                             {
                                 Reg reg = GetFreeRegister(reg_alloc);
-                                SaveDirtyRegister(ctx, instr_index, ir_oper, reg);
+                                const Name *old_var = GetMappedVar(reg_alloc, reg);
+                                if (old_var)
+                                {
+                                    SaveDirtyRegister(ctx, instr_index, ir_oper, reg);
+                                }
                                 MapRegister(reg_alloc, ir_oper->temp.name, reg);
                                 *oper = RegOperand(reg, oper->access_flags);
                             }
@@ -1225,6 +1311,14 @@ static void SaveDirtyOperand(Codegen_Context *ctx, s64 instr_index, Operand *ope
         case Oper_Type::Temp: NOT_IMPLEMENTED("TEMP alloc"); break;
         case Oper_Type::Immediate:
             break;
+        case Oper_Type::FixedRegister:
+            {
+                const Reg *mapped_reg = GetMappedRegister(
+                        &ctx->reg_alloc,
+                        oper->fixed_reg.name);
+                if (!mapped_reg) return;
+                SaveDirtyRegister(ctx, instr_index, oper->fixed_reg.name, *mapped_reg);
+            } break;
         case Oper_Type::IrOperand:
             {
                 Ir_Operand *ir_oper = oper->ir_oper;
@@ -1289,6 +1383,8 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
 static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine)
 {
     ctx->current_routine->name = routine->name;
+    PushPrologue(ctx, OP_push, RegOperand(REG_rbp, AF_Read));
+    PushPrologue(ctx, OP_mov, RegOperand(REG_rbp, AF_Write), RegOperand(REG_rsp, AF_Read));
     for (s64 i = 0; i < routine->instructions.count; i++)
     {
         //Ir_Instruction ir_instr = array::At(routine->instructions, i);
@@ -1298,6 +1394,9 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine)
         GenerateCode(ctx, routine, ir_instr);
     }
     AllocateRegisters(ctx, routine);
+    PushPrologue(ctx, OP_sub,
+            RegOperand(REG_rsp, AF_Write),
+            ImmOperand(ctx->current_routine->locals_size, AF_Read));
 }
 
 void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List routines)
@@ -1461,6 +1560,9 @@ static s64 PrintOperand(IoFile *file, Operand oper, b32 first)
             break;
         case Oper_Type::Register:
             len += fprintf((FILE*)file, "%s", GetRegName(oper.reg));
+            break;
+        case Oper_Type::FixedRegister:
+            len += fprintf((FILE*)file, "%s", GetRegName(oper.fixed_reg.reg));
             break;
         case Oper_Type::IrOperand:
             len += PrintIrOperand(file, *oper.ir_oper);

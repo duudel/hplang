@@ -23,11 +23,12 @@ enum class Oper_Type : u8
 {
     None,
     Register,
-    Temp,
     Immediate,
-    Label,
-    IrOperand,
     Addr,
+    Label,
+    Temp,
+    FixedRegister,
+    IrOperand,
     IrAddrOper,
 };
 

@@ -1,7 +1,6 @@
 #ifndef H_HPLANG_TYPES_H
 
 #include <cstdint>
-#include <initializer_list>
 
 namespace hplang
 {
@@ -21,22 +20,9 @@ typedef uintptr_t   uptr;
 typedef float       f32;
 typedef double      f64;
 
-// NOTE(henrik): b32 should not be implicitely convertible to any integral
-// type.  A solution is to wrap it into a struct, but then sizeof(b32)
-// might not be 4, as the name implies.
-//typedef s32         b32;
-
-struct b32
-{
-    s32 value;
-    b32(bool x) : value((s32)x) { }
-    b32(std::initializer_list<bool> x) : value((s32)*x.begin()) { }
-    operator bool () { return (bool)value; }
-};
-
-static_assert(sizeof(b32) == 4, "assert that sizeof b32 == 4");
-static_assert(alignof(b32) == 4, "assert that alignof b32 == 4");
-
+// NOTE(henrik): b32 should not be implicitely convertible to any integral type.
+// No easy and portable way of doing this.
+typedef s32         b32;
 
 struct Pointer
 {
