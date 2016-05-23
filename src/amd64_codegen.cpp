@@ -10,6 +10,11 @@
 namespace hplang
 {
 
+// Disabled or non-valid instruction opcode
+#define PASTE_OP_D(x)
+
+// NOTE(henrik): Conditional move opcode cmovg is not valid when the operands
+// are 64 bit wide. The condition "cmovg a, b" can be replaced with "cmovl b, a".
 #define OPCODES\
     PASTE_OP(LABEL)\
     \
@@ -44,7 +49,7 @@ namespace hplang
     PASTE_OP(cmovbe)\
     PASTE_OP(cmovl)\
     PASTE_OP(cmovle)\
-    PASTE_OP(cmovg)\
+    PASTE_OP_D(cmovg)\
     PASTE_OP(cmovge)\
     \
     PASTE_OP(add)\
@@ -741,13 +746,28 @@ static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
         }
     case IR_Gt:
         {
-            PushInstruction(ctx, OP_mov,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    ImmOperand(false, AF_Read));
-            Amd64_Opcode mov_op = signed_or_float ? OP_cmovg : OP_cmova;
-            PushInstruction(ctx, mov_op,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    ImmOperand(true, AF_Read));
+            // cmovg is not valid opcode for 64 bit registers/memory operands
+            // => reverse the result of cmovl.
+            if (signed_or_float)
+            {
+                PushInstruction(ctx, OP_mov,
+                        IrOperand(&ir_instr->target, AF_Write),
+                        ImmOperand(true, AF_Read));
+                Operand temp = TempOperand(ctx, AF_Write);
+                PushInstruction(ctx, OP_mov, temp, ImmOperand(false, AF_Read));
+                PushInstruction(ctx, OP_cmovl,
+                        IrOperand(&ir_instr->target, AF_Write),
+                        R_(temp));
+            }
+            else
+            {
+                PushInstruction(ctx, OP_mov,
+                        IrOperand(&ir_instr->target, AF_Write),
+                        ImmOperand(false, AF_Read));
+                PushInstruction(ctx, OP_cmova,
+                        IrOperand(&ir_instr->target, AF_Write),
+                        ImmOperand(true, AF_Read));
+            }
             break;
         }
     case IR_Geq:
@@ -1288,7 +1308,25 @@ static void AllocateRegister(Codegen_Context *ctx, s64 instr_index, Operand *ope
             break;
         case Oper_Type::Addr:
             break;
-        case Oper_Type::Temp: NOT_IMPLEMENTED("TEMP alloc"); break;
+        case Oper_Type::Temp:
+            {
+                const Reg *mapped_reg = GetMappedRegister(reg_alloc, oper->temp.name);
+                if (!mapped_reg)
+                {
+                    Reg reg = GetFreeRegister(reg_alloc);
+                    const Name *old_var = GetMappedVar(reg_alloc, reg);
+                    if (old_var)
+                    {
+                        SaveDirtyRegister(ctx, instr_index, *old_var, reg);
+                    }
+                    MapRegister(reg_alloc, oper->temp.name, reg);
+                    *oper = RegOperand(reg, oper->access_flags);
+                }
+                else
+                {
+                    *oper = RegOperand(*mapped_reg, oper->access_flags);
+                }
+            } break;
         case Oper_Type::FixedRegister:
             {
                 const Reg *mapped_reg = GetMappedRegister(reg_alloc, oper->fixed_reg.name);
@@ -1377,7 +1415,14 @@ static void SaveDirtyOperand(Codegen_Context *ctx, s64 instr_index, Operand *ope
             break;
         case Oper_Type::Addr:
             break;
-        case Oper_Type::Temp: NOT_IMPLEMENTED("TEMP alloc"); break;
+        case Oper_Type::Temp:
+            {
+                const Reg *mapped_reg = GetMappedRegister(
+                        &ctx->reg_alloc,
+                        oper->temp.name);
+                if (!mapped_reg) return;
+                SaveDirtyRegister(ctx, instr_index, oper->temp.name, *mapped_reg);
+            } break;
         case Oper_Type::Immediate:
             break;
         case Oper_Type::FixedRegister:
@@ -1761,32 +1806,59 @@ void PrintInstructions(IoFile *file, Instructon_List &instructions)
 void OutputCode_Amd64(Codegen_Context *ctx)
 {
     IoFile *file = ctx->code_out;
-    fprintf((FILE*)file, "; -----\n");
-    fprintf((FILE*)file, "; %s\n", GetTargetString(ctx->target));
-    fprintf((FILE*)file, "; -----\n\n");
+    FILE *f = (FILE*)file;
 
-    fprintf((FILE*)file, "bits 64\n\n");
+    fprintf(f, "; -----\n");
+    fprintf(f, "; %s\n", GetTargetString(ctx->target));
+    fprintf(f, "; -----\n\n");
+
+    fprintf(f, "bits 64\n\n");
     for (s64 routine_idx = 0; routine_idx < ctx->routine_count; routine_idx++)
     {
         Routine *routine = &ctx->routines[routine_idx];
-        fprintf((FILE*)file, "global ");
+        fprintf(f, "global ");
         PrintName(file, routine->name);
-        fprintf((FILE*)file, "\n");
+        fprintf(f, "\n");
     }
 
+    fprintf(f, "\nsection .text\n\n");
+
     for (s64 routine_idx = 0; routine_idx < ctx->routine_count; routine_idx++)
     {
         Routine *routine = &ctx->routines[routine_idx];
         PrintName(file, routine->name);
-        fprintf((FILE*)file, ":\n");
+        fprintf(f, ":\n");
 
-        fprintf((FILE*)file, "; prologue\n");
+        fprintf(f, "; prologue\n");
         PrintInstructions(file, routine->prologue);
-        fprintf((FILE*)file, "; routine body\n");
+        fprintf(f, "; routine body\n");
         PrintInstructions(file, routine->instructions);
-        fprintf((FILE*)file, "; epilogue\n");
+        fprintf(f, "; epilogue\n");
         PrintInstructions(file, routine->epilogue);
-        fprintf((FILE*)file, "; -----\n\n");
+        fprintf(f, "; -----\n\n");
+    }
+
+    fprintf(f, "\nsection .data\n\n");
+
+    if (ctx->float32_consts.count)
+    {
+        fprintf(f, "align 4\n");
+        for (s64 i = 0; i < ctx->float32_consts.count; i++)
+        {
+            Float32_Const fconst = ctx->float32_consts[i];
+            PrintName(file, fconst.label_name);
+            fprintf(f, ":\tdd\t%" PRIu32 "\n", fconst.uvalue);
+        }
+    }
+    if (ctx->float64_consts.count)
+    {
+        fprintf(f, "align 8\n");
+        for (s64 i = 0; i < ctx->float64_consts.count; i++)
+        {
+            Float64_Const fconst = ctx->float64_consts[i];
+            PrintName(file, fconst.label_name);
+            fprintf(f, ":\tdq\t%" PRIu64 "\n", fconst.uvalue);
+        }
     }
 }
 

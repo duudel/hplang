@@ -135,13 +135,19 @@ struct Routine
 struct Float32_Const
 {
     Name label_name;
-    f32 value;
+    union {
+        f32 value;
+        u32 uvalue;
+    };
 };
 
 struct Float64_Const
 {
     Name label_name;
-    f64 value;
+    union {
+        f64 value;
+        u64 uvalue;
+    };
 };
 
 struct Compiler_Context;
