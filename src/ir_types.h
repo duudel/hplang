@@ -79,7 +79,6 @@ struct Ir_Variable
 struct Ir_Temp
 {
     Name name;
-    //s64 temp_id;
 };
 
 struct Ir_Label
@@ -98,7 +97,6 @@ struct Ir_Operand
         Ir_Variable var;
         Ir_Temp temp;
         Ir_Label *label;
-        //Ir_Routine *routine;
 
         bool imm_bool;
         s8 imm_s8;

@@ -37,6 +37,7 @@ run:
 	@#-./$(EXENAME) samples/factorial.hp
 	@#-./$(EXENAME) samples/nbody.hp
 	-./$(EXENAME) samples/simple.hp
+	nasm -o out out.s
 
 
 GDB := /usr/bin/gdb

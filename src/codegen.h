@@ -59,7 +59,6 @@ struct Addr_Ir_Base_Index_Offs
 struct Temp
 {
     Name name;
-    Type *type;
 };
 
 struct Fixed_Reg
@@ -133,6 +132,18 @@ struct Routine
     Instructon_List epilogue;
 };
 
+struct Float32_Const
+{
+    Name label_name;
+    f32 value;
+};
+
+struct Float64_Const
+{
+    Name label_name;
+    f64 value;
+};
+
 struct Compiler_Context;
 
 struct Codegen_Context
@@ -144,7 +155,11 @@ struct Codegen_Context
 
     s64 current_arg_count;
     s64 fixed_reg_id;
+    s64 temp_id;
     Ir_Comment *comment;
+
+    Array<Float32_Const> float32_consts;
+    Array<Float64_Const> float64_consts;
 
     s64 routine_count;
     Routine *routines;
@@ -155,7 +170,7 @@ struct Codegen_Context
     Compiler_Context *comp_ctx;
 };
 
-Codegen_Context NewCodegenContext(
+Codegen_Context NewCodegenContext(IoFile *out,
         Compiler_Context *comp_ctx, Codegen_Target cg_target);
 void FreeCodegenContext(Codegen_Context *ctx);
 

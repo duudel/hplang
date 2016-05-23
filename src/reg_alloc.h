@@ -27,7 +27,6 @@ struct Reg_Alloc
     Array<Reg_Var> mapped_regs;
     Array<Reg> free_regs;
     Array<Reg> free_float_regs;
-    //Array<u8> dirty_regs;
     Array<u8> reg_flags;
 
     s64 general_reg_count;

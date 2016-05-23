@@ -387,6 +387,20 @@ static Operand FixedRegOperand(Codegen_Context *ctx, Amd64_Register reg, Oper_Ac
     return FixedRegOperand(ctx, MakeReg(reg), access_flags);
 }
 
+static Operand TempOperand(Codegen_Context *ctx, Oper_Access_Flags access_flags)
+{
+    const s64 buf_size = 40;
+    char buf[buf_size];
+    s64 temp_name_len = snprintf(buf, buf_size, "cg_temp@%" PRId64, ctx->temp_id);
+    ctx->temp_id++;
+
+    Operand result = { };
+    result.type = Oper_Type::Temp;
+    result.access_flags = access_flags;
+    result.temp.name = PushName(&ctx->arena, buf, temp_name_len);
+    return result;
+}
+
 static Operand AddrOperand(Reg base, s64 offset, Oper_Access_Flags access_flags)
 {
     Operand result = { };
@@ -455,6 +469,15 @@ static Operand ImmOperand(f64 imm, Oper_Access_Flags access_flags)
     result.type = Oper_Type::Immediate;
     result.access_flags = access_flags;
     result.imm_f64 = imm;
+    return result;
+}
+
+static Operand LabelOperand(Name name, Oper_Access_Flags access_flags)
+{
+    Operand result = { };
+    result.type = Oper_Type::Label;
+    result.access_flags = access_flags;
+    result.label.name = name;
     return result;
 }
 
@@ -550,30 +573,76 @@ static void PushPrologue(Codegen_Context *ctx,
     array::Push(ctx->current_routine->prologue, instr);
 }
 
+static void PushLoadFloat32(Codegen_Context *ctx, Operand oper1, Operand oper2)
+{
+    if (oper2.type == Oper_Type::IrOperand && oper2.ir_oper->oper_type == IR_OPER_Immediate)
+    {
+        s64 buf_size = 40;
+        char buf[buf_size];
+        s64 name_len = snprintf(buf, buf_size, "f32@%" PRId64, ctx->float32_consts.count);
+        Name label_name = PushName(&ctx->arena, buf, name_len);
+
+        Float32_Const fconst = { };
+        fconst.label_name = label_name;
+        fconst.value = oper2.ir_oper->imm_f32;
+        array::Push(ctx->float32_consts, fconst);
+
+        Operand float_label = LabelOperand(label_name, AF_Read);
+        PushInstruction(ctx, OP_movss, oper1, float_label);
+    }
+    else
+    {
+        PushInstruction(ctx, OP_movss, oper1, oper2);
+    }
+}
+
+static void PushLoadFloat64(Codegen_Context *ctx, Operand oper1, Operand oper2)
+{
+    if (oper2.type == Oper_Type::IrOperand && oper2.ir_oper->oper_type == IR_OPER_Immediate)
+    {
+        s64 buf_size = 40;
+        char buf[buf_size];
+        s64 name_len = snprintf(buf, buf_size, "f64@%" PRId64, ctx->float64_consts.count);
+        Name label_name = PushName(&ctx->arena, buf, name_len);
+
+        Float64_Const fconst = { };
+        fconst.label_name = label_name;
+        fconst.value = oper2.ir_oper->imm_f64;
+        array::Push(ctx->float64_consts, fconst);
+
+        Operand float_label = LabelOperand(label_name, AF_Read);
+        PushInstruction(ctx, OP_movsd, oper1, float_label);
+    }
+    else
+    {
+        PushInstruction(ctx, OP_movsd, oper1, oper2);
+    }
+}
+
 static void PushLoad(Codegen_Context *ctx, Operand oper1, Operand oper2)
 {
+    bool load_f32 = false;
+    bool load_f64 = false;
     if (oper1.type == Oper_Type::IrOperand)
     {
         if (oper1.ir_oper->type->tag == TYP_f32)
-            PushInstruction(ctx, OP_movss, oper1, oper2);
+            load_f32 = true;
         else if (oper1.ir_oper->type->tag == TYP_f64)
-            PushInstruction(ctx, OP_movsd, oper1, oper2);
-        else
-            PushInstruction(ctx, OP_mov, oper1, oper2);
+            load_f64 = true;
     }
     else if (oper2.type == Oper_Type::IrOperand)
     {
         if (oper2.ir_oper->type->tag == TYP_f32)
-            PushInstruction(ctx, OP_movss, oper1, oper2);
+            load_f32 = true;
         else if (oper2.ir_oper->type->tag == TYP_f64)
-            PushInstruction(ctx, OP_movsd, oper1, oper2);
-        else
-            PushInstruction(ctx, OP_mov, oper1, oper2);
+            load_f64 = true;
     }
+    if (load_f32)
+        PushLoadFloat32(ctx, oper1, oper2);
+    else if (load_f64)
+        PushLoadFloat64(ctx, oper1, oper2);
     else
-    {
         PushInstruction(ctx, OP_mov, oper1, oper2);
-    }
 }
 
 static void PushLoad(Codegen_Context *ctx, Ir_Operand *ir_oper1, Ir_Operand *ir_oper2)
@@ -1387,8 +1456,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine)
     PushPrologue(ctx, OP_mov, RegOperand(REG_rbp, AF_Write), RegOperand(REG_rsp, AF_Read));
     for (s64 i = 0; i < routine->instructions.count; i++)
     {
-        //Ir_Instruction ir_instr = array::At(routine->instructions, i);
-        Ir_Instruction *ir_instr = routine->instructions.data + i;
+        Ir_Instruction *ir_instr = &routine->instructions[i];
         if (!ctx->comment)
             ctx->comment = &ir_instr->comment;
         GenerateCode(ctx, routine, ir_instr);
@@ -1532,9 +1600,7 @@ static s64 PrintIrOperand(IoFile *file, Ir_Operand oper)
             break;
         case IR_OPER_Routine:
         case IR_OPER_ForeignRoutine:
-            len += fprintf((FILE*)file, "<");
             len += PrintName(file, oper.var.name);
-            len += fprintf((FILE*)file, ">");
             break;
     }
     return len;
@@ -1553,7 +1619,7 @@ static s64 PrintOperand(IoFile *file, Operand oper, b32 first)
         case Oper_Type::None:
             break;
         case Oper_Type::Label:
-            NOT_IMPLEMENTED("OT_Label");
+            len += PrintName(file, oper.label.name);
             break;
         case Oper_Type::Temp:
             NOT_IMPLEMENTED("OT_Temp");
@@ -1644,11 +1710,12 @@ static s64 PrintLabel(IoFile *file, Operand label_oper)
     return len;
 }
 
-static s64 PrintComment(FILE *file, Ir_Comment comment)
+static s64 PrintComment(FILE *file, s64 line_len, Ir_Comment comment)
 {
     s64 len = 0;
     if (comment.start)
     {
+        PrintPadding((FILE*)file, line_len, 40);
         len += fprintf(file, "\t; ");
         len += fwrite(comment.start, 1, comment.end - comment.start, file);
     }
@@ -1679,8 +1746,7 @@ static void PrintInstruction(IoFile *file, const Instruction instr)
         len += PrintOperand(file, instr.oper2, false);
         len += PrintOperand(file, instr.oper3, false);
     }
-    PrintPadding((FILE*)file, len, 40);
-    PrintComment((FILE*)file, instr.comment);
+    PrintComment((FILE*)file, len, instr.comment);
     fprintf((FILE*)file, "\n");
 }
 
@@ -1698,6 +1764,15 @@ void OutputCode_Amd64(Codegen_Context *ctx)
     fprintf((FILE*)file, "; -----\n");
     fprintf((FILE*)file, "; %s\n", GetTargetString(ctx->target));
     fprintf((FILE*)file, "; -----\n\n");
+
+    fprintf((FILE*)file, "bits 64\n\n");
+    for (s64 routine_idx = 0; routine_idx < ctx->routine_count; routine_idx++)
+    {
+        Routine *routine = &ctx->routines[routine_idx];
+        fprintf((FILE*)file, "global ");
+        PrintName(file, routine->name);
+        fprintf((FILE*)file, "\n");
+    }
 
     for (s64 routine_idx = 0; routine_idx < ctx->routine_count; routine_idx++)
     {

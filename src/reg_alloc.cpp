@@ -71,7 +71,6 @@ void FreeRegAlloc(Reg_Alloc *reg_alloc)
     array::Free(reg_alloc->mapped_regs);
     array::Free(reg_alloc->free_regs);
     array::Free(reg_alloc->free_float_regs);
-    //array::Free(reg_alloc->dirty_regs);
     array::Free(reg_alloc->reg_flags);
 }
 
@@ -79,27 +78,11 @@ void FreeRegAlloc(Reg_Alloc *reg_alloc)
 b32 IsCallerSave(Reg_Alloc *reg_alloc, Reg reg)
 {
     return (reg_alloc->reg_flags[reg.reg_index] & RF_CallerSave) != 0;
-    //const Reg *caller_saves = reg_alloc->caller_save_regs;
-    //s64 count = reg_alloc->caller_save_count;
-    //for (s64 i = 0; i < count; i++)
-    //{
-    //    if (caller_saves[i] == reg)
-    //        return true;
-    //}
-    //return false;
 }
 
 b32 IsCalleeSave(Reg_Alloc *reg_alloc, Reg reg)
 {
     return (reg_alloc->reg_flags[reg.reg_index] & RF_CallerSave) == 0;
-    //const Reg *callee_saves = reg_alloc->callee_save_regs;
-    //s64 count = reg_alloc->callee_save_count;
-    //for (s64 i = 0; i < count; i++)
-    //{
-    //    if (callee_saves[i] == reg)
-    //        return true;
-    //}
-    //return false;
 }
 
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, s64 arg_index)
@@ -125,7 +108,6 @@ void ClearRegAllocs(Reg_Alloc *reg_alloc)
     array::Clear(reg_alloc->mapped_regs);
     array::Clear(reg_alloc->free_regs);
     array::Clear(reg_alloc->free_float_regs);
-    //array::Clear(reg_alloc->dirty_regs);
 
     array::Reserve(reg_alloc->free_regs, reg_alloc->general_reg_count);
     for (s64 i = 0; i < reg_alloc->general_reg_count; i++)
@@ -147,37 +129,11 @@ void DirtyCalleeSaveRegs(Reg_Alloc *reg_alloc)
         if ((flag & RF_CallerSave) == 0)
             flag |= (RF_Dirty | RF_CalleeSaveDirty);
     }
-    //s64 last_dirty_count = reg_alloc->dirty_regs.count;
-    //for (s64 cs = 0; cs < reg_alloc->callee_save_count; cs++)
-    //{
-    //    const Reg *save_reg = &reg_alloc->callee_save_regs[cs];
-    //    for (s64 i = 0; i < last_dirty_count; i++)
-    //    {
-    //        Reg dirty_reg = array::At(reg_alloc->dirty_regs, i);
-    //        if (dirty_reg == *save_reg)
-    //        {
-    //            // save_reg is already in dirty_regs
-    //            save_reg = nullptr;
-    //            break;
-    //        }
-    //    }
-    //    if (save_reg)
-    //        array::Push(reg_alloc->dirty_regs, *save_reg);
-    //}
 }
 
 void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
 {
     reg_alloc->reg_flags[reg.reg_index] |= RF_Dirty;
-    //for (s64 i = 0; i < reg_alloc->dirty_regs.count; i++)
-    //{
-    //    Reg dirty_reg = array::At(reg_alloc->dirty_regs, i);
-    //    if (dirty_reg == reg)
-    //    {
-    //        return;
-    //    }
-    //}
-    //array::Push(reg_alloc->dirty_regs, reg);
 }
 
 b32 UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
@@ -189,16 +145,6 @@ b32 UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
         return true;
     }
     return false;
-    //for (s64 i = 0; i < reg_alloc->dirty_regs.count; i++)
-    //{
-    //    Reg dirty_reg = array::At(reg_alloc->dirty_regs, i);
-    //    if (dirty_reg == reg)
-    //    {
-    //        array::EraseBySwap(reg_alloc->dirty_regs, i);
-    //        return true;
-    //    }
-    //}
-    //return false;
 }
 
 void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg)

@@ -309,7 +309,16 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         return true;
     }
 
-    Codegen_Context cg_ctx = NewCodegenContext(ctx, CGT_AMD64_Windows);
+    const char *output_filename = "out.s";
+    FILE *code_file = fopen(output_filename, "w");
+    if (!code_file)
+    {
+        fprintf((FILE*)ctx->error_ctx.file, "Could not open '%s' for output\n",
+                output_filename);
+        return false;
+    }
+
+    Codegen_Context cg_ctx = NewCodegenContext((IoFile*)code_file, ctx, CGT_AMD64_Windows);
     GenerateCode(&cg_ctx, ir_ctx.routines);
 
     OutputCode(&cg_ctx);

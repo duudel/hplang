@@ -6,12 +6,13 @@
 namespace hplang
 {
 
-Codegen_Context NewCodegenContext(
+Codegen_Context NewCodegenContext(IoFile *out,
         Compiler_Context *comp_ctx, Codegen_Target cg_target)
 {
     Codegen_Context cg_ctx = { };
     cg_ctx.target = cg_target;
-    cg_ctx.code_out = comp_ctx->error_ctx.file; // NOTE(henrik): Just for testing
+    //cg_ctx.code_out = comp_ctx->error_ctx.file; // NOTE(henrik): Just for testing
+    cg_ctx.code_out = out; // NOTE(henrik): Just for testing
     switch (cg_target)
     {
         case CGT_COUNT:
