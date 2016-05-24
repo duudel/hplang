@@ -126,6 +126,7 @@ namespace array
     template <class T>
     bool Insert(Array<T> &arr, s64 index, const T &x)
     {
+        ASSERT(0 <= index && index <= arr.count);
         if (arr.capacity <= arr.count)
         {
             s64 new_capacity = arr.capacity + arr.capacity / 2;

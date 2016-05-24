@@ -429,11 +429,13 @@ static void AddBuiltinTypes(Environment *env)
     members[1].type = GetPointerType(env, GetBuiltinType(TYP_char));
 }
 
-Environment NewEnvironment()
+
+Environment NewEnvironment(const char *main_func_name)
 {
     Environment result = { };
     OpenScope(&result);
     AddBuiltinTypes(&result);
+    result.main_func_name = PushName(&result.arena, main_func_name);
     return result;
 }
 
@@ -706,7 +708,14 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
         if (old_symbol->sym_type == SYM_Function)
         {
             Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
-            symbol->unique_name = MakeUniqueName(env, name, type);
+            if (name == env->main_func_name)
+            {
+                symbol->unique_name = name;
+            }
+            else
+            {
+                symbol->unique_name = MakeUniqueName(env, name, type);
+            }
             Symbol *prev = old_symbol;
             while (prev->next_overload)
             {
@@ -721,7 +730,14 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
     else
     {
         Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
-        symbol->unique_name = MakeUniqueName(env, name, type);
+        if (name == env->main_func_name)
+        {
+            symbol->unique_name = name;
+        }
+        else
+        {
+            symbol->unique_name = MakeUniqueName(env, name, type);
+        }
         PutHash(scope->table, name, symbol);
         scope->symbol_count++;
         return symbol;

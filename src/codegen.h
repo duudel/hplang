@@ -4,7 +4,6 @@
 #include "array.h"
 #include "memory.h"
 #include "ir_types.h"
-#include "reg_alloc.h"
 #include "io.h"
 
 namespace hplang
@@ -18,6 +17,16 @@ enum Codegen_Target
     CGT_COUNT
 };
 
+struct Reg
+{
+    u8 reg_index;
+};
+
+inline b32 operator == (Reg r1, Reg r2)
+{ return r1.reg_index == r2.reg_index; }
+inline b32 operator != (Reg r1, Reg r2)
+{ return r1.reg_index != r2.reg_index; }
+
 
 enum class Oper_Type : u8
 {
@@ -26,10 +35,27 @@ enum class Oper_Type : u8
     Immediate,
     Addr,
     Label,
+    AddrLabel,
     Temp,
     FixedRegister,
     IrOperand,
     IrAddrOper,
+};
+
+enum class Oper_Data_Type : u8
+{
+    PTR,
+    BOOL,
+    U8,
+    S8,
+    U16,
+    S16,
+    U32,
+    S32,
+    U64,
+    S64,
+    F32,
+    F64,
 };
 
 struct Label
@@ -81,10 +107,11 @@ struct Operand
 {
     Oper_Type type;
     Oper_Access_Flags access_flags;
+    Oper_Data_Type data_type;
     // NOTE(henrik): Here are 2 bytes of unused space.
     union {
         Reg         reg;
-        Fixed_Reg  fixed_reg;
+        Fixed_Reg   fixed_reg;
         Temp        temp;
         Label       label;
         Ir_Operand *ir_oper;
@@ -111,7 +138,7 @@ struct Instruction
     Ir_Comment comment;
 };
 
-typedef Array<Instruction> Instructon_List;
+typedef Array<Instruction*> Instructon_List;
 
 struct Local_Offset
 {
@@ -126,6 +153,8 @@ struct Routine
 
     s64 locals_size;
     Array<Local_Offset*> local_offsets;
+
+    Label return_label;
 
     Instructon_List instructions;
     Instructon_List prologue;
@@ -151,13 +180,14 @@ struct Float64_Const
 };
 
 struct Compiler_Context;
+struct Reg_Alloc;
 
 struct Codegen_Context
 {
     Memory_Arena arena;
 
     Codegen_Target target;
-    Reg_Alloc reg_alloc;
+    Reg_Alloc *reg_alloc;
 
     s64 current_arg_count;
     s64 fixed_reg_id;

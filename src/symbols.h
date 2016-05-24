@@ -182,10 +182,11 @@ struct Environment
 
     Scope *current;
 
+    Name main_func_name;
     s64 unique_id;
 };
 
-Environment NewEnvironment();
+Environment NewEnvironment(const char *main_func_name);
 void FreeEnvironment(Environment *env);
 
 Scope* CurrentScope(Environment *env);

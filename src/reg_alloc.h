@@ -2,24 +2,16 @@
 
 #include "types.h"
 #include "array.h"
+#include "codegen.h"
 
 namespace hplang
 {
-
-struct Reg
-{
-    u8 reg_index;
-};
-
-inline b32 operator == (Reg r1, Reg r2)
-{ return r1.reg_index == r2.reg_index; }
-inline b32 operator != (Reg r1, Reg r2)
-{ return r1.reg_index != r2.reg_index; }
 
 struct Reg_Var
 {
     Name var_name;
     Reg reg;
+    Oper_Data_Type data_type;
 };
 
 struct Reg_Alloc
@@ -59,6 +51,7 @@ void FreeRegAlloc(Reg_Alloc *reg_alloc);
 
 b32 IsCallerSave(Reg_Alloc *reg_alloc, Reg reg);
 b32 IsCalleeSave(Reg_Alloc *reg_alloc, Reg reg);
+b32 IsFloatRegister(Reg_Alloc *reg_alloc, Reg reg);
 
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, s64 arg_index);
 const Reg* GetFloatArgRegister(Reg_Alloc *reg_alloc, s64 arg_index);
@@ -68,11 +61,13 @@ void DirtyCalleeSaveRegs(Reg_Alloc *reg_alloc);
 
 void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
 b32 UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
+b32 UndirtyCalleeSave(Reg_Alloc *reg_alloc, Reg reg);
 
-void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg);
+void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg, Oper_Data_Type data_type);
 const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name);
-const Name* GetMappedVar(Reg_Alloc *reg_alloc, Reg reg);
-Reg GetFreeRegister(Reg_Alloc *reg_alloc);
+const Reg_Var* GetMappedVar(Reg_Alloc *reg_alloc, Reg reg);
+
+Reg GetFreeRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type);
 
 } // hplang
 

@@ -1,6 +1,7 @@
 
 #include "reg_alloc.h"
 #include "common.h"
+#include "symbols.h"
 
 namespace hplang
 {
@@ -85,6 +86,11 @@ b32 IsCalleeSave(Reg_Alloc *reg_alloc, Reg reg)
     return (reg_alloc->reg_flags[reg.reg_index] & RF_CallerSave) == 0;
 }
 
+b32 IsFloatRegister(Reg_Alloc *reg_alloc, Reg reg)
+{
+    return (reg_alloc->reg_flags[reg.reg_index] & RF_FloatReg) != 0;
+}
+
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, s64 arg_index)
 {
     if (arg_index < reg_alloc->arg_reg_count)
@@ -147,19 +153,32 @@ b32 UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
     return false;
 }
 
-void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg)
+b32 UndirtyCalleeSave(Reg_Alloc *reg_alloc, Reg reg)
+{
+    u8 &flag = reg_alloc->reg_flags[reg.reg_index];
+    if ((flag & RF_CalleeSaveDirty) != 0)
+    {
+        flag &= ~RF_CalleeSaveDirty;
+        return true;
+    }
+    return false;
+}
+
+void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg, Oper_Data_Type data_type)
 {
     for (s64 i = 0; i < reg_alloc->mapped_regs.count; i++)
     {
         Reg_Var reg_var = array::At(reg_alloc->mapped_regs, i);
         if (reg_var.var_name == name)
         {
+            ASSERT(reg_var.data_type == data_type);
             return;
         }
     }
     Reg_Var reg_var = { };
     reg_var.var_name = name;
     reg_var.reg = reg;
+    reg_var.data_type = data_type;
     array::Push(reg_alloc->mapped_regs, reg_var);
 }
 
@@ -167,7 +186,7 @@ const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name)
 {
     for (s64 i = 0; i < reg_alloc->mapped_regs.count; i++)
     {
-        const Reg_Var *reg_var = reg_alloc->mapped_regs.data + i;
+        const Reg_Var *reg_var = &reg_alloc->mapped_regs.data[i];
         if (reg_var->var_name == name)
         {
             return &reg_var->reg;
@@ -176,14 +195,14 @@ const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name)
     return nullptr;
 }
 
-const Name* GetMappedVar(Reg_Alloc *reg_alloc, Reg reg)
+const Reg_Var* GetMappedVar(Reg_Alloc *reg_alloc, Reg reg)
 {
     for (s64 i = 0; i < reg_alloc->mapped_regs.count; i++)
     {
-        const Reg_Var *reg_var = reg_alloc->mapped_regs.data + i;
+        const Reg_Var *reg_var = &reg_alloc->mapped_regs[i];
         if (reg_var->reg == reg)
         {
-            return &reg_var->var_name;
+            return reg_var;
         }
     }
     return nullptr;
@@ -191,27 +210,84 @@ const Name* GetMappedVar(Reg_Alloc *reg_alloc, Reg reg)
 
 static Reg FreeRegister(Reg_Alloc *reg_alloc)
 {
-    Reg_Var result = array::At(reg_alloc->mapped_regs, 0);
-    for (s64 i = 0; i < reg_alloc->mapped_regs.count - 1; i++)
+    s64 result_idx = 0;
+    Reg_Var result = array::At(reg_alloc->mapped_regs, result_idx);
+    if ((reg_alloc->reg_flags[result.reg.reg_index] & RF_FloatReg) != 0)
     {
-        Reg_Var rv = array::At(reg_alloc->mapped_regs, i + 1);
-        array::Set(reg_alloc->mapped_regs, i, rv);
+        for (result_idx = 1; result_idx < reg_alloc->mapped_regs.count; result_idx++)
+        {
+            result = reg_alloc->mapped_regs[result_idx];
+            u8 flag = reg_alloc->reg_flags[result.reg.reg_index];
+            if ((flag & RF_FloatReg) == 0)
+                break;
+        }
+        ASSERT(result_idx < reg_alloc->mapped_regs.count);
     }
-    reg_alloc->mapped_regs.count--;
+    //for (s64 i = result_idx; i < reg_alloc->mapped_regs.count - 1; i++)
+    //{
+    //    Reg_Var rv = array::At(reg_alloc->mapped_regs, i + 1);
+    //    array::Set(reg_alloc->mapped_regs, i, rv);
+    //}
+    //reg_alloc->mapped_regs.count--;
     return result.reg;
 }
 
-Reg GetFreeRegister(Reg_Alloc *reg_alloc)
+static Reg FreeFloatRegister(Reg_Alloc *reg_alloc)
+{
+    s64 result_idx = 0;
+    Reg_Var result = array::At(reg_alloc->mapped_regs, result_idx);
+    if ((reg_alloc->reg_flags[result.reg.reg_index] & RF_FloatReg) == 0)
+    {
+        for (result_idx = 1; result_idx < reg_alloc->mapped_regs.count; result_idx++)
+        {
+            result = reg_alloc->mapped_regs[result_idx];
+            u8 flag = reg_alloc->reg_flags[result.reg.reg_index];
+            if ((flag & RF_FloatReg) != 0)
+                break;
+        }
+        ASSERT(result_idx < reg_alloc->mapped_regs.count);
+    }
+    //for (s64 i = result_idx; i < reg_alloc->mapped_regs.count - 1; i++)
+    //{
+    //    Reg_Var rv = array::At(reg_alloc->mapped_regs, i + 1);
+    //    array::Set(reg_alloc->mapped_regs, i, rv);
+    //}
+    //reg_alloc->mapped_regs.count--;
+    return result.reg;
+}
+
+static Reg GetFreeGeneralRegister(Reg_Alloc *reg_alloc)
 {
     if (reg_alloc->free_regs.count == 0)
     {
         return FreeRegister(reg_alloc);
-        NOT_IMPLEMENTED("No more free registers");
-        INVALID_CODE_PATH;
     }
     Reg reg = array::At(reg_alloc->free_regs, reg_alloc->free_regs.count - 1);
     reg_alloc->free_regs.count--;
     return reg;
+}
+
+static Reg GetFreeFloatRegister(Reg_Alloc *reg_alloc)
+{
+    if (reg_alloc->free_float_regs.count == 0)
+    {
+        return FreeFloatRegister(reg_alloc);
+    }
+    Reg reg = array::At(reg_alloc->free_float_regs, reg_alloc->free_float_regs.count - 1);
+    reg_alloc->free_float_regs.count--;
+    return reg;
+}
+
+Reg GetFreeRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type)
+{
+    switch (data_type)
+    {
+    case Oper_Data_Type::F32:
+    case Oper_Data_Type::F64:
+        return GetFreeFloatRegister(reg_alloc);
+    default:
+        return GetFreeGeneralRegister(reg_alloc);
+    }
 }
 
 } // hplang

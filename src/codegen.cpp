@@ -1,5 +1,6 @@
 
 #include "codegen.h"
+#include "reg_alloc.h"
 #include "amd64_codegen.h"
 #include "compiler.h"
 
@@ -11,8 +12,11 @@ Codegen_Context NewCodegenContext(IoFile *out,
 {
     Codegen_Context cg_ctx = { };
     cg_ctx.target = cg_target;
+    cg_ctx.reg_alloc = PushStruct<Reg_Alloc>(&cg_ctx.arena);
     //cg_ctx.code_out = comp_ctx->error_ctx.file; // NOTE(henrik): Just for testing
-    cg_ctx.code_out = out; // NOTE(henrik): Just for testing
+    cg_ctx.code_out = out;
+    cg_ctx.comp_ctx = comp_ctx;
+
     switch (cg_target)
     {
         case CGT_COUNT:
@@ -23,17 +27,20 @@ Codegen_Context NewCodegenContext(IoFile *out,
             InitializeCodegen_Amd64(&cg_ctx, cg_target);
             break;
     }
-    cg_ctx.comp_ctx = comp_ctx;
     return cg_ctx;
 }
 
 void FreeCodegenContext(Codegen_Context *ctx)
 {
-    FreeRegAlloc(&ctx->reg_alloc);
+    FreeRegAlloc(ctx->reg_alloc);
+    ctx->reg_alloc = nullptr;
     for (s64 i = 0; i < ctx->routine_count; i++)
     {
         Routine *routine = &ctx->routines[i];
+        array::Free(routine->local_offsets);
         array::Free(routine->instructions);
+        array::Free(routine->prologue);
+        array::Free(routine->epilogue);
     }
     ctx->routine_count = 0;
     ctx->routines = nullptr;

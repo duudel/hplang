@@ -1,5 +1,6 @@
 
 #include "compiler.h"
+#include "common.h"
 #include "lexer.h"
 #include "parser.h"
 #include "ast_types.h"
@@ -10,27 +11,24 @@
 #include <cstdio>
 #include <cinttypes>
 
+#include <cstdlib> // for system()
+
 namespace hplang
 {
-
-Compiler_Context NewCompilerContext()
-{
-    Compiler_Context result = { };
-    result.error_ctx.file = (IoFile*)stderr;
-    result.options = DefaultCompilerOptions();
-    result.env = NewEnvironment();
-    result.result = RES_OK;
-    return result;
-}
 
 Compiler_Context NewCompilerContext(Compiler_Options options)
 {
     Compiler_Context result = { };
     result.error_ctx.file = (IoFile*)stderr;
     result.options = options;
-    result.env = NewEnvironment();
+    result.env = NewEnvironment("main");
     result.result = RES_OK;
     return result;
+}
+
+Compiler_Context NewCompilerContext()
+{
+    return NewCompilerContext(DefaultCompilerOptions());
 }
 
 static void FreeModule(Module *module)
@@ -218,6 +216,19 @@ static void PrintMemoryDiagnostic(Compiler_Context *ctx)
     }
 }
 
+s64 Invoke(const char *command, const char **args, s64 arg_count)
+{
+    const s64 buf_size = 1024;
+    char buf[buf_size];
+    s64 len = snprintf(buf, buf_size, "%s", command);
+    for (s64 i = 0; i < arg_count; i++)
+    {
+        len += snprintf(buf + len, buf_size - len, " %s", args[i]);
+    }
+    fprintf(stderr, "Invoking: %s\n", buf);
+    return system(buf);
+}
+
 b32 Compile(Compiler_Context *ctx, Open_File *open_file)
 {
     Module *root_module = PushStruct<Module>(&ctx->arena);
@@ -309,12 +320,12 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         return true;
     }
 
-    const char *output_filename = "out.s";
-    FILE *code_file = fopen(output_filename, "w");
+    const char *asm_filename = "./out.s";
+    FILE *code_file = fopen(asm_filename, "w");
     if (!code_file)
     {
         fprintf((FILE*)ctx->error_ctx.file, "Could not open '%s' for output\n",
-                output_filename);
+                asm_filename);
         return false;
     }
 
@@ -325,6 +336,24 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
 
     FreeIrGenContext(&ir_ctx);
     FreeCodegenContext(&cg_ctx);
+
+    const char *obj_filename = "./out.o";
+    const char *nasm_args[] = {"-fwin64", "-o", obj_filename, "--", asm_filename};
+    if (Invoke("nasm", nasm_args, array_length(nasm_args)) != 0)
+    {
+        fprintf((FILE*)ctx->error_ctx.file, "Could not write assemble the file '%s'\n",
+                asm_filename);
+        return false;
+    }
+
+    const char *exe_filename = "./out.exe";
+    const char *gcc_args[] = {"-o", exe_filename, obj_filename};
+    if (Invoke("gcc", gcc_args, array_length(gcc_args)) != 0)
+    {
+        fprintf((FILE*)ctx->error_ctx.file, "Could not link the file '%s'\n",
+                obj_filename);
+        return false;
+    }
 
     ctx->result = RES_OK;
     return true;
