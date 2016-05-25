@@ -196,6 +196,18 @@ static Ir_Operand NewVariableRef(Ir_Routine *routine, Type *type, Name name)
     return oper;
 }
 
+/*
+static Ir_Operand NewGlobalVariableRef(Ir_Routine *routine, Type *type, Name name)
+{
+    (void)routine;
+    Ir_Operand oper = { };
+    oper.oper_type = IR_OPER_GlobalVariable;
+    oper.type = type;
+    oper.var.name = name;
+    return oper;
+}
+*/
+
 static Ir_Operand NewRoutineRef(Ir_Routine *routine, Type *type, Name name)
 {
     (void)routine;
@@ -243,14 +255,14 @@ static Ir_Operand NewLabel(Ir_Gen_Context *ctx)
     return oper;
 }
 
-static void ExtractComment(Ir_Gen_Context *ctx, Ast_Node *node)
+static void ExtractComment(Ir_Gen_Context *ctx, File_Location file_loc)
 {
     Ir_Comment comment = { };
 
-    Open_File *open_file = node->file_loc.file;
+    Open_File *open_file = file_loc.file;
     const char *file_start = (const char*)open_file->contents.ptr;
     const char *file_end = file_start + open_file->contents.size;
-    comment.start = file_start + node->file_loc.offset_start;
+    comment.start = file_start + file_loc.offset_start;
     comment.end = comment.start;
 
     while (comment.end != file_end)
@@ -750,25 +762,26 @@ static Ir_Operand GenVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
 {
     (void)ctx;
     Symbol *symbol = expr->variable_ref.symbol;
+    Name name = symbol->unique_name;
     if (symbol->sym_type == SYM_Function)
     {
-        return NewRoutineRef(routine, expr->expr_type, symbol->unique_name);
+        return NewRoutineRef(routine, expr->expr_type, name);
     }
     else if (symbol->sym_type == SYM_ForeignFunction)
     {
-        return NewForeignRoutineRef(routine, expr->expr_type, expr->variable_ref.name);
+        return NewForeignRoutineRef(routine, expr->expr_type, symbol->name);
     }
     else if (symbol->sym_type == SYM_Parameter)
     {
-        return NewVariableRef(routine, expr->expr_type, expr->variable_ref.name);
+        return NewVariableRef(routine, expr->expr_type, name);
     }
     else if (symbol->sym_type == SYM_Variable)
     {
-        return NewVariableRef(routine, expr->expr_type, expr->variable_ref.name);
+        return NewVariableRef(routine, expr->expr_type, name);
     }
     else if (symbol->sym_type == SYM_Constant)
     {
-        return NewVariableRef(routine, expr->expr_type, expr->variable_ref.name);
+        return NewVariableRef(routine, expr->expr_type, name);
     }
     INVALID_CODE_PATH;
     return NoneOperand();
@@ -791,6 +804,7 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     for (s64 i = 0; i < expr->function_call.args.count; i++)
     {
         Ast_Expr *arg = array::At(expr->function_call.args, i);
+
         Ir_Operand arg_res = GenExpression(ctx, arg, routine);
 
         s64 instr_idx = routine->instructions.count;
@@ -857,11 +871,11 @@ static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     return NewImmediateNull(routine);
 }
 
-static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine);
+static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool toplevel = false);
 
 static void GenIfStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
-    ExtractComment(ctx, node);
+    ExtractComment(ctx, node->file_loc);
 
     Ir_Operand if_false_label = NewLabel(ctx);
 
@@ -889,7 +903,7 @@ static void GenIfStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *rout
 
 static void GenWhileStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
-    ExtractComment(ctx, node);
+    ExtractComment(ctx, node->file_loc);
 
     Ir_Operand while_end_label = NewLabel(ctx);
 
@@ -908,7 +922,7 @@ static void GenWhileStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routin
 
 static void GenReturnStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
-    ExtractComment(ctx, node);
+    ExtractComment(ctx, node->file_loc);
 
     Ir_Operand res_expr = NoneOperand();
     if (node->return_stmt.expr)
@@ -936,14 +950,21 @@ static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
     {
         Ast_Node *param_node = array::At(node->function.parameters, i);
         Type *type = symbol->type->function_type.parameter_types[i];
-        func_routine->args[i] = NewVariableRef(func_routine, type, param_node->parameter.name);
+        Name name = param_node->parameter.symbol->unique_name;
+        func_routine->args[i] = NewVariableRef(func_routine, type, name);
+        //func_routine->args[i] = NewVariableRef(func_routine, type, param_node->parameter.name);
     }
     GenIr(ctx, node->function.body, func_routine);
 }
 
-static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
+static void AddGlobalVariable(Ir_Gen_Context *ctx, Symbol *symbol)
 {
-    ExtractComment(ctx, node);
+    array::Push(ctx->global_vars, symbol);
+}
+
+static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool toplevel)
+{
+    ExtractComment(ctx, node->file_loc);
 
     Symbol *symbol = node->variable_decl.symbol;
     Ast_Expr *init_expr = node->variable_decl.init_expr;
@@ -951,9 +972,11 @@ static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine
     if (init_expr)
     {
         Ir_Operand init_res = GenExpression(ctx, init_expr, routine);
-        Ir_Operand var_oper = NewVariableRef(routine, init_expr->expr_type, symbol->name);
+        Ir_Operand var_oper = NewVariableRef(routine, init_expr->expr_type, symbol->unique_name);
         PushInstruction(ctx, routine, IR_Mov, var_oper, init_res);
     }
+
+    if (toplevel) AddGlobalVariable(ctx, symbol);
 }
 
 static void GenForeignBlock(Ir_Gen_Context *ctx, Ast_Node *node)
@@ -968,7 +991,7 @@ static void GenForeignBlock(Ir_Gen_Context *ctx, Ast_Node *node)
     }
 }
 
-static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
+static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool toplevel /*= false*/)
 {
     switch (node->type)
     {
@@ -980,7 +1003,7 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
             break;
 
         case AST_VariableDecl:
-            GenVariable(ctx, node, routine);
+            GenVariable(ctx, node, routine, toplevel);
             break;
         case AST_FunctionDef:
             GenFunction(ctx, node);
@@ -1029,7 +1052,7 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
             GenReturnStmt(ctx, node, routine);
             break;
         case AST_ExpressionStmt:
-            ExtractComment(ctx, node);
+            ExtractComment(ctx, node->file_loc);
             GenExpression(ctx, node->expr_stmt.expr, routine);
             break;
     }
@@ -1046,13 +1069,14 @@ static void GenIrAst(Ir_Gen_Context *ctx, Ast *ast, Ir_Routine *routine)
         index++)
     {
         Ast_Node *node = array::At(*statements, index);
-        GenIr(ctx, node, routine);
+        GenIr(ctx, node, routine, true);
     }
 }
 
 b32 GenIr(Ir_Gen_Context *ctx)
 {
-    Name top_level_name = PushName(&ctx->arena, "@toplevel");
+    //Name top_level_name = PushName(&ctx->arena, "@toplevel");
+    Name top_level_name = { };
     Ir_Routine *top_level_routine = PushRoutine(ctx, top_level_name, 0);
     Module_List modules = ctx->comp_ctx->modules;
     for (s64 index = 0;

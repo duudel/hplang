@@ -3,22 +3,23 @@
 
 foreign {
     FILE :: struct { }
-    get_stdout :: () : FILE*;
-    get_stderr :: () : FILE*;
-    get_stdin :: () : FILE*;
+    hp_get_stdout :: () : FILE*;
+    hp_get_stderr :: () : FILE*;
+    hp_get_stdin :: () : FILE*;
 
-    fwrite :: (file : FILE*, size : s64, data : u8*) : s64;
-    fprint_int :: (file : FILE*, x : s64) : s64;
-    fprint_f64 :: (file : FILE*, x : f64) : s64;
+    hp_fwrite :: (file : FILE*, size : s64, data : u8*) : s64;
+    hp_fprint_uint :: (file : FILE*, x : u64) : s64;
+    hp_fprint_int :: (file : FILE*, x : s64) : s64;
+    hp_fprint_f64 :: (file : FILE*, x : f64) : s64;
 }
 
-stdout : FILE* = get_stdout();
-stderr : FILE* = get_stderr();
-stdin : FILE* = get_stdin();
+stdout : FILE* = hp_get_stdout();
+stderr : FILE* = hp_get_stderr();
+stdin : FILE* = hp_get_stdin();
 
 print :: (s : string) : s64
 {
-    return fwrite(stdout, s.size, s.data -> u8*);
+    return hp_fwrite(stdout, s.size, s.data -> u8*);
 }
 
 println :: (s : string) : s64
@@ -54,13 +55,13 @@ print :: (x : s64) : s64
         x -= y * magnitude;
         magnitude /= 10;
         c : u8 = (('0' -> u8) + y) -> u8;
-        written += fwrite(stdout, 1, &c);
+        written += hp_fwrite(stdout, 1, &c);
     }
     return written;
-    //return fprint_int(stdout, x);
+    //return hp_fprint_int(stdout, x);
 }
 
 print :: (x : f64) : s64
 {
-    return fprint_f64(stdout, x);
+    return hp_fprint_f64(stdout, x);
 }

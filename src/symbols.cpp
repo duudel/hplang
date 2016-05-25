@@ -471,6 +471,8 @@ void OpenScope(Environment *env)
     Scope *scope = PushStruct<Scope>(&env->arena);
     *scope = { };
     array::Resize(scope->table, INITIAL_SYM_TABLE_SIZE);
+
+    scope->scope_id = env->scope_id++;
     scope->parent = env->current;
     if (env->current)
     {
@@ -498,9 +500,10 @@ void CloseScope(Environment *env)
     env->current->return_stmt_count = return_stmts;
 }
 
-void OpenFunctionScope(Environment *env, Type *return_type)
+void OpenFunctionScope(Environment *env, Name scope_name, Type *return_type)
 {
     OpenScope(env);
+    env->current->scope_name = scope_name;
     env->current->return_type = return_type;
     env->current->rt_infer_loc = nullptr;
 }
@@ -648,12 +651,58 @@ static Symbol* LookupSymbol(Scope *scope, Name name)
     return nullptr;
 }
 
+static Name MakeUniqueName(Environment *env, Name name)
+{
+    s64 size = 0;
+    for (Scope *scope = env->current; scope; scope = scope->parent)
+    {
+        if (scope->scope_name.str.size != 0)
+        {
+            size += scope->scope_name.str.size;
+            size += 1;
+        }
+        else if (scope->scope_id != 0)
+        {
+            size += snprintf(nullptr, 0, "@%" PRId64, scope->scope_id);
+        }
+    }
+    size += name.str.size;
+
+    String str = { };
+    str.size = size;
+    str.data = PushArray<char>(&env->arena, size);
+
+    s64 pos = 0;
+    for (Scope *scope = env->current; scope != nullptr; scope = scope->parent)
+    {
+        if (scope->scope_name.str.size != 0)
+        {
+            for (s64 i = 0; i < scope->scope_name.str.size; i++, pos++)
+            {
+                str.data[pos] = scope->scope_name.str.data[i];
+            }
+            str.data[pos++] = '@';
+        }
+        else if (scope->scope_id != 0)
+        {
+            pos += snprintf(&str.data[pos], size - pos, "@%" PRId64, scope->scope_id);
+        }
+    }
+    for (s64 i = 0; i < name.str.size; i++, pos++)
+    {
+        str.data[pos] = name.str.data[i];
+    }
+
+    return MakeName(str);
+}
+
 static Symbol* PushSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
 {
     Symbol *symbol = PushStruct<Symbol>(&env->arena);
     *symbol = { };
     symbol->sym_type = sym_type;
     symbol->name = name;
+    symbol->unique_name = MakeUniqueName(env, name);
     symbol->type = type;
     return symbol;
 }
@@ -661,7 +710,6 @@ static Symbol* PushSymbol(Environment *env, Symbol_Type sym_type, Name name, Typ
 Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
 {
     Symbol *symbol = PushSymbol(env, sym_type, name, type);
-    symbol->unique_name = name;
 
     Scope *scope = env->current;
     PutHash(scope->table, name, symbol);
@@ -669,8 +717,12 @@ Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
     return symbol;
 }
 
-static Name MakeUniqueName(Environment *env, Name base_name, Type *type)
+static Name MakeUniqueOverloadName(Environment *env, Name base_name, Type *type)
 {
+    if (base_name == env->main_func_name)
+    {
+        return base_name;
+    }
     // TODO(henrik): This way of making unique names for function overloads is
     // not the best. The names do not "survive" reordering of the functions in
     // the source or their compilation order. Maybe make the unique name based
@@ -708,14 +760,7 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
         if (old_symbol->sym_type == SYM_Function)
         {
             Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
-            if (name == env->main_func_name)
-            {
-                symbol->unique_name = name;
-            }
-            else
-            {
-                symbol->unique_name = MakeUniqueName(env, name, type);
-            }
+            symbol->unique_name = MakeUniqueOverloadName(env, symbol->unique_name, type);
             Symbol *prev = old_symbol;
             while (prev->next_overload)
             {
@@ -730,14 +775,7 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
     else
     {
         Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
-        if (name == env->main_func_name)
-        {
-            symbol->unique_name = name;
-        }
-        else
-        {
-            symbol->unique_name = MakeUniqueName(env, name, type);
-        }
+        symbol->unique_name = MakeUniqueOverloadName(env, symbol->unique_name, type);
         PutHash(scope->table, name, symbol);
         scope->symbol_count++;
         return symbol;

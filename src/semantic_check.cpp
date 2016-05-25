@@ -1873,7 +1873,9 @@ static void CheckParameters(Sem_Check_Context *ctx, Ast_Node *node, Type *ftype)
 
         Type *param_type = CheckType(ctx, param->parameter.type);
         ASSERT(param_type);
-        AddSymbol(ctx->env, SYM_Parameter, param->parameter.name, param_type);
+        Symbol *symbol = AddSymbol(ctx->env, SYM_Parameter,
+                param->parameter.name, param_type);
+        param->parameter.symbol = symbol;
 
         ftype->function_type.parameter_types[i] = param_type;
     }
@@ -1930,7 +1932,7 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     // function scope.
     Symbol *overload = LookupSymbolInCurrentScope(ctx->env, name);
 
-    OpenFunctionScope(ctx->env, return_type);
+    OpenFunctionScope(ctx->env, name, return_type);
 
     // NOTE(henrik): Check parameters after opening the function scope
     CheckParameters(ctx, node, ftype);

@@ -166,6 +166,8 @@ struct Scope
     s64 symbol_count;
     Array<Symbol*> table;
 
+    Name scope_name;
+    s64 scope_id;
     Scope *parent;
 
     Type *return_type;      // The return type of the current function scope
@@ -184,6 +186,7 @@ struct Environment
 
     Name main_func_name;
     s64 unique_id;
+    s64 scope_id;
 };
 
 Environment NewEnvironment(const char *main_func_name);
@@ -195,7 +198,7 @@ void SetCurrentScope(Environment *env, Scope *scope);
 void OpenScope(Environment *env);
 void CloseScope(Environment *env);
 
-void OpenFunctionScope(Environment *env, Type *return_type);
+void OpenFunctionScope(Environment *env, Name scope_name, Type *return_type);
 // Returns the inferred or declared function return type
 Type* CloseFunctionScope(Environment *env);
 

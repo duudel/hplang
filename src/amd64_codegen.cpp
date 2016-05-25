@@ -652,11 +652,11 @@ static Operand BaseIndexOffsetOperand(Operand base, s64 offset, Oper_Access_Flag
     return result;
 }
 
-static Operand BaseIndexOffsetOperand(Amd64_Register base, s64 offset, Oper_Access_Flags access_flags)
-{
-    Operand base_reg = RegOperand(base, Oper_Data_Type::PTR, access_flags);
-    return BaseIndexOffsetOperand(base_reg, offset, access_flags);
-}
+//static Operand BaseIndexOffsetOperand(Amd64_Register base, s64 offset, Oper_Access_Flags access_flags)
+//{
+//    Operand base_reg = RegOperand(base, Oper_Data_Type::PTR, access_flags);
+//    return BaseIndexOffsetOperand(base_reg, offset, access_flags);
+//}
 
 static Operand BaseIndexOffsetOperand(Ir_Operand *base, s64 offset, Oper_Access_Flags access_flags)
 {
@@ -674,11 +674,11 @@ static Operand IndexScaleOperand(Operand index, s64 scale, Oper_Access_Flags acc
     return result;
 }
 
-static Operand IndexScaleOperand(Amd64_Register index, s64 scale, Oper_Access_Flags access_flags)
-{
-    Operand index_reg = RegOperand(index, Oper_Data_Type::PTR, access_flags);
-    return IndexScaleOperand(index_reg, scale, access_flags);
-}
+//static Operand IndexScaleOperand(Amd64_Register index, s64 scale, Oper_Access_Flags access_flags)
+//{
+//    Operand index_reg = RegOperand(index, Oper_Data_Type::PTR, access_flags);
+//    return IndexScaleOperand(index_reg, scale, access_flags);
+//}
 
 static Operand IndexScaleOperand(Ir_Operand *index, s64 scale, Oper_Access_Flags access_flags)
 {
@@ -754,7 +754,7 @@ static Operand NewStringImm(Codegen_Context *ctx, String value, Oper_Access_Flag
     array::Push(ctx->str_consts, sconst);
 
     Operand str_label = LabelOperand(label_name, access_flags);
-    str_label.type = Oper_Type::AddrLabel;
+    str_label.type = Oper_Type::Label;
     return str_label;
 }
 
@@ -791,7 +791,7 @@ static Operand StripImmediates(Codegen_Context *ctx,
         {
             Operand dest = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
             Operand str = NewStringImm(ctx, oper.ir_oper->imm_str, AF_Read);
-            load_const = NewInstruction(ctx, OP_lea, dest, str);
+            load_const = NewInstruction(ctx, OP_mov, dest, str);
             array::Insert(instructions, instr_index, load_const);
             dest.access_flags = access_flags;
             dest.addr_mode = oper.addr_mode;
@@ -901,6 +901,7 @@ static void PushLoad(Codegen_Context *ctx,
         PushInstruction(ctx, instructions, OP_mov, oper1, oper2);
 }
 
+/*
 static void PushLoad(Codegen_Context *ctx,
         Instructon_List &instructions,
         Operand oper1, Operand oper2, Operand oper3)
@@ -925,6 +926,7 @@ static void PushLoad(Codegen_Context *ctx,
     else
         PushInstruction(ctx, instructions, OP_mov, oper1, oper2, oper3);
 }
+*/
 
 static void PushLoad(Codegen_Context *ctx, Operand oper1, Operand oper2)
 {
@@ -1239,7 +1241,7 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
 }
 
 static s64 PushArgs(Codegen_Context *ctx,
-        Ir_Routine *routine, Ir_Instruction *ir_instr)
+        Ir_Routine *ir_routine, Ir_Instruction *ir_instr)
 {
     s64 arg_count = ctx->current_arg_count;
     s64 arg_index = arg_count - 1;
@@ -1255,8 +1257,7 @@ static s64 PushArgs(Codegen_Context *ctx,
     s64 arg_instr_idx = ir_instr->oper2.imm_s64;
     while (arg_instr_idx != -1)
     {
-        //Ir_Instruction arg_instr = array::At(routine->instructions, arg_instr_idx);
-        Ir_Instruction *arg_instr = routine->instructions.data + arg_instr_idx;
+        Ir_Instruction *arg_instr = &ir_routine->instructions[arg_instr_idx];
         ASSERT(arg_instr->opcode == IR_Arg);
 
         ctx->comment = &arg_instr->comment;
@@ -1274,16 +1275,14 @@ static s64 PushArgs(Codegen_Context *ctx,
             {
                 if (arg_type->size > 8)
                 {
-                    PushLoadAddr(ctx,
-                            //RegOperand(*arg_reg, AF_Write),
-                            FixedRegOperand(ctx, *arg_reg, Oper_Data_Type::U64, AF_Write),
+                    PushLoad(ctx,
+                            FixedRegOperand(ctx, *arg_reg, Oper_Data_Type::PTR, AF_Write),
                             IrOperand(&arg_instr->target, AF_Read));
                 }
                 else
                 {
                     PushLoad(ctx,
-                            //RegOperand(*arg_reg, AF_Write),
-                            FixedRegOperand(ctx, *arg_reg, Oper_Data_Type::U64 ,AF_Write),
+                            FixedRegOperand(ctx, *arg_reg, Oper_Data_Type::U64, AF_Write),
                             IrOperand(&arg_instr->target, AF_Read));
                 }
             }
@@ -1291,18 +1290,12 @@ static s64 PushArgs(Codegen_Context *ctx,
             {
                 if (arg_type->size > 8)
                 {
-                    //PushLoadAddr(ctx,
-                    //        AddrOperand(REG_rsp, arg_index * 8, AF_Write),
-                    //        IrOperand(&arg_instr->target, AF_Read));
                     PushLoadAddr(ctx,
                             BaseOffsetOperand(REG_rsp, arg_index * 8, AF_Write),
                             IrOperand(&arg_instr->target, AF_Read));
                 }
                 else
                 {
-                    //PushLoad(ctx,
-                    //        AddrOperand(REG_rsp, arg_index * 8, AF_Write),
-                    //        IrAddrOperand(&arg_instr->target, 0, AF_Read));
                     Operand temp = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
                     PushLoad(ctx,
                             temp,
@@ -1527,7 +1520,6 @@ static void GenerateCode(Codegen_Context *ctx,
             }
             PushInstruction(ctx, OP_jmp,
                     LabelOperand(ctx->current_routine->return_label.name, AF_Read));
-            //PushInstruction(ctx, OP_ret);
             break;
 
         case IR_S_TO_F32:
@@ -1607,24 +1599,24 @@ static s64 GetLocalOffset(Codegen_Context *ctx, Name name)
     return offs->offset;
 }
 
-static void SaveDirtyRegister(Codegen_Context *ctx, s64 instr_index, Name name, Reg reg, Oper_Data_Type data_type)
-{
-    if (UndirtyRegister(ctx->reg_alloc, reg))
-    {
-        s64 local_offs = GetLocalOffset(ctx, name);
-        InsertLoad(ctx, ctx->current_routine->instructions, instr_index,
-                //AddrOperand(REG_rbp, local_offs, AF_Write),
-                BaseOffsetOperand(REG_rbp, local_offs, AF_Write),
-                RegOperand(reg, data_type, AF_Read));
-        if (UndirtyCalleeSave(ctx->reg_alloc, reg))
-        {
-            PushLoad(ctx, ctx->current_routine->epilogue,
-                    RegOperand(reg, data_type, AF_Write),
-                    BaseOffsetOperand(REG_rbp, local_offs, AF_Read));
-                    //AddrOperand(REG_rbp, local_offs, AF_Read));
-        }
-    }
-}
+//static void SaveDirtyRegister(Codegen_Context *ctx, s64 instr_index, Name name, Reg reg, Oper_Data_Type data_type)
+//{
+//    if (UndirtyRegister(ctx->reg_alloc, reg))
+//    {
+//        s64 local_offs = GetLocalOffset(ctx, name);
+//        InsertLoad(ctx, ctx->current_routine->instructions, instr_index,
+//                //AddrOperand(REG_rbp, local_offs, AF_Write),
+//                BaseOffsetOperand(REG_rbp, local_offs, AF_Write),
+//                RegOperand(reg, data_type, AF_Read));
+//        if (UndirtyCalleeSave(ctx->reg_alloc, reg))
+//        {
+//            PushLoad(ctx, ctx->current_routine->epilogue,
+//                    RegOperand(reg, data_type, AF_Write),
+//                    BaseOffsetOperand(REG_rbp, local_offs, AF_Read));
+//                    //AddrOperand(REG_rbp, local_offs, AF_Read));
+//        }
+//    }
+//}
 
 static void SaveDirtyRegister(Codegen_Context *ctx, s64 instr_index, Reg reg)
 {
@@ -1650,16 +1642,20 @@ static void SaveDirtyRegister(Codegen_Context *ctx, s64 instr_index, Reg reg)
         }
 
         s64 local_offs = GetLocalOffset(ctx, name);
-        InsertLoad(ctx, ctx->current_routine->instructions, instr_index,
-                //AddrOperand(REG_rbp, local_offs, AF_Write),
-                BaseOffsetOperand(REG_rbp, local_offs, AF_Write),
-                RegOperand(reg, data_type, AF_Read));
         if (UndirtyCalleeSave(ctx->reg_alloc, reg))
         {
+            PushLoad(ctx, ctx->current_routine->callee_save_spills,
+                    BaseOffsetOperand(REG_rbp, local_offs, AF_Write),
+                    RegOperand(reg, data_type, AF_Read));
             PushLoad(ctx, ctx->current_routine->epilogue,
                     RegOperand(reg, data_type, AF_Write),
                     BaseOffsetOperand(REG_rbp, local_offs, AF_Read));
-                    //AddrOperand(REG_rbp, local_offs, AF_Read));
+        }
+        else
+        {
+            InsertLoad(ctx, ctx->current_routine->instructions, instr_index,
+                    BaseOffsetOperand(REG_rbp, local_offs, AF_Write),
+                    RegOperand(reg, data_type, AF_Read));
         }
     }
 }
@@ -1725,6 +1721,7 @@ static void AllocateRegister(Codegen_Context *ctx, s64 instr_index, Operand *ope
     }
 }
 
+/*
 static void SaveDirtyOperand(Codegen_Context *ctx, s64 instr_index, Operand *oper)
 {
     if ((oper->access_flags & AF_Write) == 0)
@@ -1782,31 +1779,37 @@ static void SaveDirtyOperand(Codegen_Context *ctx, s64 instr_index, Operand *ope
             } break;
     }
 }
+*/
 
 static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
 {
-    ClearRegAllocs(ctx->reg_alloc);
-    DirtyCalleeSaveRegs(ctx->reg_alloc);
+    Reg_Alloc *reg_alloc = ctx->reg_alloc;
+    ClearRegAllocs(reg_alloc);
+    DirtyCalleeSaveRegs(reg_alloc);
     for (s64 i = 0; i < ir_routine->arg_count; i++)
     {
         Ir_Operand *arg = &ir_routine->args[i];
         const Reg *arg_reg = TypeIsFloat(arg->type)
-            ? GetFloatArgRegister(ctx->reg_alloc, i)
-            : GetArgRegister(ctx->reg_alloc, i);
+            ? GetFloatArgRegister(reg_alloc, i)
+            : GetArgRegister(reg_alloc, i);
         if (arg_reg)
         {
             Oper_Data_Type data_type = DataTypeFromType(arg->type);
-            MapRegister(ctx->reg_alloc, arg->var.name, *arg_reg, data_type);
-            DirtyRegister(ctx->reg_alloc, *arg_reg);
+            MapRegister(reg_alloc, arg->var.name, *arg_reg, data_type);
+            DirtyRegister(reg_alloc, *arg_reg);
         }
     }
     Routine *routine = ctx->current_routine;
     for (s64 i = 0; i < routine->instructions.count; i++)
     {
         Instruction *instr = routine->instructions[i];
-        SaveDirtyOperand(ctx, i, &instr->oper1);
-        SaveDirtyOperand(ctx, i, &instr->oper2);
-        SaveDirtyOperand(ctx, i, &instr->oper3);
+        //if (instr->OP_LABEL)
+        //{
+
+        //}
+        //SaveDirtyOperand(ctx, i, &instr->oper1);
+        //SaveDirtyOperand(ctx, i, &instr->oper2);
+        //SaveDirtyOperand(ctx, i, &instr->oper3);
         AllocateRegister(ctx, i, &instr->oper1);
         AllocateRegister(ctx, i, &instr->oper2);
         AllocateRegister(ctx, i, &instr->oper3);
@@ -1816,7 +1819,17 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
 static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
 {
     Routine *routine = ctx->current_routine;
-    routine->name = ir_routine->name;
+
+    bool toplevel = (ir_routine->name.str.size == 0);
+    if (toplevel)
+    {
+        routine->name = PushName(&ctx->arena, "init_");
+    }
+    else
+    {
+        routine->name = ir_routine->name;
+    }
+
     PushPrologue(ctx, OP_push, RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Read));
     PushPrologue(ctx, OP_mov,
             RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Write),
@@ -1839,11 +1852,18 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
     }
     AllocateRegisters(ctx, ir_routine);
 
+    if (toplevel)
+    {
+        Operand main_label = LabelOperand(ctx->comp_ctx->env.main_func_name, AF_Read);
+        PushInstruction(ctx, OP_call, main_label);
+    }
+
     s64 locals_size = ctx->current_routine->locals_size;
     if (locals_size > 0)
     {
         locals_size = Align(locals_size, 16);
         Operand locals_size_oper = ImmOperand(locals_size, AF_Read);
+
         PushPrologue(ctx, OP_sub, RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write), locals_size_oper);
         //PushEpilogue(ctx, OP_add, RegOperand(REG_rsp, AF_Write), locals_size_oper);
         PushEpilogue(ctx, OP_mov,
@@ -2023,70 +2043,6 @@ static s64 PrintOperandV(IoFile *file, Operand oper)
         case Oper_Type::Immediate:
             len += fprintf((FILE*)file, "%" PRIu64, oper.imm_u64);
             break;
-            /*
-        case Oper_Type::Addr:
-            {
-                Addr_Base_Index_Offs base_idx_offs = oper.base_index_offs;
-                len += fprintf((FILE*)file, "[");
-                if (base_idx_offs.base.reg_index != REG_NONE)
-                {
-                    len += PrintName(file, GetRegName(base_idx_offs.base));
-                }
-                if (base_idx_offs.index.reg_index != REG_NONE)
-                {
-                    s32 scale = base_idx_offs.scale;
-                    if (scale > 0)
-                    {
-                        len += fprintf((FILE*)file, "+");
-                    }
-                    else
-                    {
-                        len += fprintf((FILE*)file, "-");
-                        scale = -scale;
-                    }
-                    len += fprintf((FILE*)file, "%s*%" PRId32,
-                            GetRegNameStr(base_idx_offs.index), scale);
-                }
-                if (base_idx_offs.offset != 0)
-                {
-                    if (base_idx_offs.offset > 0)
-                        len += fprintf((FILE*)file, "+");
-                    len += fprintf((FILE*)file, "%" PRId32, base_idx_offs.offset);
-                }
-                len += fprintf((FILE*)file, "]");
-            } break;
-        case Oper_Type::IrAddrOper:
-            {
-                Addr_Ir_Base_Index_Offs base_idx_offs = oper.ir_base_index_offs;
-                len += fprintf((FILE*)file, "[");
-                if (base_idx_offs.base)
-                {
-                    len += PrintIrOperand(file, *base_idx_offs.base);
-                }
-                if (base_idx_offs.index)
-                {
-                    s32 scale = base_idx_offs.scale;
-                    if (scale > 0)
-                    {
-                        len += fprintf((FILE*)file, "+");
-                    }
-                    else
-                    {
-                        len += fprintf((FILE*)file, "-");
-                        scale = -scale;
-                    }
-                    len += PrintIrOperand(file, *base_idx_offs.index);
-                    len += fprintf((FILE*)file, "*%" PRId32, scale);
-                }
-                if (base_idx_offs.offset != 0)
-                {
-                    if (base_idx_offs.offset > 0)
-                        len += fprintf((FILE*)file, "+");
-                    len += fprintf((FILE*)file, "%" PRId32, base_idx_offs.offset);
-                }
-                len += fprintf((FILE*)file, "]");
-            } break;
-            */
     }
     return len;
 }
@@ -2243,6 +2199,8 @@ void OutputCode_Amd64(Codegen_Context *ctx)
 
         fprintf(f, "; prologue\n");
         PrintInstructions(file, routine->prologue);
+        fprintf(f, "; callee save spills\n");
+        PrintInstructions(file, routine->callee_save_spills);
         fprintf(f, "; routine body\n");
         PrintInstructions(file, routine->instructions);
         fprintf(f, "; epilogue\n");
@@ -2251,6 +2209,10 @@ void OutputCode_Amd64(Codegen_Context *ctx)
     }
 
     fprintf(f, "\nsection .data\n");
+
+    // globals
+
+    // constants
 
     if (ctx->float32_consts.count)
     {

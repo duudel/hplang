@@ -12,9 +12,12 @@ struct Compiler_Context;
 struct Ir_Gen_Context
 {
     Memory_Arena arena;
+
     Ir_Routine_List routines;
     Array<Name> foreign_routines;
+    Array<Symbol*> global_vars;
     Ir_Comment comment;
+
     Compiler_Context *comp_ctx;
 };
 

@@ -40,6 +40,7 @@ void FreeCodegenContext(Codegen_Context *ctx)
         array::Free(routine->local_offsets);
         array::Free(routine->instructions);
         array::Free(routine->prologue);
+        array::Free(routine->callee_save_spills);
         array::Free(routine->epilogue);
     }
     ctx->routine_count = 0;

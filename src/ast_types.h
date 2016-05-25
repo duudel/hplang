@@ -297,6 +297,8 @@ struct Ast_Parameter
 {
     Name name;
     Ast_Node *type;
+    
+    Symbol *symbol;
 };
 
 struct Ast_Typealias
