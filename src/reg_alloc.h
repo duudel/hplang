@@ -64,6 +64,7 @@ b32 UndirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
 b32 UndirtyCalleeSave(Reg_Alloc *reg_alloc, Reg reg);
 
 void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg, Oper_Data_Type data_type);
+void UnmapRegister(Reg_Alloc *reg_alloc, Reg reg);
 const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name);
 const Reg_Var* GetMappedVar(Reg_Alloc *reg_alloc, Reg reg);
 

@@ -168,10 +168,11 @@ void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg, Oper_Data_Type data_t
 {
     for (s64 i = 0; i < reg_alloc->mapped_regs.count; i++)
     {
-        Reg_Var reg_var = array::At(reg_alloc->mapped_regs, i);
-        if (reg_var.var_name == name)
+        Reg_Var *reg_var = &reg_alloc->mapped_regs[i];
+        if (reg_var->var_name == name)
         {
-            ASSERT(reg_var.data_type == data_type);
+            reg_var->reg = reg;
+            ASSERT(reg_var->data_type == data_type);
             return;
         }
     }
@@ -180,6 +181,24 @@ void MapRegister(Reg_Alloc *reg_alloc, Name name, Reg reg, Oper_Data_Type data_t
     reg_var.reg = reg;
     reg_var.data_type = data_type;
     array::Push(reg_alloc->mapped_regs, reg_var);
+}
+
+void UnmapRegister(Reg_Alloc *reg_alloc, Reg reg)
+{
+    s64 idx = 0;
+    for (; idx < reg_alloc->mapped_regs.count; idx++)
+    {
+        Reg r = reg_alloc->mapped_regs[idx].reg;
+        if (r == reg)
+            break;
+    }
+    ASSERT(idx < reg_alloc->mapped_regs.count);
+    for (s64 i = idx; i < reg_alloc->mapped_regs.count - 1; i++)
+    {
+        Reg_Var rv = array::At(reg_alloc->mapped_regs, i + 1);
+        array::Set(reg_alloc->mapped_regs, i, rv);
+    }
+    reg_alloc->mapped_regs.count--;
 }
 
 const Reg* GetMappedRegister(Reg_Alloc *reg_alloc, Name name)

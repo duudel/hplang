@@ -21,19 +21,19 @@ FILE* hp_get_stderr() { return stderr; }
 FILE* hp_get_stdin() { return stdin; }
 
 s64 hp_fwrite(FILE *file, s64 size, u8 *data)
-{ return fwrite(data, 1, size, file); }
+{ return fwrite(data, 1, size, stdout); }
 
 s64 hp_write(s64 size, u8 *data)
 { return fwrite(data, 1, size, stdout); }
 
-s64 hp_print_uint(FILE *file, u64 x)
-{ return fprintf(file, "%" PRIu64, x); }
+s64 hp_fprint_uint(FILE *file, u64 x)
+{ return fprintf(stdout, "%" PRIu64, x); }
 
-s64 hp_print_int(FILE *file, s64 x)
-{ return fprintf(file, "%" PRId64, x); }
+s64 hp_fprint_int(FILE *file, s64 x)
+{ return fprintf(stdout, "%" PRId64, x); }
 
-s64 hp_print_f32(FILE *file, f32 x)
-{ return fprintf(file, "%f", x); }
+s64 hp_fprint_f32(FILE *file, f32 x)
+{ return fprintf(stdout, "%f", x); }
 
-s64 hp_print_f64(FILE *file, f64 x)
-{ return fprintf(file, "%f", x); }
+s64 hp_fprint_f64(FILE *file, f64 x)
+{ return fprintf(stdout, "%f", x); }

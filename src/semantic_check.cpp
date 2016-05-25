@@ -565,6 +565,7 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
                 {
                     CoerceFunctionArgs(ctx, best_overload->type, function_call);
                 }
+                fexpr->variable_ref.symbol = best_overload;
                 return best_overload->type->function_type.return_type;
             }
             else if (func->sym_type == SYM_Variable ||
@@ -1649,12 +1650,6 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
         Value_Type vt;
         type = CheckExpression(ctx, expr, &vt);
         ASSERT(type);
-        //if (!type)
-        //{
-        //    // NOTE(henrik): If there was an error in the expression, we
-        //    // do not need to check the return type.
-        //    return;
-        //}
     }
 
     Type *cur_return_type = GetCurrentReturnType(ctx->env);
@@ -1735,43 +1730,6 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
             }
         }
     }
-
-    /*
-    if (cur_return_type)
-    {
-        if (!expr)
-        {
-            if (!TypeIsVoid(cur_return_type))
-            {
-                Error(ctx, node->file_loc, "Return value expected");
-            }
-            return;
-        }
-
-        if (TypeIsNull(cur_return_type))
-        {
-            if (TypeIsPointer(type))
-                InferReturnType(ctx->env, type, node);
-        }
-
-        if (!CheckTypeCoercion(type, cur_return_type))
-        {
-            Ast_Node *infer_loc = GetCurrentReturnTypeInferLoc(ctx->env);
-            ErrorReturnTypeMismatch(ctx, expr->file_loc,
-                    type, cur_return_type, infer_loc);
-        }
-    }
-    else
-    {
-        if (!expr)
-            type = GetBuiltinType(TYP_void);
-
-        InferReturnType(ctx->env, type, node);
-        //fprintf(stderr, "inferred return type: ");
-        //PrintType(stderr, type);
-        //fprintf(stderr, "\n");
-    }
-    */
 }
 
 static void CheckBlockStatement(Sem_Check_Context *ctx, Ast_Node *node);

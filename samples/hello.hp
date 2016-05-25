@@ -1,21 +1,24 @@
 // Hello world program
 // 2016-05-25
 
-//import "io";
+import "io";
 
-foreign {
-    hp_write :: (size : s64, data : u8*) : s64;
-}
-
-print :: (str : string)
-{
-    return hp_write(str.size, str.data -> u8*);
-}
+//foreign {
+//    hp_write :: (size : s64, data : u8*) : s64;
+//}
+//
+//print :: (str : string)
+//{
+//    return hp_write(str.size, str.data -> u8*);
+//}
 
 main :: ()
 {
     print("Hello world!\n");
     hello := "Hello world!\n";
     print(hello);
+    print("A number ");
+    print(15);
+    print("\n");
     return 0;
 }

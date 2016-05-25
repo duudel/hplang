@@ -35,6 +35,7 @@ println :: () : s64
 
 print :: (x : s64) : s64
 {
+    /*
     if (x == 0)  return print("0");
 
     val := x;
@@ -58,7 +59,8 @@ print :: (x : s64) : s64
         written += hp_fwrite(stdout, 1, &c);
     }
     return written;
-    //return hp_fprint_int(stdout, x);
+    */
+    return hp_fprint_int(stdout, x);
 }
 
 print :: (x : f64) : s64

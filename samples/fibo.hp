@@ -2,17 +2,21 @@
 // 2016-03-31
 
 //io :: import "io";
-import "io";
+//import "io";
+
+foreign { hp_write :: (size : s64, data : u8*) : s64; }
+print :: (str : string) { return hp_write(str.size, str.data -> u8*); }
 
 // Recursive Fibonacci function
 fibo :: (x : s64) : s64
 {
-    assert(x >= 0);
+    //assert(x >= 0);
     if x == 0   return 0;
     if x == 1   return 1;
     return fibo(x - 1) + fibo(x - 2);
 }
 
+/*
 // Iterative Fibonacci function
 // (Uses type inference for the return type.)
 fibo2 :: (x : s64) // : s64
@@ -27,18 +31,19 @@ fibo2 :: (x : s64) // : s64
     }
     return a;
 }
+*/
 
 main :: () : s64
 {
     print("This is a call to print\n");
-    assert(fibo(0) == 0);
-    assert(fibo(1) == 1);
-    assert(fibo(2) == 1);
-    assert(fibo(3) == 2);
-    assert(fibo(4) == 3);
-    assert(fibo(5) == 5);
-    assert(fibo(6) == 8);
-    // assert(fibo(10) == 123);
-    return 0;
+    //assert(fibo(0) == 0);
+    //assert(fibo(1) == 1);
+    //assert(fibo(2) == 1);
+    //assert(fibo(3) == 2);
+    //assert(fibo(4) == 3);
+    //assert(fibo(5) == 5);
+    //assert(fibo(6) == 8);
+    // assert(fibo(10) == 55);
+    return fibo(10);
 }
 
