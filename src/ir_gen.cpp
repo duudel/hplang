@@ -292,10 +292,17 @@ static void PushJump(Ir_Gen_Context *ctx, Ir_Routine *routine,
     PushInstruction(ctx, routine, opcode, jump_target, oper1, oper2);
 }
 
-static void SetLabelTarget(Ir_Routine *routine, Ir_Operand label_oper)
+static void SetLabelTarget(Ir_Gen_Context *ctx, Ir_Routine *routine, Ir_Operand label_oper)
 {
     s64 target = routine->instructions.count;
+
+    const s64 buf_size = 40;
+    char buf[buf_size];
+    s64 name_len = snprintf(buf, buf_size, ".L%" PRId64, target);
+
     label_oper.label->target_loc = target;
+    label_oper.label->name = PushName(&ctx->arena, buf, name_len);
+    PushInstruction(ctx, routine, IR_Label, label_oper);
 }
 
 
@@ -558,11 +565,11 @@ static Ir_Operand GenTernaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
     PushInstruction(ctx, routine, IR_Mov, res, true_res);
     PushJump(ctx, routine, IR_Jump, ternary_end);
 
-    SetLabelTarget(routine, false_label);
+    SetLabelTarget(ctx, routine, false_label);
     Ir_Operand false_res = GenExpression(ctx, false_expr, routine);
     PushInstruction(ctx, routine, IR_Mov, res, false_res);
 
-    SetLabelTarget(routine, ternary_end);
+    SetLabelTarget(ctx, routine, ternary_end);
     return res;
 }
 
@@ -616,7 +623,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
                 Ir_Operand roper = GenExpression(ctx, left, routine);
                 PushInstruction(ctx, routine, IR_Mov, target, roper);
 
-                SetLabelTarget(routine, and_end);
+                SetLabelTarget(ctx, routine, and_end);
                 return target;
             }
         case BIN_OP_Or:
@@ -631,7 +638,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
                 Ir_Operand roper = GenExpression(ctx, left, routine);
                 PushInstruction(ctx, routine, IR_Mov, target, roper);
 
-                SetLabelTarget(routine, or_end);
+                SetLabelTarget(ctx, routine, or_end);
                 return target;
             }
         default:
@@ -868,15 +875,15 @@ static void GenIfStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *rout
         Ir_Operand else_end_label = NewLabel(ctx);
         PushJump(ctx, routine, IR_Jump, else_end_label);
 
-        SetLabelTarget(routine, if_false_label);
+        SetLabelTarget(ctx, routine, if_false_label);
 
         GenIr(ctx, node->if_stmt.else_stmt, routine);
 
-        SetLabelTarget(routine, else_end_label);
+        SetLabelTarget(ctx, routine, else_end_label);
     }
     else
     {
-        SetLabelTarget(routine, if_false_label);
+        SetLabelTarget(ctx, routine, if_false_label);
     }
 }
 
@@ -887,7 +894,7 @@ static void GenWhileStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routin
     Ir_Operand while_end_label = NewLabel(ctx);
 
     Ir_Operand while_start_label = NewLabel(ctx);
-    SetLabelTarget(routine, while_start_label);
+    SetLabelTarget(ctx, routine, while_start_label);
 
     Ir_Operand cond_res = GenExpression(ctx, node->while_stmt.cond_expr, routine);
     PushJump(ctx, routine, IR_Jz, while_end_label, cond_res);
@@ -896,7 +903,7 @@ static void GenWhileStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routin
 
     PushJump(ctx, routine, IR_Jump, while_start_label);
 
-    SetLabelTarget(routine, while_end_label);
+    SetLabelTarget(ctx, routine, while_end_label);
 }
 
 static void GenReturnStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)

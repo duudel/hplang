@@ -6,8 +6,8 @@ foreign {
 
 func :: (x : s64, y : f64) : f64
 {
-    //return (x > 0) ? y : 0.0;
-    return y + 0.2;
+    return (x > 0) ? y : 0.0;
+    //return y + 0.2;
 }
 
 main :: ()
@@ -17,9 +17,11 @@ main :: ()
     result := (x - 128) * 98;
     //result = (x - 128) * 98;
     z := func(x, 0.5);
-    //return x + y * result;
+    if (z > 0.0)
+        x = x + 5;
 
     printf("hello %s!\n".data, "world".data);
 
     return x + y;
+    //return x + y * result;
 }

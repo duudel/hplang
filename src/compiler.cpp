@@ -321,18 +321,20 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     }
 
     const char *asm_filename = "./out.s";
-    FILE *code_file = fopen(asm_filename, "w");
-    if (!code_file)
+    FILE *asm_file = fopen(asm_filename, "w");
+    if (!asm_file)
     {
         fprintf((FILE*)ctx->error_ctx.file, "Could not open '%s' for output\n",
                 asm_filename);
         return false;
     }
 
-    Codegen_Context cg_ctx = NewCodegenContext((IoFile*)code_file, ctx, CGT_AMD64_Windows);
+    Codegen_Context cg_ctx = NewCodegenContext((IoFile*)asm_file, ctx, CGT_AMD64_Windows);
     GenerateCode(&cg_ctx, ir_ctx.routines, ir_ctx.foreign_routines);
 
     OutputCode(&cg_ctx);
+
+    fclose(asm_file);
 
     FreeIrGenContext(&ir_ctx);
     FreeCodegenContext(&cg_ctx);

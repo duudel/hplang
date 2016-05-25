@@ -7,6 +7,8 @@ namespace hplang
 {
 
 #define IR_OPCODES\
+    PASTE_IR(IR_Label)\
+    \
     PASTE_IR(IR_Add)\
     PASTE_IR(IR_Sub)\
     PASTE_IR(IR_Mul)\
@@ -83,7 +85,7 @@ struct Ir_Temp
 
 struct Ir_Label
 {
-    //Name name;
+    Name name;
     s64 target_loc;
 };
 

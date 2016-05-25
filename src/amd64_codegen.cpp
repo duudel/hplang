@@ -1,6 +1,7 @@
 
 #include "amd64_codegen.h"
 #include "common.h"
+#include "compiler.h"
 #include "reg_alloc.h"
 #include "symbols.h"
 #include "hashtable.h"
@@ -526,10 +527,14 @@ static Operand LabelOperand(Name name, Oper_Access_Flags access_flags)
 
 static Oper_Data_Type DataTypeFromType(Type *type)
 {
+    ASSERT(type != nullptr);
     switch (type->tag)
     {
         case TYP_none:
+            INVALID_CODE_PATH;
+            break;
         case TYP_pending:
+            return DataTypeFromType(type->base_type);
         case TYP_null:
             INVALID_CODE_PATH;
             break;
@@ -577,10 +582,17 @@ static Oper_Data_Type DataTypeFromType(Type *type)
 static Operand IrOperand(Ir_Operand *ir_oper, Oper_Access_Flags access_flags)
 {
     Operand result = { };
-    result.type = Oper_Type::IrOperand;
-    result.access_flags = access_flags;
-    result.data_type = DataTypeFromType(ir_oper->type);
-    result.ir_oper = ir_oper;
+    if (ir_oper->oper_type == IR_OPER_Label)
+    {
+        return LabelOperand(ir_oper->label->name, access_flags);
+    }
+    else
+    {
+        result.type = Oper_Type::IrOperand;
+        result.access_flags = access_flags;
+        result.data_type = DataTypeFromType(ir_oper->type);
+        result.ir_oper = ir_oper;
+    }
     return result;
 }
 
@@ -940,13 +952,13 @@ static void PushZeroReg(Codegen_Context *ctx, Operand oper)
     PushInstruction(ctx, OP_xor, oper, oper);
 }
 
-//static void PushLabel(Codegen_Context *ctx, Name name)
-//{
-//    Operand oper = { };
-//    oper.type = Oper_Type::Label;
-//    oper.label.name = name;
-//    PushInstruction(ctx, OP_LABEL, oper);
-//}
+static void PushLabel(Codegen_Context *ctx, Name name)
+{
+    Operand oper = { };
+    oper.type = Oper_Type::Label;
+    oper.label.name = name;
+    PushInstruction(ctx, OP_LABEL, oper);
+}
 
 static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
 {
@@ -1342,6 +1354,10 @@ static void GenerateCode(Codegen_Context *ctx,
     {
         case IR_COUNT:
             INVALID_CODE_PATH;
+            break;
+
+        case IR_Label:
+            PushLabel(ctx, ir_instr->target.label->name);
             break;
 
         case IR_Add:
@@ -2164,7 +2180,8 @@ static void PrintInstruction(IoFile *file, const Instruction *instr)
     }
     else
     {
-        len += fprintf((FILE*)file, "\t");
+        //len += fprintf((FILE*)file, "\t");
+        len += PrintPadding((FILE*)file, len, 4);
         len += PrintOpcode(file, (Amd64_Opcode)instr->opcode);
 
         if (instr->oper1.type != Oper_Type::None)
@@ -2193,8 +2210,10 @@ void OutputCode_Amd64(Codegen_Context *ctx)
     IoFile *file = ctx->code_out;
     FILE *f = (FILE*)file;
 
+    String filename = ctx->comp_ctx->modules[0]->module_file->filename;
     fprintf(f, "; -----\n");
-    fprintf(f, "; %s\n", GetTargetString(ctx->target));
+    fprintf(f, "; Source file: "); PrintString(file, filename); fprintf(f, "\n");
+    fprintf(f, "; Target:      %s\n", GetTargetString(ctx->target));
     fprintf(f, "; -----\n\n");
 
     fprintf(f, "bits 64\n\n");
