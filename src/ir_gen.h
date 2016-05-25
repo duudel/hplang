@@ -13,6 +13,7 @@ struct Ir_Gen_Context
 {
     Memory_Arena arena;
     Ir_Routine_List routines;
+    Array<Name> foreign_routines;
     Ir_Comment comment;
     Compiler_Context *comp_ctx;
 };

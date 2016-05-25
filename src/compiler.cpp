@@ -330,30 +330,32 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     }
 
     Codegen_Context cg_ctx = NewCodegenContext((IoFile*)code_file, ctx, CGT_AMD64_Windows);
-    GenerateCode(&cg_ctx, ir_ctx.routines);
+    GenerateCode(&cg_ctx, ir_ctx.routines, ir_ctx.foreign_routines);
 
     OutputCode(&cg_ctx);
 
     FreeIrGenContext(&ir_ctx);
     FreeCodegenContext(&cg_ctx);
 
-    const char *obj_filename = "./out.o";
-    const char *nasm_args[] = {"-fwin64", "-o", obj_filename, "--", asm_filename};
-    if (Invoke("nasm", nasm_args, array_length(nasm_args)) != 0)
-    {
-        fprintf((FILE*)ctx->error_ctx.file, "Could not write assemble the file '%s'\n",
-                asm_filename);
-        return false;
-    }
+    //Invoke("compile_out.sh", nullptr, 0);
 
-    const char *exe_filename = "./out.exe";
-    const char *gcc_args[] = {"-o", exe_filename, obj_filename};
-    if (Invoke("gcc", gcc_args, array_length(gcc_args)) != 0)
-    {
-        fprintf((FILE*)ctx->error_ctx.file, "Could not link the file '%s'\n",
-                obj_filename);
-        return false;
-    }
+    //const char *obj_filename = "./out.o";
+    //const char *nasm_args[] = {"-fwin64", "-o", obj_filename, "--", asm_filename};
+    //if (Invoke("nasm", nasm_args, array_length(nasm_args)) != 0)
+    //{
+    //    fprintf((FILE*)ctx->error_ctx.file, "Could not write assemble the file '%s'\n",
+    //            asm_filename);
+    //    return false;
+    //}
+
+    //const char *exe_filename = "./out.exe";
+    //const char *gcc_args[] = {"-o", exe_filename, obj_filename};
+    //if (Invoke("gcc", gcc_args, array_length(gcc_args)) != 0)
+    //{
+    //    fprintf((FILE*)ctx->error_ctx.file, "Could not link the file '%s'\n",
+    //            obj_filename);
+    //    return false;
+    //}
 
     ctx->result = RES_OK;
     return true;

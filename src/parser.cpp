@@ -1618,7 +1618,6 @@ b32 Parse(Parser_Context *ctx)
         }
         else if (ContinueParsing(ctx))
         {
-            //Error(ctx, "Unexpected token");
             ErrorInvalidToken(ctx, GetCurrentToken(ctx));
             GetNextToken(ctx);
         }

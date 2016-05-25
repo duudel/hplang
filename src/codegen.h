@@ -33,13 +33,11 @@ enum class Oper_Type : u8
     None,
     Register,
     Immediate,
-    Addr,
     Label,
     AddrLabel,
     Temp,
     FixedRegister,
     IrOperand,
-    IrAddrOper,
 };
 
 enum class Oper_Data_Type : u8
@@ -58,29 +56,37 @@ enum class Oper_Data_Type : u8
     F64,
 };
 
+enum class Oper_Addr_Mode : u8
+{
+    Direct,
+    BaseOffset,
+    BaseIndexOffset,
+    IndexScale,
+};
+
 struct Label
 {
     Name name;
 };
 
 
-// [base + index*scale + offset]
-struct Addr_Base_Index_Offs
-{
-    Reg base;
-    Reg index;
-    s32 scale;
-    s32 offset;
-};
-
-// [base + index*scale + offset]
-struct Addr_Ir_Base_Index_Offs
-{
-    Ir_Operand *base;
-    Ir_Operand *index;
-    s32 scale;
-    s32 offset;
-};
+//// [base + index*scale + offset]
+//struct Addr_Base_Index_Offs
+//{
+//    Reg base;
+//    Reg index;
+//    s32 scale;
+//    s32 offset;
+//};
+//
+//// [base + index*scale + offset]
+//struct Addr_Ir_Base_Index_Offs
+//{
+//    Ir_Operand *base;
+//    Ir_Operand *index;
+//    s32 scale;
+//    s32 offset;
+//};
 
 struct Temp
 {
@@ -108,15 +114,16 @@ struct Operand
     Oper_Type type;
     Oper_Access_Flags access_flags;
     Oper_Data_Type data_type;
-    // NOTE(henrik): Here are 2 bytes of unused space.
+    Oper_Addr_Mode addr_mode;
+    s32 scale_offset;
     union {
         Reg         reg;
         Fixed_Reg   fixed_reg;
         Temp        temp;
         Label       label;
         Ir_Operand *ir_oper;
-        Addr_Base_Index_Offs base_index_offs;
-        Addr_Ir_Base_Index_Offs ir_base_index_offs;
+        //Addr_Base_Index_Offs base_index_offs;
+        //Addr_Ir_Base_Index_Offs ir_base_index_offs;
         union {
             bool imm_bool;
             u64 imm_u64;
@@ -179,6 +186,12 @@ struct Float64_Const
     };
 };
 
+struct String_Const
+{
+    Name label_name;
+    String value;
+};
+
 struct Compiler_Context;
 struct Reg_Alloc;
 
@@ -196,11 +209,15 @@ struct Codegen_Context
 
     Array<Float32_Const> float32_consts;
     Array<Float64_Const> float64_consts;
+    Array<String_Const> str_consts;
 
     s64 routine_count;
     Routine *routines;
 
     Routine *current_routine;
+
+    s64 foreign_routine_count;
+    Name *foreign_routines;
 
     IoFile *code_out;
     Compiler_Context *comp_ctx;
@@ -210,7 +227,7 @@ Codegen_Context NewCodegenContext(IoFile *out,
         Compiler_Context *comp_ctx, Codegen_Target cg_target);
 void FreeCodegenContext(Codegen_Context *ctx);
 
-void GenerateCode(Codegen_Context *ctx, Ir_Routine_List routines);
+void GenerateCode(Codegen_Context *ctx, Ir_Routine_List routines, Array<Name> foreign_routines);
 
 void OutputCode(Codegen_Context *ctx);
 

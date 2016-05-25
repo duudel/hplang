@@ -1,5 +1,9 @@
 // A simple sample program
 
+foreign {
+    printf :: (fmt : char*, a1 : char*) : s64;
+}
+
 func :: (x : s64, y : f64) : f64
 {
     //return (x > 0) ? y : 0.0;
@@ -14,5 +18,8 @@ main :: ()
     //result = (x - 128) * 98;
     z := func(x, 0.5);
     //return x + y * result;
+
+    printf("hello %s!\n".data, "world".data);
+
     return x + y;
 }

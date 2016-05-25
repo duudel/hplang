@@ -7,7 +7,8 @@ namespace hplang
 {
 
 void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target);
-void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List routines);
+void GenerateCode_Amd64(Codegen_Context *ctx,
+        Ir_Routine_List routines);
 
 void OutputCode_Amd64(Codegen_Context *ctx);
 

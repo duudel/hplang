@@ -97,6 +97,7 @@ void FreeIrGenContext(Ir_Gen_Context *ctx)
         FreeRoutine(array::At(ctx->routines, i));
     }
     array::Free(ctx->routines);
+    array::Free(ctx->foreign_routines);
 }
 
 static b32 ContinueGen(Ir_Gen_Context *ctx)
@@ -807,7 +808,6 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
 
 static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
-    (void)ctx;
     switch (expr->type)
     {
         case AST_Null:
@@ -949,6 +949,18 @@ static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine
     }
 }
 
+static void GenForeignBlock(Ir_Gen_Context *ctx, Ast_Node *node)
+{
+    for (s64 i = 0; i < node->foreign.statements.count; i++)
+    {
+        Ast_Node *stmt = node->foreign.statements[i];
+        if (stmt->type == AST_FunctionDef)
+        {
+            array::Push(ctx->foreign_routines, stmt->function.name);
+        }
+    }
+}
+
 static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
     switch (node->type)
@@ -956,7 +968,9 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
         case AST_TopLevel: INVALID_CODE_PATH; break;
 
         case AST_Import: break;
-        case AST_ForeignBlock: break;
+        case AST_ForeignBlock:
+            GenForeignBlock(ctx, node);
+            break;
 
         case AST_VariableDecl:
             GenVariable(ctx, node, routine);
