@@ -91,6 +91,16 @@ b32 IsFloatRegister(Reg_Alloc *reg_alloc, Reg reg)
     return (reg_alloc->reg_flags[reg.reg_index] & RF_FloatReg) != 0;
 }
 
+const Reg* GetArgRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64 arg_index)
+{
+    if (data_type == Oper_Data_Type::F32 ||
+        data_type == Oper_Data_Type::F64)
+    {
+        return GetFloatArgRegister(reg_alloc, arg_index);
+    }
+    return GetArgRegister(reg_alloc, arg_index);
+}
+
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, s64 arg_index)
 {
     if (arg_index < reg_alloc->arg_reg_count)
@@ -118,12 +128,24 @@ void ClearRegAllocs(Reg_Alloc *reg_alloc)
     array::Reserve(reg_alloc->free_regs, reg_alloc->general_reg_count);
     for (s64 i = 0; i < reg_alloc->general_reg_count; i++)
     {
-        array::Push(reg_alloc->free_regs, reg_alloc->general_regs[i]);
+        if (IsCalleeSave(reg_alloc, reg_alloc->general_regs[i]))
+            array::Push(reg_alloc->free_regs, reg_alloc->general_regs[i]);
+    }
+    for (s64 i = 0; i < reg_alloc->general_reg_count; i++)
+    {
+        if (IsCallerSave(reg_alloc, reg_alloc->general_regs[i]))
+            array::Push(reg_alloc->free_regs, reg_alloc->general_regs[i]);
     }
     array::Reserve(reg_alloc->free_float_regs, reg_alloc->float_reg_count);
     for (s64 i = 0; i < reg_alloc->float_reg_count; i++)
     {
-        array::Push(reg_alloc->free_float_regs, reg_alloc->float_regs[i]);
+        if (IsCalleeSave(reg_alloc, reg_alloc->general_regs[i]))
+            array::Push(reg_alloc->free_float_regs, reg_alloc->float_regs[i]);
+    }
+    for (s64 i = 0; i < reg_alloc->float_reg_count; i++)
+    {
+        if (IsCallerSave(reg_alloc, reg_alloc->general_regs[i]))
+            array::Push(reg_alloc->free_float_regs, reg_alloc->float_regs[i]);
     }
 }
 

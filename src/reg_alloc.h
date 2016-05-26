@@ -53,6 +53,7 @@ b32 IsCallerSave(Reg_Alloc *reg_alloc, Reg reg);
 b32 IsCalleeSave(Reg_Alloc *reg_alloc, Reg reg);
 b32 IsFloatRegister(Reg_Alloc *reg_alloc, Reg reg);
 
+const Reg* GetArgRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64 arg_index);
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, s64 arg_index);
 const Reg* GetFloatArgRegister(Reg_Alloc *reg_alloc, s64 arg_index);
 

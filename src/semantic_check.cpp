@@ -340,7 +340,7 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
                     case SYM_Constant:
                     case SYM_Variable:
                     case SYM_Parameter:
-                        ErrorSymbolNotTypename(ctx, node, node->type_node.plain.name);
+                        //ErrorSymbolNotTypename(ctx, node, node->type_node.plain.name);
                         break;
 
                     case SYM_Struct:
@@ -355,7 +355,8 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
                         return symbol->type;
                 }
             }
-            // TODO(henrik): error?
+            ErrorSymbolNotTypename(ctx, node, node->type_node.plain.name);
+            return GetBuiltinType(TYP_none);
         } break;
     case AST_Type_Pointer:
         {

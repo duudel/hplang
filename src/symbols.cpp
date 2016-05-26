@@ -382,9 +382,11 @@ void PrintType(IoFile *file, Type *type)
             fprintf((FILE*)file, "*");
         } break;
 
-    // This should not appear in any normal case
+    // NOTE(henrik): Even thoug this should not appear in any normal case,
+    // this could still happen, when function overload resolution fails.
     case TYP_null:
-        NOT_IMPLEMENTED("null type printing");
+        fprintf((FILE*)file, "(?*)null");
+        //NOT_IMPLEMENTED("null type printing");
         break;
 
     default:

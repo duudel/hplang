@@ -75,11 +75,23 @@ Flag<E, U> operator | (Flag<E, U> flag, E bit)
 }
 
 template <class E, class U>
+Flag<E, U> operator | (Flag<E, U> flag1, Flag<E, U> flag2)
+{
+    flag1.value |= flag2.value;
+    return flag1;
+}
+
+template <class E, class U>
 U operator & (Flag<E, U> flag, E bit)
 {
     return flag.value & bit;
 }
 
+template <class E, class U>
+U operator & (Flag<E, U> flag1, Flag<E, U> flag2)
+{
+    return flag1.value & flag2.value;
+}
 
 } // hplang
 

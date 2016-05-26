@@ -333,7 +333,6 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     {
         case TYP_none:
         case TYP_pending:
-        case TYP_null:
         case TYP_void:
             INVALID_CODE_PATH;
             break;
@@ -347,6 +346,7 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
             INVALID_CODE_PATH;
             break;
 
+        case TYP_null:
         case TYP_pointer:
             PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             break;

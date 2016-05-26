@@ -32,8 +32,8 @@ build:
 
 run:
 	@#-./$(EXENAME) samples/compiletime.hp
-	@#-./$(EXENAME) samples/fibo.hp
-	-./$(EXENAME) samples/beer.hp
+	-./$(EXENAME) samples/fibo.hp
+	@#-./$(EXENAME) samples/beer.hp
 	@#-./$(EXENAME) samples/factorial.hp
 	@#-./$(EXENAME) samples/nbody.hp
 	@#-./$(EXENAME) samples/simple.hp

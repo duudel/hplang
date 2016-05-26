@@ -4,8 +4,11 @@
 //io :: import "io";
 //import "io";
 
+FILE :: struct { }
 foreign { hp_write :: (size : s64, data : u8*) : s64; }
+foreign { hp_fprint_int :: (file : FILE*, x : s64) : s64; }
 print :: (str : string) { return hp_write(str.size, str.data -> u8*); }
+print :: (x : s64) { return hp_fprint_int(null, x); }
 
 // Recursive Fibonacci function
 fibo :: (x : s64) : s64
@@ -21,7 +24,7 @@ fibo :: (x : s64) : s64
 // (Uses type inference for the return type.)
 fibo2 :: (x : s64) // : s64
 {
-    a := 0; // type of a and be will be inferred to be s64
+    a := 0; // type of a and b will be inferred to be s64
     b := 1;
     for 0..x
     {
@@ -33,9 +36,23 @@ fibo2 :: (x : s64) // : s64
 }
 */
 
+fibo2 :: (x : s64) : s64
+{
+    a := 0;
+    b := 1;
+    while (x > 1)
+    {
+        t := a;
+        a = b;
+        b += t;
+        x -= 1;
+    }
+    return a;
+}
+
 main :: () : s64
 {
-    print("This is a call to print\n");
+    //print("This is a call to print\n");
     //assert(fibo(0) == 0);
     //assert(fibo(1) == 1);
     //assert(fibo(2) == 1);
@@ -44,6 +61,12 @@ main :: () : s64
     //assert(fibo(5) == 5);
     //assert(fibo(6) == 8);
     // assert(fibo(10) == 55);
+    print("fibo(10) = ");
+    print(fibo(10));
+    print("\n");
+    print("fibo2(10) = ");
+    print(fibo2(10));
+    print("\n");
     return fibo(10);
 }
 

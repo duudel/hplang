@@ -34,7 +34,6 @@ enum class Oper_Type : u8
     Register,
     Immediate,
     Label,
-    AddrLabel,
     Temp,
     FixedRegister,
     IrOperand,
@@ -68,25 +67,6 @@ struct Label
 {
     Name name;
 };
-
-
-//// [base + index*scale + offset]
-//struct Addr_Base_Index_Offs
-//{
-//    Reg base;
-//    Reg index;
-//    s32 scale;
-//    s32 offset;
-//};
-//
-//// [base + index*scale + offset]
-//struct Addr_Ir_Base_Index_Offs
-//{
-//    Ir_Operand *base;
-//    Ir_Operand *index;
-//    s32 scale;
-//    s32 offset;
-//};
 
 struct Temp
 {
@@ -122,10 +102,15 @@ struct Operand
         Temp        temp;
         Label       label;
         Ir_Operand *ir_oper;
-        //Addr_Base_Index_Offs base_index_offs;
-        //Addr_Ir_Base_Index_Offs ir_base_index_offs;
         union {
+            void *imm_ptr;
             bool imm_bool;
+            u8 imm_u8;
+            s8 imm_s8;
+            u16 imm_u16;
+            s16 imm_s16;
+            u32 imm_u32;
+            s32 imm_s32;
             u64 imm_u64;
             s64 imm_s64;
             f32 imm_f32;
@@ -136,6 +121,14 @@ struct Operand
 
 enum Opcode { };
 
+enum Instr_Flag_Bits
+{
+    IF_FallsThrough = 1,
+    IF_Branch       = 2,
+};
+
+typedef Flag<Instr_Flag_Bits, u8> Instr_Flags;
+
 struct Instruction
 {
     Opcode opcode;
@@ -143,14 +136,22 @@ struct Instruction
     Operand oper2;
     Operand oper3;
     Ir_Comment comment;
+    Instr_Flags flags;
 };
 
-typedef Array<Instruction*> Instructon_List;
+typedef Array<Instruction*> Instruction_List;
 
 struct Local_Offset
 {
     Name name;
     s64 offset;
+};
+
+struct Label_Instr
+{
+    Name name;
+    Instruction *instr; // the next instruction after label
+    s64 instr_index;
 };
 
 struct Routine
@@ -163,10 +164,12 @@ struct Routine
 
     Label return_label;
 
-    Instructon_List instructions;
-    Instructon_List prologue;
-    Instructon_List callee_save_spills;
-    Instructon_List epilogue;
+    Array<Label_Instr*> labels;
+
+    Instruction_List instructions;
+    Instruction_List prologue;
+    Instruction_List callee_save_spills;
+    Instruction_List epilogue;
 };
 
 struct Float32_Const

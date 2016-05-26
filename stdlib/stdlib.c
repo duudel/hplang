@@ -30,7 +30,33 @@ s64 hp_fprint_uint(FILE *file, u64 x)
 { return fprintf(stdout, "%" PRIu64, x); }
 
 s64 hp_fprint_int(FILE *file, s64 x)
-{ return fprintf(stdout, "%" PRId64, x); }
+//{ return fprintf(stdout, "%" PRId64, x); }
+{
+    if (x == 0) return printf("0");
+
+    s64 val = x;
+    int neg = (val < 0);
+    val = (neg ? -val : val);
+    s64 magnitude = 1;
+    while (val > 0)
+    {
+        val /= 10;
+        magnitude *= 10;
+    }
+    magnitude /= 10;
+
+    s64 written = 0;
+    if (neg) written += printf("-");
+    while (x > 0)
+    {
+        s64 y = x / magnitude;
+        x -= y * magnitude;
+        magnitude /= 10;
+        char c = '0' + y;
+        written += printf("%c", c);
+    }
+    return written;
+}
 
 s64 hp_fprint_f32(FILE *file, f32 x)
 { return fprintf(stdout, "%f", x); }

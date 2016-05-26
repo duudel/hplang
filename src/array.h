@@ -16,7 +16,7 @@ struct Array
     s64 capacity;
     s64 count;
     T *data;
-    
+
     T& operator [] (s64 index);
     const T& operator [] (s64 index) const;
 };
@@ -37,6 +37,9 @@ const T& Array<T>::operator [] (s64 index) const
 
 namespace array
 {
+    template <class T>
+    void Free(Array<T> &arr);
+
     template <class T>
     bool Reserve(Array<T> &arr, s64 capacity);
 
@@ -62,11 +65,21 @@ namespace array
     void EraseBySwap(Array<T> &arr, s64 index);
 
     template <class T>
-    void Free(Array<T> &arr);
+    void Erase(Array<T> &arr, s64 index);
 }
 
 namespace array
 {
+    template <class T>
+    void Free(Array<T> &arr)
+    {
+        if (!arr.data) return;
+        Pointer data_p;
+        data_p.ptr = arr.data;
+        data_p.size = arr.capacity * sizeof(T);
+        Free(data_p);
+    }
+
     template <class T>
     bool Reserve(Array<T> &arr, s64 capacity)
     {
@@ -138,8 +151,8 @@ namespace array
         {
             arr.data[i] = arr.data[i - 1];
         }
-        arr.data[index] = x;
         arr.count++;
+        arr.data[index] = x;
         return true;
     }
 
@@ -169,13 +182,14 @@ namespace array
     }
 
     template <class T>
-    void Free(Array<T> &arr)
+    void Erase(Array<T> &arr, s64 index)
     {
-        if (!arr.data) return;
-        Pointer data_p;
-        data_p.ptr = arr.data;
-        data_p.size = arr.capacity * sizeof(T);
-        Free(data_p);
+        ASSERT(0 <= index && index < arr.count);
+        for (s64 i = index; i < arr.count - 1; i++)
+        {
+            arr.data[i] = arr.data[i + 1];
+        }
+        arr.count--;
     }
 }
 
