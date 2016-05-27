@@ -64,7 +64,10 @@ struct Flag
     U value;
     Flag() { }
     Flag(E bit) : value(bit) { }
+    Flag(const Flag &other) : value(other.value) { }
     //operator U() { return value; }
+
+    Flag& operator |= (E bit) { value |= bit; return *this; }
 };
 
 template <class E, class U>

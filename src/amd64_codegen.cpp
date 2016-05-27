@@ -368,11 +368,17 @@ static Operand W_(Operand oper)
     return oper;
 }
 
-//static Operand RW_(Operand oper)
-//{
-//    oper.access_flags = AF_ReadWrite;
-//    return oper;
-//}
+static Operand S_(Operand oper)
+{
+    oper.access_flags |= AF_Shadow;
+    return oper;
+}
+
+static Operand RW_(Operand oper)
+{
+    oper.access_flags = AF_ReadWrite;
+    return oper;
+}
 
 static Operand RegOperand(Reg reg, Oper_Data_Type data_type, Oper_Access_Flags access_flags)
 {
@@ -724,30 +730,6 @@ static Operand IrOperand(Ir_Operand *ir_oper, Oper_Access_Flags access_flags)
     result.ir_oper = ir_oper;
     return result;
 }
-
-//static Operand IrAddrOperand(Ir_Operand *base, s64 offset, Oper_Access_Flags access_flags)
-//{
-//    Operand result = { };
-//    result.type = Oper_Type::IrAddrOper;
-//    result.access_flags = access_flags;
-//    result.data_type = Oper_Data_Type::PTR;
-//    result.ir_base_index_offs.base = base;
-//    result.ir_base_index_offs.offset = offset;
-//    return result;
-//}
-
-//static Operand IrAddrOperand(Ir_Operand *base, Ir_Operand *index, s64 scale, s64 offset, Oper_Access_Flags access_flags)
-//{
-//    Operand result = { };
-//    result.type = Oper_Type::IrAddrOper;
-//    result.access_flags = access_flags;
-//    result.data_type = Oper_Data_Type::PTR;
-//    result.ir_base_index_offs.base = base;
-//    result.ir_base_index_offs.index = index;
-//    result.ir_base_index_offs.scale = scale;
-//    result.ir_base_index_offs.offset = offset;
-//    return result;
-//}
 
 static Operand BaseOffsetOperand(Operand base, s64 offset, Oper_Access_Flags access_flags)
 {
@@ -1122,56 +1104,41 @@ static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
 
     Type *ltype = ir_instr->oper1.type;
     b32 signed_or_float = (TypeIsFloat(ltype) || TypeIsSigned(ltype));
+    Operand target = IrOperand(&ir_instr->target, AF_Write);
     switch (ir_instr->opcode)
     {
     case IR_Eq:
         {
-            PushInstruction(ctx, OP_mov,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    ImmOperand(false, AF_Read));
+            PushInstruction(ctx, OP_mov, target, ImmOperand(false, AF_Read));
             Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
             PushInstruction(ctx, OP_mov, temp, ImmOperand(true, AF_Read));
-            PushInstruction(ctx, OP_cmove,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    R_(temp));
+            PushInstruction(ctx, OP_cmove, target, R_(temp));
             break;
         }
     case IR_Neq:
         {
-            PushInstruction(ctx, OP_mov,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    ImmOperand(false, AF_Read));
+            PushInstruction(ctx, OP_mov, target, ImmOperand(false, AF_Read));
             Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
             PushInstruction(ctx, OP_mov, temp, ImmOperand(true, AF_Read));
-            PushInstruction(ctx, OP_cmovne,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    R_(temp));
+            PushInstruction(ctx, OP_cmovne, target, R_(temp));
             break;
         }
     case IR_Lt:
         {
-            PushInstruction(ctx, OP_mov,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    ImmOperand(false, AF_Read));
+            PushInstruction(ctx, OP_mov, target, ImmOperand(false, AF_Read));
             Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
             PushInstruction(ctx, OP_mov, temp, ImmOperand(true, AF_Read));
             Amd64_Opcode mov_op = signed_or_float ? OP_cmovl : OP_cmovb;
-            PushInstruction(ctx, mov_op,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    R_(temp));
+            PushInstruction(ctx, mov_op, target, R_(temp));
             break;
         }
     case IR_Leq:
         {
-            PushInstruction(ctx, OP_mov,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    ImmOperand(false, AF_Read));
+            PushInstruction(ctx, OP_mov, target, ImmOperand(false, AF_Read));
             Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
             PushInstruction(ctx, OP_mov, temp, ImmOperand(true, AF_Read));
             Amd64_Opcode mov_op = signed_or_float ? OP_cmovle : OP_cmovbe;
-            PushInstruction(ctx, mov_op,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    R_(temp));
+            PushInstruction(ctx, mov_op, target, R_(temp));
             break;
         }
     case IR_Gt:
@@ -1180,39 +1147,27 @@ static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             // => reverse the result of cmovl.
             if (signed_or_float)
             {
-                PushInstruction(ctx, OP_mov,
-                        IrOperand(&ir_instr->target, AF_Write),
-                        ImmOperand(true, AF_Read));
+                PushInstruction(ctx, OP_mov, target, ImmOperand(true, AF_Read));
                 Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
                 PushInstruction(ctx, OP_mov, temp, ImmOperand(false, AF_Read));
-                PushInstruction(ctx, OP_cmovl,
-                        IrOperand(&ir_instr->target, AF_Write),
-                        R_(temp));
+                PushInstruction(ctx, OP_cmovl, target, R_(temp));
             }
             else
             {
-                PushInstruction(ctx, OP_mov,
-                        IrOperand(&ir_instr->target, AF_Write),
-                        ImmOperand(false, AF_Read));
+                PushInstruction(ctx, OP_mov, target, ImmOperand(false, AF_Read));
                 Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
                 PushInstruction(ctx, OP_mov, temp, ImmOperand(true, AF_Read));
-                PushInstruction(ctx, OP_cmova,
-                        IrOperand(&ir_instr->target, AF_Write),
-                        R_(temp));
+                PushInstruction(ctx, OP_cmova, target, R_(temp));
             }
             break;
         }
     case IR_Geq:
         {
-            PushInstruction(ctx, OP_mov,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    ImmOperand(false, AF_Read));
+            PushInstruction(ctx, OP_mov, target, ImmOperand(false, AF_Read));
             Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
             PushInstruction(ctx, OP_mov, temp, ImmOperand(true, AF_Read));
             Amd64_Opcode mov_op = signed_or_float ? OP_cmovge : OP_cmovae;
-            PushInstruction(ctx, mov_op,
-                    IrOperand(&ir_instr->target, AF_Write),
-                    R_(temp));
+            PushInstruction(ctx, mov_op, target, R_(temp));
             break;
         }
         default:
@@ -1293,7 +1248,7 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                 PushZeroReg(ctx, rdx);
                 PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
                 PushLoad(ctx, temp, IrOperand(&ir_instr->oper2, AF_Read));
-                PushInstruction(ctx, OP_mul, R_(temp)); // writes to rdx
+                PushInstruction(ctx, OP_mul, R_(temp), S_(RW_(rax)), S_(W_(rdx)));
                 PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rax));
             }
         } break;
@@ -1316,7 +1271,7 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                 PushZeroReg(ctx, rdx);
                 PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
                 PushLoad(ctx, temp, IrOperand(&ir_instr->oper2, AF_Read));
-                PushInstruction(ctx, OP_idiv, R_(temp)); // writes to rdx
+                PushInstruction(ctx, OP_idiv, R_(temp), S_(RW_(rax)), S_(W_(rdx)));
                 PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rax));
             }
             else // unsigned
@@ -1327,7 +1282,7 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                 PushZeroReg(ctx, rdx);
                 PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
                 PushLoad(ctx, temp, IrOperand(&ir_instr->oper2, AF_Read));
-                PushInstruction(ctx, OP_div, R_(temp)); // writes to rdx
+                PushInstruction(ctx, OP_div, R_(temp), S_(RW_(rax)), S_(W_(rdx)));
                 PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rax));
             }
         } break;
@@ -1345,7 +1300,7 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                 PushZeroReg(ctx, rdx);
                 PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
                 PushLoad(ctx, temp, IrOperand(&ir_instr->oper2, AF_Read));
-                PushInstruction(ctx, OP_idiv, R_(temp)); // writes to rdx
+                PushInstruction(ctx, OP_idiv, R_(temp), S_(RW_(rax)), S_(W_(rdx)));
                 PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rdx));
             }
             else // unsigned
@@ -1356,7 +1311,7 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                 PushZeroReg(ctx, rdx);
                 PushLoad(ctx, W_(rax), IrOperand(&ir_instr->oper1, AF_Read));
                 PushLoad(ctx, temp, IrOperand(&ir_instr->oper2, AF_Read));
-                PushInstruction(ctx, OP_div, R_(temp)); // writes to rdx
+                PushInstruction(ctx, OP_div, R_(temp), S_(RW_(rax)), S_(W_(rdx)));
                 PushLoad(ctx, IrOperand(&ir_instr->target, AF_Write), R_(rdx));
             }
         } break;
@@ -3009,6 +2964,7 @@ static s64 PrintOperand(IoFile *file, Operand oper, const Operand *next_oper, b3
 {
     if (oper.type == Oper_Type::None) return 0;
     if (oper.addr_mode == Oper_Addr_Mode::IndexScale) return 0;
+    if ((oper.access_flags & AF_Shadow) != 0) return 0;
 
     s64 len = 0;
     if (!first)

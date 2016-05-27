@@ -85,6 +85,7 @@ enum Oper_Access_Flag_Bits
     AF_Read         = 1,
     AF_Write        = 2,
     AF_ReadWrite    = AF_Read | AF_Write,
+    AF_Shadow       = 4,                    // The operand is not used directly
 };
 
 typedef Flag<Oper_Access_Flag_Bits, u8> Oper_Access_Flags;
