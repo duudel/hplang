@@ -2239,6 +2239,7 @@ struct Live_Interval
     Name name;
     Reg reg;
     Oper_Data_Type data_type;
+    b32 is_fixed;
 };
 
 static void PrintInstruction(IoFile *file, const Instruction *instr);
@@ -2267,7 +2268,8 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
     while (changed)
     {
         changed = false;
-        for (s64 i = 0; i < instructions.count; i++)
+        //for (s64 i = 0; i < instructions.count; i++)
+        for (s64 i = instructions.count - 1; i >= 0; i--)
         {
             Instruction *instr = instructions[i];
             Instruction *next_instr = nullptr;
@@ -2295,11 +2297,13 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
             if ((instr->oper3.access_flags & AF_Write) != 0)
                 writes[2] = GetOperName(instr->oper3);
 
+            changed |= SetUnion(live_sets[i].live_in, live_sets[i].live_out, writes, 3);
+
+#if 1
             changed |= AddOper(live_sets[i].live_out, instr->oper1, AF_Write);
             changed |= AddOper(live_sets[i].live_out, instr->oper2, AF_Write);
             changed |= AddOper(live_sets[i].live_out, instr->oper3, AF_Write);
-
-            changed |= SetUnion(live_sets[i].live_in, live_sets[i].live_out, writes, 3);
+#endif
 
             if (((instr->flags & IF_FallsThrough) != 0) && next_instr)
             {
@@ -2341,6 +2345,7 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
             interval->name = name_dt.name;
             interval->reg = name_dt.fixed_reg;
             interval->data_type = name_dt.data_type;
+            interval->is_fixed = (name_dt.fixed_reg.reg_index != REG_NONE);
             hashtable::Put(live_intervals, name_dt.name, interval);
         }
         for (s64 i = 0; i < sets.live_in.count; i++)
@@ -2361,6 +2366,7 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
             interval->name = name_dt.name;
             interval->reg = name_dt.fixed_reg;
             interval->data_type = name_dt.data_type;
+            interval->is_fixed = (name_dt.fixed_reg.reg_index != REG_NONE);
             hashtable::Put(live_intervals, name_dt.name, interval);
         }
     }
@@ -2590,7 +2596,7 @@ static b32 SetRegOperand(Array<Live_Interval> active, Operand *oper, Name oper_n
     return false;
 }
 
-static b32 SetRegOperand(Codegen_Context *ctx,
+static b32 SetOperand(Codegen_Context *ctx,
         Array<Live_Interval> active, Array<Live_Interval> active_f,
         Operand *oper, s64 instr_index)
 {
@@ -2603,13 +2609,15 @@ static b32 SetRegOperand(Codegen_Context *ctx,
     if (GetLocalOffset(ctx, oper_name, &offs))
     {
         *oper = BaseOffsetOperand(REG_rbp, offs, oper->access_flags);
-        //INVALID_CODE_PATH;
+        fprintf(stderr, "Local offset %" PRId64 " for ", offs);
+        PrintName((IoFile*)stderr, oper_name);
+        fprintf(stderr, " at %" PRId64 "\n", instr_index);
     }
     else
     {
         fprintf(stderr, "No local offset for ");
         PrintName((IoFile*)stderr, oper_name);
-        fprintf(stderr, "\n");
+        fprintf(stderr, " at %" PRId64 "\n", instr_index);
         //INVALID_CODE_PATH;
     }
     return false;
@@ -2619,7 +2627,7 @@ static void SpillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active, 
 {
     for (s64 i = 0; i < active.count; i++)
     {
-        if (IsCallerSave(reg_alloc, active[i].reg))
+        if (!active[i].is_fixed && IsCallerSave(reg_alloc, active[i].reg))
         {
             Spill(active[i], instr_index);
         }
@@ -2630,7 +2638,7 @@ static void UnspillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active
 {
     for (s64 i = 0; i < active.count; i++)
     {
-        if (IsCallerSave(reg_alloc, active[i].reg))
+        if (!active[i].is_fixed && IsCallerSave(reg_alloc, active[i].reg))
         {
             Unspill(active[i], instr_index);
         }
@@ -2644,6 +2652,7 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
     for (s64 instr_i = interval_start; instr_i <= next_interval_start; instr_i++)
     {
+        fprintf(stderr, "scanning instr %" PRId64 "\n", instr_i);
         Instruction *instr = routine->instructions[instr_i];
         if ((Amd64_Opcode)instr->opcode == OP_call)
         {
@@ -2652,9 +2661,9 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
             UnspillCallerSaves(reg_alloc, active, instr_i + 1);
             UnspillCallerSaves(reg_alloc, active_f, instr_i + 1);
         }
-        SetRegOperand(ctx, active, active_f, &instr->oper1, instr_i);
-        SetRegOperand(ctx, active, active_f, &instr->oper2, instr_i);
-        SetRegOperand(ctx, active, active_f, &instr->oper3, instr_i);
+        SetOperand(ctx, active, active_f, &instr->oper1, instr_i);
+        SetOperand(ctx, active, active_f, &instr->oper2, instr_i);
+        SetOperand(ctx, active, active_f, &instr->oper3, instr_i);
     }
 }
 
@@ -2684,7 +2693,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Array<Live_Interval> l
     for (s64 i = 0; i < live_intervals.count; i++)
     {
         Live_Interval interval = live_intervals[i];
-        s64 next_interval_start = interval.start;
+        s64 next_interval_start = 0; //interval.start;
         if (i + 1 < live_intervals.count)
             next_interval_start = live_intervals[i + 1].start;
 
@@ -2730,11 +2739,15 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Array<Live_Interval> l
                 interval.start, next_interval_start);
 
         last_interval_start = interval.start;
-        last_interval_end = interval.end;
+        if (interval.end > last_interval_end)
+            last_interval_end = interval.end;
     }
 
     ScanInstructions(ctx, routine, active, active_f,
             last_interval_start, last_interval_end);
+
+    //ScanInstructions(ctx, routine, active, active_f,
+    //        last_interval_start, last_interval_end);
 
     InsertSpills(ctx);
 }
@@ -2942,7 +2955,7 @@ static s64 PrintIrOperand(IoFile *file, Ir_Operand oper)
             len += fprintf((FILE*)file, "_");
             break;
         case IR_OPER_Variable:
-            len += fprintf((FILE*)file, "%%");
+            //len += fprintf((FILE*)file, "%%");
             len += PrintName(file, oper.var.name);
             break;
         case IR_OPER_Temp:
