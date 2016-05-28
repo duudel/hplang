@@ -37,7 +37,7 @@ run:
 	@#-./$(EXENAME) samples/factorial.hp
 	@#-./$(EXENAME) samples/nbody.hp
 	@#-./$(EXENAME) samples/simple.hp
-	-./$(EXENAME) samples/hello.hp
+	-./$(EXENAME) samples/hello.hp 2> stderr.out
 	-./compile_out.sh
 
 

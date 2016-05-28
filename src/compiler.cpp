@@ -320,7 +320,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         return true;
     }
 
-    const char *asm_filename = "./out.s";
+    const char *asm_filename = "out.s";
     FILE *asm_file = fopen(asm_filename, "w");
     if (!asm_file)
     {

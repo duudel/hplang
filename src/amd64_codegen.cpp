@@ -12,81 +12,104 @@
 namespace hplang
 {
 
+enum Opcode_Mod
+{
+    NO_MOD = 0,
+    O1_REG = 0x01,
+    O1_MEM = 0x02,
+    O1_RM = O1_REG | O1_MEM,
+    O1_IMM = 0x04,
+
+    O2_REG = 0x08,
+    O2_MEM = 0x10,
+    O2_RM = O2_REG | O2_MEM,
+    O2_IMM = 0x20,
+
+    O3_REG = 0x0040,
+    O3_MEM = 0x0080,
+    O3_RM = O3_REG | O3_MEM,
+    O3_IMM = 0x0100,
+};
+
 // Disabled or non-valid instruction opcode
-#define PASTE_OP_D(x)
+#define PASTE_OP_D(x, mods)
+
+// NOTE(henrik): Do we want (comiss and comisd) or (ucomiss and ucomisd)?
 
 // NOTE(henrik): Conditional move opcode cmovg is not valid when the operands
 // are 64 bit wide. The condition "cmovg a, b" can be replaced with "cmovl b, a".
 #define OPCODES\
-    PASTE_OP(LABEL)\
+    PASTE_OP(LABEL,     NO_MOD)\
     \
-    PASTE_OP(call)\
-    PASTE_OP(ret)\
-    PASTE_OP(jmp)\
-    PASTE_OP(je)\
-    PASTE_OP(jne)\
-    PASTE_OP(jb)\
-    PASTE_OP(jbe)\
-    PASTE_OP(ja)\
-    PASTE_OP(jae)\
-    PASTE_OP(jl)\
-    PASTE_OP(jle)\
-    PASTE_OP(jg)\
-    PASTE_OP(jge)\
+    PASTE_OP(nop,       NO_MOD)\
     \
-    PASTE_OP(cmp)\
-    PASTE_OP(comiss)\
-    PASTE_OP(comisd)\
+    PASTE_OP(call,      NO_MOD)\
+    PASTE_OP(ret,       NO_MOD)\
+    PASTE_OP(jmp,       NO_MOD)\
+    PASTE_OP(je,        NO_MOD)\
+    PASTE_OP(jne,       NO_MOD)\
+    PASTE_OP(jb,        NO_MOD)\
+    PASTE_OP(jbe,       NO_MOD)\
+    PASTE_OP(ja,        NO_MOD)\
+    PASTE_OP(jae,       NO_MOD)\
+    PASTE_OP(jl,        NO_MOD)\
+    PASTE_OP(jle,       NO_MOD)\
+    PASTE_OP(jg,        NO_MOD)\
+    PASTE_OP(jge,       NO_MOD)\
     \
-    PASTE_OP(lea)\
-    PASTE_OP(mov)\
-    PASTE_OP(movss)\
-    PASTE_OP(movsd)\
+    PASTE_OP(cmp,       O1_REG | O2_REG | O2_IMM)\
+    PASTE_OP(comiss,    O1_REG | O2_RM)\
+    PASTE_OP(comisd,    O1_REG | O2_RM)\
     \
-    PASTE_OP(cmove)\
-    PASTE_OP(cmovne)\
-    PASTE_OP(cmova)\
-    PASTE_OP(cmovae)\
-    PASTE_OP(cmovb)\
-    PASTE_OP(cmovbe)\
-    PASTE_OP(cmovl)\
-    PASTE_OP(cmovle)\
-    PASTE_OP_D(cmovg)\
-    PASTE_OP(cmovge)\
+    PASTE_OP(lea,       O1_REG | O2_MEM)\
+    PASTE_OP(mov,       O1_RM | O2_RM | O2_IMM)\
+    PASTE_OP(movss,     O1_RM | O2_RM)\
+    PASTE_OP(movsd,     O1_RM | O2_RM)\
     \
-    PASTE_OP(add)\
-    PASTE_OP(sub)\
-    PASTE_OP(mul)\
-    PASTE_OP(imul)\
-    PASTE_OP(div)\
-    PASTE_OP(idiv)\
-    PASTE_OP(and)\
-    PASTE_OP(or)\
-    PASTE_OP(xor)\
-    PASTE_OP(neg)\
-    PASTE_OP(not)\
+    PASTE_OP(cmove,     O1_REG | O2_RM)\
+    PASTE_OP(cmovne,    O1_REG | O2_RM)\
+    PASTE_OP(cmova,     O1_REG | O2_RM)\
+    PASTE_OP(cmovae,    O1_REG | O2_RM)\
+    PASTE_OP(cmovb,     O1_REG | O2_RM)\
+    PASTE_OP(cmovbe,    O1_REG | O2_RM)\
+    PASTE_OP(cmovl,     O1_REG | O2_RM)\
+    PASTE_OP(cmovle,    O1_REG | O2_RM)\
+    PASTE_OP_D(cmovg,   O1_REG | O2_RM)\
+    PASTE_OP(cmovge,    O1_REG | O2_RM)\
     \
-    PASTE_OP(addss)\
-    PASTE_OP(subss)\
-    PASTE_OP(mulss)\
-    PASTE_OP(divss)\
-    PASTE_OP(addsd)\
-    PASTE_OP(subsd)\
-    PASTE_OP(mulsd)\
-    PASTE_OP(divsd)\
+    PASTE_OP(add,       O1_REG | O2_RM | O2_IMM)\
+    PASTE_OP(sub,       O1_REG | O2_RM | O2_IMM)\
+    PASTE_OP(mul,       O1_RM)\
+    PASTE_OP(imul,      O1_REG | O2_RM)\
+    PASTE_OP(div,       O1_RM)\
+    PASTE_OP(idiv,      O1_RM)\
+    PASTE_OP(and,       O1_REG | O2_RM | O2_IMM)\
+    PASTE_OP(or,        O1_REG | O2_RM | O2_IMM)\
+    PASTE_OP(xor,       O1_REG | O2_RM | O2_IMM)\
+    PASTE_OP(neg,       O1_REG)\
+    PASTE_OP(not,       O1_REG)\
     \
-    PASTE_OP(push)\
-    PASTE_OP(pop)\
+    PASTE_OP(addss,     O1_REG | O2_REG)\
+    PASTE_OP(subss,     O1_REG | O2_REG)\
+    PASTE_OP(mulss,     O1_REG | O2_REG)\
+    PASTE_OP(divss,     O1_REG | O2_REG)\
+    PASTE_OP(addsd,     O1_REG | O2_REG)\
+    PASTE_OP(subsd,     O1_REG | O2_REG)\
+    PASTE_OP(mulsd,     O1_REG | O2_REG)\
+    PASTE_OP(divsd,     O1_REG | O2_REG)\
     \
-    PASTE_OP(cvtsi2ss)\
-    PASTE_OP(cvtsi2sd)\
-    PASTE_OP(cvtss2si)\
-    PASTE_OP(cvtsd2si)\
-    PASTE_OP(cvtss2sd)\
-    PASTE_OP(cvtsd2ss)\
+    PASTE_OP(push,      O1_REG)\
+    PASTE_OP(pop,       O1_REG)\
+    \
+    PASTE_OP(cvtsi2ss,  O1_REG | O2_REG)\
+    PASTE_OP(cvtsi2sd,  O1_REG | O2_REG)\
+    PASTE_OP(cvtss2si,  O1_REG | O2_REG)\
+    PASTE_OP(cvtsd2si,  O1_REG | O2_REG)\
+    PASTE_OP(cvtss2sd,  O1_REG | O2_REG)\
+    PASTE_OP(cvtsd2ss,  O1_REG | O2_REG)\
 
 
-#define PASTE_OP(x) OP_##x,
+#define PASTE_OP(x, mods) OP_##x,
 enum Amd64_Opcode
 {
     OPCODES
@@ -94,7 +117,7 @@ enum Amd64_Opcode
 #undef PASTE_OP
 
 
-#define PASTE_OP(x) #x,
+#define PASTE_OP(x, mods) #x,
 const char *opcode_names[] = {
     OPCODES
 };
@@ -797,6 +820,13 @@ static Operand IndexScaleOperand(Ir_Operand *index, s64 scale, Oper_Access_Flags
     return IndexScaleOperand(index_oper, scale, access_flags);
 }
 
+static inline void MakeNop(Instruction *instr)
+{
+    instr->opcode = (Opcode)OP_nop;
+    instr->oper1 = NoneOperand();
+    instr->oper2 = NoneOperand();
+    instr->oper3 = NoneOperand();
+}
 
 static inline Instruction* NewInstruction(
         Codegen_Context *ctx,
@@ -1144,13 +1174,13 @@ static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
     case IR_Gt:
         {
             // cmovg is not valid opcode for 64 bit registers/memory operands
-            // => reverse the result of cmovl.
+            // => reverse the result of cmovle.
             if (signed_or_float)
             {
                 PushInstruction(ctx, OP_mov, target, ImmOperand(true, AF_Read));
                 Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
                 PushInstruction(ctx, OP_mov, temp, ImmOperand(false, AF_Read));
-                PushInstruction(ctx, OP_cmovl, target, R_(temp));
+                PushInstruction(ctx, OP_cmovle, target, R_(temp));
             }
             else
             {
@@ -2187,6 +2217,18 @@ static b32 AddOper(Array<Name_Data_Type> &set, Operand oper, Oper_Access_Flags a
     return false;
 }
 
+static b32 AddWriteOper(Array<Name_Data_Type> &set, Operand oper)
+{
+    if ((oper.access_flags & AF_Write) != AF_Write)
+    {
+        Reg fixed_reg = { };
+        Name name = GetOperName(oper, &fixed_reg);
+        if (name.str.size != 0)
+            return SetAdd(set, name, oper.data_type, fixed_reg);
+    }
+    return false;
+}
+
 struct Live_Interval
 {
     s32 start;
@@ -2223,8 +2265,8 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
     while (changed)
     {
         changed = false;
-        //for (s64 i = 0; i < instructions.count; i++)
-        for (s64 i = instructions.count - 1; i >= 0; i--)
+        for (s64 i = 0; i < instructions.count; i++)
+        //for (s64 i = instructions.count - 1; i >= 0; i--)
         {
             Instruction *instr = instructions[i];
             Instruction *next_instr = nullptr;
@@ -2254,7 +2296,11 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
 
             changed |= SetUnion(live_sets[i].live_in, live_sets[i].live_out, writes, 3);
 
-#if 1
+#if 0
+            changed |= AddWriteOper(live_sets[i].live_out, instr->oper1);
+            changed |= AddWriteOper(live_sets[i].live_out, instr->oper2);
+            changed |= AddWriteOper(live_sets[i].live_out, instr->oper3);
+#else
             changed |= AddOper(live_sets[i].live_out, instr->oper1, AF_Write);
             changed |= AddOper(live_sets[i].live_out, instr->oper2, AF_Write);
             changed |= AddOper(live_sets[i].live_out, instr->oper3, AF_Write);
@@ -2381,12 +2427,16 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
 }
 #endif
 
-static void ExpireOldIntervals(Codegen_Context *ctx, Array<Live_Interval> &active, Live_Interval interval)
+static void ExpireOldIntervals(Codegen_Context *ctx,
+        Array<Live_Interval> &active, Live_Interval interval,
+        s64 instr_index)
 {
+    (void)interval;
     for (s64 i = 0; i < active.count; i++)
     {
         Live_Interval active_interval = active[i];
-        if (active_interval.end >= interval.start)
+        if (active_interval.end >= instr_index)
+        //if (active_interval.end >= interval.start)
             return;
         array::Erase(active, i);
         if (IsFloatRegister(ctx->reg_alloc, active_interval.reg))
@@ -2563,10 +2613,53 @@ static b32 SetOperand(Codegen_Context *ctx,
     s64 offs;
     if (GetLocalOffset(ctx, oper_name, &offs))
     {
+        //Reg free_reg = GetFreeRegister(ctx->reg_alloc, oper->data_type);
+
+        /*
+        Array<Live_Interval> *active_intervals =
+            (oper->data_type == Oper_Data_Type::F32 ||
+            oper->data_type == Oper_Data_Type::F64) ? &active_f : &active;
+        //if (free_reg.reg_index == REG_NONE)
+        {
+            Live_Interval &active_interval = (*active_intervals)[0];
+            Live_Interval interval = active_interval;
+
+            Spill(interval, instr_index);
+
+            //active_interval.reg = active_interval.reg;
+            active_interval.name = oper_name;
+            Unspill(active_interval, instr_index);
+            SetRegOperand(*active_intervals, oper, oper_name);
+
+            Unspill(interval, instr_index + 1);
+
+            active_interval = interval;
+        }
+        else
+        {
+            Live_Interval interval = { };
+            interval.start = instr_index;
+            interval.end = instr_index + 3;
+            interval.name = oper_name;
+            interval.reg = free_reg;
+            AddToActive(*active_intervals, interval);
+
+            Unspill(interval, instr_index);
+
+            if (!SetRegOperand(*active_intervals, oper, oper_name))
+                INVALID_CODE_PATH;
+
+            //Live_Interval interval = { };
+            //interval.start = ;
+            //interval.reg = free_reg;
+            //interval.name = oper_name;
+            //AddToActive(*active_interval, interval);
+        }*/
+
         *oper = BaseOffsetOperand(REG_rbp, offs, oper->access_flags);
-        fprintf(stderr, "Local offset %" PRId64 " for ", offs);
-        PrintName((IoFile*)stderr, oper_name);
-        fprintf(stderr, " at %" PRId64 "\n", instr_index);
+        //fprintf(stderr, "Local offset %" PRId64 " for ", offs);
+        //PrintName((IoFile*)stderr, oper_name);
+        //fprintf(stderr, " at %" PRId64 "\n", instr_index);
     }
     else
     {
@@ -2600,6 +2693,24 @@ static void UnspillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active
     }
 }
 
+static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
+        Array<Live_Interval> active, Array<Live_Interval> active_f,
+        s64 instr_i)
+{
+    Reg_Alloc *reg_alloc = ctx->reg_alloc;
+    Instruction *instr = routine->instructions[instr_i];
+    if ((Amd64_Opcode)instr->opcode == OP_call)
+    {
+        SpillCallerSaves(reg_alloc, active, instr_i);
+        SpillCallerSaves(reg_alloc, active_f, instr_i);
+        UnspillCallerSaves(reg_alloc, active, instr_i + 1);
+        UnspillCallerSaves(reg_alloc, active_f, instr_i + 1);
+    }
+    SetOperand(ctx, active, active_f, &instr->oper1, instr_i);
+    SetOperand(ctx, active, active_f, &instr->oper2, instr_i);
+    SetOperand(ctx, active, active_f, &instr->oper3, instr_i);
+}
+
 static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
         Array<Live_Interval> active, Array<Live_Interval> active_f,
         s64 interval_start, s64 next_interval_start)
@@ -2607,7 +2718,7 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
     for (s64 instr_i = interval_start; instr_i <= next_interval_start; instr_i++)
     {
-        fprintf(stderr, "scanning instr %" PRId64 "\n", instr_i);
+        //fprintf(stderr, "scanning instr %" PRId64 "\n", instr_i);
         Instruction *instr = routine->instructions[instr_i];
         if ((Amd64_Opcode)instr->opcode == OP_call)
         {
@@ -2628,16 +2739,6 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Array<Live_Interval> l
 
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
     ClearRegAllocs(reg_alloc);
-    //for (s64 i = 0; i < reg_alloc->general_reg_count; i++)
-    //    array::Push(reg_alloc->free_regs, reg_alloc->general_regs[i]);
-    //for (s64 i = 0; i < reg_alloc->float_reg_count; i++)
-    //    array::Push(reg_alloc->free_float_regs, reg_alloc->float_regs[i]);
-    //for (s64 i = 0; i < ir_routine->arg_count; i++)
-    //{
-    //    Ir_Operand *arg = ir_routine->args[i];
-    //    Oper_Data_Type data_type = DataTypeFromType(arg->type);
-    //    const Reg *arg_reg = GetArgRegister(reg_alloc, data_type, i);
-    //}
 
     Routine *routine = ctx->current_routine;
 
@@ -2645,15 +2746,17 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Array<Live_Interval> l
     s32 last_interval_end = 0;
     Array<Live_Interval> active = { };
     Array<Live_Interval> active_f = { };
+
     for (s64 i = 0; i < live_intervals.count; i++)
     {
         Live_Interval interval = live_intervals[i];
-        s64 next_interval_start = 0; //interval.start;
+        s64 next_interval_start = interval.end; //interval.start;
         if (i + 1 < live_intervals.count)
             next_interval_start = live_intervals[i + 1].start;
 
-        ExpireOldIntervals(ctx, active, interval);
-        ExpireOldIntervals(ctx, active_f, interval);
+        ExpireOldIntervals(ctx, active, interval, interval.start);
+        ExpireOldIntervals(ctx, active_f, interval, interval.start);
+
         if (interval.data_type == Oper_Data_Type::F32 ||
             interval.data_type == Oper_Data_Type::F64)
         {
@@ -2690,8 +2793,17 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Array<Live_Interval> l
             }
         }
 
-        ScanInstructions(ctx, routine, active, active_f,
-                interval.start, next_interval_start);
+        for (s64 instr_i = interval.start;
+            instr_i <= next_interval_start;
+            instr_i++)
+        {
+            ExpireOldIntervals(ctx, active, interval, instr_i);
+            ExpireOldIntervals(ctx, active_f, interval, instr_i);
+
+            ScanInstruction(ctx, routine, active, active_f, instr_i);
+        }
+        //ScanInstructions(ctx, routine, active, active_f,
+        //        interval.start, next_interval_start - 1);
 
         last_interval_start = interval.start;
         if (interval.end > last_interval_end)
@@ -2700,9 +2812,6 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Array<Live_Interval> l
 
     ScanInstructions(ctx, routine, active, active_f,
             last_interval_start, last_interval_end);
-
-    //ScanInstructions(ctx, routine, active, active_f,
-    //        last_interval_start, last_interval_end);
 
     InsertSpills(ctx);
 }
@@ -2742,6 +2851,34 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
     }
     PushInstruction(ctx, OP_LABEL, LabelOperand(routine->return_label.name, AF_Read));
 
+    s64 locals_size = ctx->current_routine->locals_size;
+    if (locals_size > 0)
+    {
+        locals_size = Align(locals_size, 16);
+        Operand locals_size_oper = ImmOperand(locals_size, AF_Read);
+
+        PushPrologue(ctx, OP_sub, RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write), locals_size_oper);
+        //PushEpilogue(ctx, OP_add, RegOperand(REG_rsp, AF_Write), locals_size_oper);
+        PushEpilogue(ctx, OP_mov,
+                RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write),
+                RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Read));
+    }
+    PushEpilogue(ctx, OP_pop, RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Write));
+    PushEpilogue(ctx, OP_ret);
+    
+    //IoFile *f = ctx->code_out;
+
+    //FILE *tfile = fopen("kala.s", "w");
+
+    //ctx->code_out = (IoFile*)tfile;
+    //OutputCode(ctx);
+
+    //fclose(tfile);
+
+    //ctx->code_out = f;
+    //return;
+
+
     CollectLabelInstructions(ctx, routine);
 
     Array<Live_Interval*> live_interval_set = { };
@@ -2775,21 +2912,6 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
     //AllocateRegisters(ctx, ir_routine);
 
     array::Free(live_intervals);
-
-    s64 locals_size = ctx->current_routine->locals_size;
-    if (locals_size > 0)
-    {
-        locals_size = Align(locals_size, 16);
-        Operand locals_size_oper = ImmOperand(locals_size, AF_Read);
-
-        PushPrologue(ctx, OP_sub, RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write), locals_size_oper);
-        //PushEpilogue(ctx, OP_add, RegOperand(REG_rsp, AF_Write), locals_size_oper);
-        PushEpilogue(ctx, OP_mov,
-                RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write),
-                RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Read));
-    }
-    PushEpilogue(ctx, OP_pop, RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Write));
-    PushEpilogue(ctx, OP_ret);
 }
 
 void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
@@ -2960,7 +3082,9 @@ static s64 PrintOperandV(IoFile *file, Operand oper)
     return len;
 }
 
-static s64 PrintOperand(IoFile *file, Operand oper, const Operand *next_oper, b32 first)
+static s64 PrintOperand(IoFile *file,
+        Operand oper, const Operand *next_oper,
+        b32 first, b32 lea)
 {
     if (oper.type == Oper_Type::None) return 0;
     if (oper.addr_mode == Oper_Addr_Mode::IndexScale) return 0;
@@ -2973,6 +3097,28 @@ static s64 PrintOperand(IoFile *file, Operand oper, const Operand *next_oper, b3
     if (oper.addr_mode == Oper_Addr_Mode::BaseOffset ||
         oper.addr_mode == Oper_Addr_Mode::BaseIndexOffset)
     {
+        if (!lea)
+        {
+            switch (oper.data_type)
+            {
+                case Oper_Data_Type::BOOL:
+                case Oper_Data_Type::U8:
+                case Oper_Data_Type::S8:
+                    fprintf((FILE*)file, "byte "); break;
+                case Oper_Data_Type::U16:
+                case Oper_Data_Type::S16:
+                    fprintf((FILE*)file, "word "); break;
+                case Oper_Data_Type::U32:
+                case Oper_Data_Type::S32:
+                case Oper_Data_Type::F32:
+                    fprintf((FILE*)file, "dword "); break;
+                case Oper_Data_Type::U64:
+                case Oper_Data_Type::S64:
+                case Oper_Data_Type::F64:
+                case Oper_Data_Type::PTR:
+                    fprintf((FILE*)file, "qword "); break;
+            }
+        }
         len += fprintf((FILE*)file, "[");
         len += PrintOperandV(file, oper);
     }
@@ -3056,11 +3202,12 @@ static void PrintInstruction(IoFile *file, const Instruction *instr)
 
         if (instr->oper1.type != Oper_Type::None)
         {
+            b32 lea = ((Amd64_Opcode)instr->opcode == OP_lea);
             len += PrintPadding((FILE*)file, len, 16);
             //len += fprintf((FILE*)file, "\t");
-            len += PrintOperand(file, instr->oper1, &instr->oper2, true);
-            len += PrintOperand(file, instr->oper2, &instr->oper3, false);
-            len += PrintOperand(file, instr->oper3, nullptr, false);
+            len += PrintOperand(file, instr->oper1, &instr->oper2, true, lea);
+            len += PrintOperand(file, instr->oper2, &instr->oper3, false, lea);
+            len += PrintOperand(file, instr->oper3, nullptr, false, lea);
         }
     }
     PrintComment((FILE*)file, len, instr->comment);

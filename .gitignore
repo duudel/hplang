@@ -2,4 +2,6 @@
 *.exe
 *.o
 *.swp
-out.s
+
+# generated assembly files
+*.s

@@ -249,6 +249,7 @@ const Reg_Var* GetMappedVar(Reg_Alloc *reg_alloc, Reg reg)
     return nullptr;
 }
 
+#if 0
 static Reg FreeRegister(Reg_Alloc *reg_alloc)
 {
     s64 result_idx = 0;
@@ -296,12 +297,15 @@ static Reg FreeFloatRegister(Reg_Alloc *reg_alloc)
     //reg_alloc->mapped_regs.count--;
     return result.reg;
 }
+#endif
 
 static Reg GetFreeGeneralRegister(Reg_Alloc *reg_alloc)
 {
     if (reg_alloc->free_regs.count == 0)
     {
-        return FreeRegister(reg_alloc);
+        return { };
+        //INVALID_CODE_PATH;
+        //return FreeRegister(reg_alloc);
     }
     Reg reg = array::At(reg_alloc->free_regs, reg_alloc->free_regs.count - 1);
     reg_alloc->free_regs.count--;
@@ -312,7 +316,9 @@ static Reg GetFreeFloatRegister(Reg_Alloc *reg_alloc)
 {
     if (reg_alloc->free_float_regs.count == 0)
     {
-        return FreeFloatRegister(reg_alloc);
+        return { };
+        //INVALID_CODE_PATH;
+        //return FreeFloatRegister(reg_alloc);
     }
     Reg reg = array::At(reg_alloc->free_float_regs, reg_alloc->free_float_regs.count - 1);
     reg_alloc->free_float_regs.count--;
