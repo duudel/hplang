@@ -15,8 +15,8 @@ main :: ()
     //hello := "Hello world!\n";
     //print(hello);
     print("A number ");
-    print(15);
-    //print(15);
+    print(-105);
+    //hp_fprint_int(stdout, -105);
     print("\n");
     return 0;
 }

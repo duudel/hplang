@@ -64,6 +64,8 @@ int main(int argc, char **argv)
     fprintf(stderr, "sizeof(Ir_Instruction) %lld\n", sizeof(Ir_Instruction));
     fprintf(stderr, "sizeof(Operand) %lld\n", sizeof(Operand));
     fprintf(stderr, "sizeof(Instruction) %lld\n", sizeof(Instruction));
+    fprintf(stderr, "sizeof(Oper_Data_Type) %lld\n", sizeof(Oper_Data_Type));
+    fprintf(stderr, "sizeof(Oper_Access_Flags) %lld\n", sizeof(Oper_Access_Flags));
     fflush(stderr);
     return 0;
 #endif

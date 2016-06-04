@@ -952,7 +952,6 @@ static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
         Type *type = symbol->type->function_type.parameter_types[i];
         Name name = param_node->parameter.symbol->unique_name;
         func_routine->args[i] = NewVariableRef(func_routine, type, name);
-        //func_routine->args[i] = NewVariableRef(func_routine, type, param_node->parameter.name);
     }
     GenIr(ctx, node->function.body, func_routine);
 }

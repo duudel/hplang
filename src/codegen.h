@@ -32,11 +32,11 @@ enum class Oper_Type : u8
 {
     None,
     Register,
+    VirtualRegister,
+    FixedRegister,
     Immediate,
     Label,
-    Temp,
-    FixedRegister,
-    IrOperand,
+//    StringConst,
 };
 
 enum class Oper_Data_Type : u8
@@ -68,14 +68,15 @@ struct Label
     Name name;
 };
 
-struct Temp
-{
-    Name name;
-};
-
+// Physical register
 struct Fixed_Reg
 {
     Reg reg;
+    Name name;
+};
+
+struct Virtual_Reg
+{
     Name name;
 };
 
@@ -100,9 +101,9 @@ struct Operand
     union {
         Reg         reg;
         Fixed_Reg   fixed_reg;
-        Temp        temp;
+        Virtual_Reg virtual_reg;
         Label       label;
-        Ir_Operand *ir_oper;
+        //String      string_const;
         union {
             void *imm_ptr;
             bool imm_bool;
@@ -130,6 +131,12 @@ enum Instr_Flag_Bits
 
 typedef Flag<Instr_Flag_Bits, u8> Instr_Flags;
 
+struct Operand_Use
+{
+    Operand oper;
+    Operand_Use *next;
+};
+
 struct Instruction
 {
     Opcode opcode;
@@ -138,6 +145,7 @@ struct Instruction
     Operand oper3;
     Ir_Comment comment;
     Instr_Flags flags;
+    Operand_Use *uses;
 };
 
 typedef Array<Instruction*> Instruction_List;
@@ -166,6 +174,8 @@ struct Routine
     Label return_label;
 
     Array<Label_Instr*> labels;
+
+    Ir_Routine *ir_routine;
 
     Instruction_List instructions;
     Instruction_List prologue;

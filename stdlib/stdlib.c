@@ -33,10 +33,10 @@ s64 hp_fprint_int(FILE *file, s64 x)
 //{ return fprintf(stdout, "%" PRId64, x); }
 {
     if (x == 0) return printf("0");
+    int neg = (x < 0);
+    x = (neg ? -x : x);
 
     s64 val = x;
-    int neg = (val < 0);
-    val = (neg ? -val : val);
     s64 magnitude = 1;
     while (val > 0)
     {
@@ -47,7 +47,7 @@ s64 hp_fprint_int(FILE *file, s64 x)
 
     s64 written = 0;
     if (neg) written += printf("-");
-    while (x > 0)
+    while (magnitude > 0)
     {
         s64 y = x / magnitude;
         x -= y * magnitude;

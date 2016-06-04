@@ -36,10 +36,10 @@ println :: () : s64
 print :: (x : s64) : s64
 {
     if (x == 0)  return print("0");
+    neg := x < 0;
+    x = (neg ? -x : x);
 
     val := x;
-    neg := val < 0;
-    val = (neg ? -val : val);
     magnitude := 1;
     while (val > 0)
     {
@@ -50,12 +50,16 @@ print :: (x : s64) : s64
 
     written : s64 = 0;
     if neg  written += print("-");
-    while (x > 0)
+    while (magnitude > 0)
     {
         y := x / magnitude;
         x -= y * magnitude;
         magnitude /= 10;
+        //hp_fprint_int(stdout, y);
+        //print("; ");
         c : u8 = (('0' -> u8) + y) -> u8;
+        //c := ('0' -> u8);
+        //c += y -> u8;
         written += hp_fwrite(stdout, 1, &c);
     }
     return written;
