@@ -57,9 +57,9 @@ print :: (x : s64) : s64
         magnitude /= 10;
         //hp_fprint_int(stdout, y);
         //print("; ");
-        c : u8 = (('0' -> u8) + y) -> u8;
-        //c := ('0' -> u8);
-        //c += y -> u8;
+        //c : u8 = (('0' -> u8) + y) -> u8;
+        c := ('0' -> u8);
+        c += y -> u8;
         written += hp_fwrite(stdout, 1, &c);
     }
     return written;

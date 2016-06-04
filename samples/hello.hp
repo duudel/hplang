@@ -11,6 +11,10 @@ print :: (str : string)
 
 main :: ()
 {
+    //hp_fprint_int(stdout, 10 / -5);
+    //print("\n");
+    //hp_fprint_int(stdout, -10 / 5);
+    //return 0;
     print("Hello world!\n");
     //hello := "Hello world!\n";
     //print(hello);

@@ -77,6 +77,8 @@ enum Opcode_Mod
     PASTE_OP_D(cmovg,   O1_REG | O2_RM)\
     PASTE_OP(cmovge,    O1_REG | O2_RM)\
     \
+    PASTE_OP(cqo,       NO_MOD)\
+    \
     PASTE_OP(add,       O1_REG | O2_RM | O2_IMM)\
     PASTE_OP(sub,       O1_REG | O2_RM | O2_IMM)\
     PASTE_OP(mul,       O1_RM)\
@@ -1300,8 +1302,9 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                 Operand rax = FixedRegOperand(ctx, REG_rax, AF_Read);
                 Operand rdx = FixedRegOperand(ctx, REG_rdx, AF_Read);
                 Operand temp = TempOperand(ctx, Oper_Data_Type::S64, AF_Write);
-                PushZeroReg(ctx, rdx);
+                //PushZeroReg(ctx, rdx);
                 PushLoad(ctx, W_(rax), IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_cqo, S_(W_(rdx))); // Sign extend rax to rdx:rax
                 PushLoad(ctx, temp, IrOperand(ctx, &ir_instr->oper2, AF_Read));
                 PushInstruction(ctx, OP_idiv, R_(temp), S_(RW_(rax)), S_(RW_(rdx)));
 #if UNSPILL_P_1
@@ -1337,8 +1340,9 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                 Operand rax = FixedRegOperand(ctx, REG_rax, AF_Read);
                 Operand rdx = FixedRegOperand(ctx, REG_rdx, AF_Read);
                 Operand temp = TempOperand(ctx, Oper_Data_Type::S64, AF_Write);
-                PushZeroReg(ctx, rdx);
+                //PushZeroReg(ctx, rdx);
                 PushLoad(ctx, W_(rax), IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_cqo, S_(W_(rdx))); // Sign extend rax to rdx:rax
                 PushLoad(ctx, temp, IrOperand(ctx, &ir_instr->oper2, AF_Read));
                 PushInstruction(ctx, OP_idiv, R_(temp), S_(RW_(rax)), S_(RW_(rdx)));
                 PushLoad(ctx, IrOperand(ctx, &ir_instr->target, AF_Write), R_(rdx));
@@ -1633,6 +1637,7 @@ static void GenerateCode(Codegen_Context *ctx,
         case IR_Addr:
             {
                 Operand addr_oper = GetAddress(ctx, &ir_instr->oper1);
+                PushLoad(ctx, W_(addr_oper), IrOperand(ctx, &ir_instr->oper1, AF_Read));
                 PushLoadAddr(ctx,
                         IrOperand(ctx, &ir_instr->target, AF_Write),
                         R_(addr_oper));
@@ -2676,7 +2681,8 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
 
         spill.start = interval.end + 1;
         //if (spill.end > interval.end)
-        if (spill.end >= spill.start)
+        if (spill.end > spill.start)
+        //if (spill.end >= spill.start)
         {
 #if UNSPILL_P_1
             Unspill(spill, spill.start + 1);
@@ -2764,11 +2770,13 @@ static b32 SetOperand(Codegen_Context *ctx,
             //AddToActive(*active_interval, interval);
         }
 #endif
+        //if (instr_index == 88)
+        //    INVALID_CODE_PATH;
 
         *oper = BaseOffsetOperand(REG_rbp, offs, oper->access_flags);
-        //fprintf(stderr, "Local offset %" PRId64 " for ", offs);
-        //PrintName((IoFile*)stderr, oper_name);
-        //fprintf(stderr, " at %" PRId64 "\n", instr_index);
+        fprintf(stderr, "Local offset %" PRId64 " for ", offs);
+        PrintName((IoFile*)stderr, oper_name);
+        fprintf(stderr, " at %" PRId64 "\n", instr_index);
     }
     else
     {
@@ -2934,13 +2942,13 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Array<Live_Interval> l
         }
 
         for (s64 instr_i = interval.start;
-            instr_i <= next_interval_start;
+            instr_i < next_interval_start;
             instr_i++)
         {
+            ScanInstruction(ctx, routine, active, active_f, instr_i);
+
             ExpireOldIntervals(ctx, active, interval, instr_i);
             ExpireOldIntervals(ctx, active_f, interval, instr_i);
-
-            ScanInstruction(ctx, routine, active, active_f, instr_i);
         }
         //ScanInstructions(ctx, routine, active, active_f,
         //        interval.start, next_interval_start - 1);
@@ -2994,20 +3002,11 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
         PushInstruction(ctx, OP_call, main_label);
     }
     PushInstruction(ctx, OP_LABEL, LabelOperand(routine->return_label.name, AF_Read));
+}
 
-    //IoFile *f = ctx->code_out;
-
-    //FILE *tfile = fopen("kala.s", "w");
-
-    //ctx->code_out = (IoFile*)tfile;
-    //OutputCode(ctx);
-
-    //fclose(tfile);
-
-    //ctx->code_out = f;
-    //return;
-
-
+static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
+{
+    Routine *routine = ctx->current_routine;
     CollectLabelInstructions(ctx, routine);
 
     Array<Live_Interval*> live_interval_set = { };
@@ -3027,20 +3026,11 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
         }
         array::Insert(live_intervals, index, *interval);
     }
-
-    //fprintf(stderr, "live set: %" PRId64 "\n", live_interval_set.count);
-    //for (s64 i = 0; i < live_intervals.count; i++)
-    //{
-    //    Live_Interval interval = live_intervals[i];
-    //    fprintf(stderr, "[%d,%d]\n", interval.start, interval.end);
-    //}
-
-    array::Free(live_interval_set);
+    //array::Free(live_interval_set);
 
     LinearScanRegAllocation(ctx, live_intervals);
-    //AllocateRegisters(ctx, ir_routine);
 
-    array::Free(live_intervals);
+    //array::Free(live_intervals);
     
     s64 locals_size = ctx->current_routine->locals_size;
     if (locals_size > 0)
@@ -3065,7 +3055,24 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
     for (s64 i = 0; i < ir_routines.count; i++)
     {
         ctx->current_routine = &ctx->routines[i];
-        GenerateCode(ctx, array::At(ir_routines, i));
+        GenerateCode(ctx, ir_routines[i]);
+    }
+
+    IoFile *f = ctx->code_out;
+
+    FILE *tfile = fopen("out_.s", "w");
+
+    ctx->code_out = (IoFile*)tfile;
+    OutputCode(ctx);
+
+    fclose(tfile);
+
+    ctx->code_out = f;
+
+    for (s64 i = 0; i < ir_routines.count; i++)
+    {
+        ctx->current_routine = &ctx->routines[i];
+        AllocateRegisters(ctx, ir_routines[i]);
     }
 }
 

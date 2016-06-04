@@ -36,8 +36,8 @@ s64 hp_fprint_int(FILE *file, s64 x)
     int neg = (x < 0);
     x = (neg ? -x : x);
 
-    s64 val = x;
-    s64 magnitude = 1;
+    u64 val = x;
+    u64 magnitude = 1;
     while (val > 0)
     {
         val /= 10;
