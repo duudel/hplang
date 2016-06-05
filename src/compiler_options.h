@@ -16,11 +16,13 @@ enum Compilation_Phase
 
 struct Compiler_Options
 {
+    const char *output_filename;
     s64 max_error_count;
     s64 max_line_arrow_error_count;
     Compilation_Phase stop_after;
 
     b32 diagnose_memory;
+    b32 debug_ir;
 };
 
 Compiler_Options DefaultCompilerOptions();

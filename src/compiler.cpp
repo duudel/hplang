@@ -225,7 +225,7 @@ s64 Invoke(const char *command, const char **args, s64 arg_count)
     {
         len += snprintf(buf + len, buf_size - len, " %s", args[i]);
     }
-    fprintf(stderr, "Invoking: %s\n", buf);
+    //fprintf(stderr, "Invoking: %s\n", buf);
     return system(buf);
 }
 
@@ -309,7 +309,9 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     Ir_Gen_Context ir_ctx = NewIrGenContext(ctx);
 
     GenIr(&ir_ctx);
-    PrintIr(ctx->error_ctx.file, &ir_ctx);
+
+    if (ctx->options.debug_ir)
+        PrintIr(ctx->error_ctx.file, &ir_ctx);
 
     PrintMemoryDiagnostic(ctx);
 
@@ -339,25 +341,30 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     FreeIrGenContext(&ir_ctx);
     FreeCodegenContext(&cg_ctx);
 
+#if 1
     //Invoke("compile_out.sh", nullptr, 0);
 
-    //const char *obj_filename = "./out.o";
-    //const char *nasm_args[] = {"-fwin64", "-o", obj_filename, "--", asm_filename};
-    //if (Invoke("nasm", nasm_args, array_length(nasm_args)) != 0)
-    //{
-    //    fprintf((FILE*)ctx->error_ctx.file, "Could not write assemble the file '%s'\n",
-    //            asm_filename);
-    //    return false;
-    //}
+    const char *obj_filename = "out.o";
+    const char *nasm_args[] = {"-fwin64", "-o", obj_filename, "--", asm_filename};
+    if (Invoke("nasm", nasm_args, array_length(nasm_args)) != 0)
+    {
+        fprintf((FILE*)ctx->error_ctx.file, "Could not write assemble the file '%s'\n",
+                asm_filename);
+        return false;
+    }
 
-    //const char *exe_filename = "./out.exe";
-    //const char *gcc_args[] = {"-o", exe_filename, obj_filename};
-    //if (Invoke("gcc", gcc_args, array_length(gcc_args)) != 0)
-    //{
-    //    fprintf((FILE*)ctx->error_ctx.file, "Could not link the file '%s'\n",
-    //            obj_filename);
-    //    return false;
-    //}
+    // TODO(henrik): derive the default output filenames from the source filename:
+    // samples/factorial.hp -> samples/factorial.exe
+    const char *bin_filename = ctx->options.output_filename;
+    if (!bin_filename) bin_filename = "out";
+    const char *gcc_args[] = {"-Lstdlib", "-o", bin_filename, obj_filename, "-lstdlib"};
+    if (Invoke("gcc", gcc_args, array_length(gcc_args)) != 0)
+    {
+        fprintf((FILE*)ctx->error_ctx.file, "Could not link the file '%s'\n",
+                obj_filename);
+        return false;
+    }
+#endif
 
     ctx->result = RES_OK;
     return true;

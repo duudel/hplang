@@ -1518,6 +1518,9 @@ static s64 PushArgs(Codegen_Context *ctx,
                     PushLoad(ctx,
                             arg_oper,
                             R_(GetAddress(ctx, &arg_instr->target)));
+                    //PushLoadAddr(ctx,
+                    //        arg_oper,
+                    //        R_(GetAddress(ctx, &arg_instr->target)));
                     PushOperandUse(ctx, &use, arg_oper);
                 }
                 else
@@ -1533,9 +1536,11 @@ static s64 PushArgs(Codegen_Context *ctx,
             {
                 if (arg_type->size > 8)
                 {
-                    PushLoadAddr(ctx,
+                    Operand temp = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                    PushLoadAddr(ctx, W_(temp), R_(GetAddress(ctx, &arg_instr->target)));
+                    PushLoad(ctx,
                             BaseOffsetOperand(REG_rsp, arg_index * 8, AF_Write),
-                            R_(GetAddress(ctx, &arg_instr->target)));
+                            R_(temp));
                 }
                 else
                 {
@@ -2432,7 +2437,7 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
         }
     }
 
-#if 1
+#if DEBUG_LIVENESS
     fprintf(stderr, "\n--Live in/out-- ");
     PrintName((IoFile*)stderr, routine->name);
     fprintf(stderr, "\n");
@@ -2460,9 +2465,7 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
         fprintf(stderr, "\n");
     }
     fprintf(stderr, "--Live in/out end--\n");
-#endif
 
-#if 1
     fprintf(stderr, "\n--Live intervals-- ");
     PrintName((IoFile*)stderr, routine->name);
     fprintf(stderr, "\n");
@@ -2572,9 +2575,9 @@ static void InsertSpills(Codegen_Context *ctx)
         s64 count_old = routine->instructions.count;
         if (spill_info.is_spill)
         {
-            fprintf(stderr, "Insert spill of ");
-            PrintName((IoFile*)stderr, spill_info.spill.name);
-            fprintf(stderr, " before instr %" PRId64 "\n", index);
+            //fprintf(stderr, "Insert spill of ");
+            //PrintName((IoFile*)stderr, spill_info.spill.name);
+            //fprintf(stderr, " before instr %" PRId64 "\n", index);
             InsertLoad(ctx, routine->instructions, index,
                     BaseOffsetOperand(REG_rbp, offs, AF_Write),
                     RegOperand(spill_info.spill.reg, spill_info.spill.data_type, AF_Read));
@@ -2586,7 +2589,6 @@ static void InsertSpills(Codegen_Context *ctx)
                     BaseOffsetOperand(REG_rbp, offs, AF_Read));
         }
         idx_offset += routine->instructions.count - count_old;
-        //idx_offset++;
     }
 }
 
@@ -2667,6 +2669,7 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
 
         //ASSERT(!spill.is_fixed);
 
+#if 0
         fprintf(stderr, "Spilled ");
         PrintName((IoFile*)stderr, spill.name);
         fprintf(stderr, " in reg ");
@@ -2675,7 +2678,9 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
 
         s64 offs = GetLocalOffset(ctx, spill.name);
         fprintf(stderr, " at offset %" PRId64 "\n", offs);
+#endif
 
+        GetLocalOffset(ctx, spill.name);
         array::Erase(active, spill_i);
         AddToActive(active, interval);
 
@@ -2770,20 +2775,22 @@ static b32 SetOperand(Codegen_Context *ctx,
             //AddToActive(*active_interval, interval);
         }
 #endif
-        //if (instr_index == 88)
-        //    INVALID_CODE_PATH;
 
         *oper = BaseOffsetOperand(REG_rbp, offs, oper->access_flags);
+#if 0
         fprintf(stderr, "Local offset %" PRId64 " for ", offs);
         PrintName((IoFile*)stderr, oper_name);
         fprintf(stderr, " at %" PRId64 "\n", instr_index);
+#endif
     }
     else
     {
+#if 0
         fprintf(stderr, "No local offset for ");
         PrintName((IoFile*)stderr, oper_name);
         fprintf(stderr, " at %" PRId64 "\n", instr_index);
         //INVALID_CODE_PATH;
+#endif
     }
     return false;
 }
@@ -2866,7 +2873,6 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
     for (s64 instr_i = interval_start; instr_i <= next_interval_start; instr_i++)
     {
-        //fprintf(stderr, "scanning instr %" PRId64 "\n", instr_i);
         Instruction *instr = routine->instructions[instr_i];
         if ((Amd64_Opcode)instr->opcode == OP_call)
         {
@@ -2881,7 +2887,8 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
     }
 }
 
-static void LinearScanRegAllocation(Codegen_Context *ctx, Array<Live_Interval> live_intervals)
+static void LinearScanRegAllocation(Codegen_Context *ctx,
+        Array<Live_Interval> &live_intervals)
 {
     array::Clear(spills);
 
@@ -3026,11 +3033,11 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
         }
         array::Insert(live_intervals, index, *interval);
     }
-    //array::Free(live_interval_set);
+    array::Free(live_interval_set);
 
     LinearScanRegAllocation(ctx, live_intervals);
 
-    //array::Free(live_intervals);
+    array::Free(live_intervals);
     
     s64 locals_size = ctx->current_routine->locals_size;
     if (locals_size > 0)

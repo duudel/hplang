@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <cinttypes>
+#include <cstdlib> // for system()
 
 FILE *nulldev;
 
@@ -231,6 +232,23 @@ s64 RunTest(Test_Context *test_ctx, const Test &test)
         if (test.test_func)
         {
             test.test_func(test_ctx, compiler_ctx);
+        }
+        if (test.stop_after == CP_CodeGen)
+        {
+            if (system("compile_out.sh") == 0)
+            {
+                int result = system("out.exe");
+                if (result != 0)
+                {
+                    fprintf(stderr, "Error executing the test '%s'\n", test.filename);
+                    failed = 1;
+                }
+            }
+            else
+            {
+                fprintf(stderr, "Error assembling and linking '%s'\n", test.filename);
+                failed = 1;
+            }
         }
     }
     else

@@ -2,12 +2,6 @@
 // 2016-05-25
 
 import "io";
-/*
-foreign { hp_write :: (size : s64, data : u8*) : s64; }
-
-print :: (str : string)
-{ return hp_write(str.size, str.data -> u8*); }
-*/
 
 main :: ()
 {

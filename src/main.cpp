@@ -10,40 +10,22 @@
 #include <cstdio>
 #include <cstring>
 
+#include "args_util.h"
+
 using namespace hplang;
 
-s64 GetArgIndex(const char *arg, int argc, char *const *argv)
-{
-    for (s64 i = 1; i < argc; i++)
-    {
-        if (strcmp(arg, argv[i]) == 0)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
 
-b32 HasArg(const char *arg, int argc, char *const *argv)
-{
-    return GetArgIndex(arg, argc, argv) != -1;
-}
-
-void PrintUsage()
+void PrintUsage(Arg_Options_Context *options_ctx)
 {
     printf("hplang [options] <source>\n");
     printf("  compile <source> into binary executable\n");
     printf("options:\n");
-    printf("  -d M \tdiagnose memory\n");
-    printf("hplang -v\n");
-    printf("  print version of the compiler\n");
-    printf("hplang -h\n");
-    printf("  print help\n");
+    PrintOptions(options_ctx);
 }
 
-void PrintHelp()
+void PrintHelp(Arg_Options_Context *options_ctx)
 {
-    printf("Not implemented yet!\n");
+    PrintUsage(options_ctx);
 }
 
 void PrintVersion()
@@ -51,6 +33,20 @@ void PrintVersion()
     printf("%s\n", GetVersionString());
     printf("Copyright (c) 2016 Henrik Paananen\n");
 }
+
+static const char *diag_args[] = {
+    "memory",
+    "ir",
+    nullptr
+};
+
+static const Arg_Option options[] = {
+    {"output", 'o', nullptr, nullptr, "Sets the output filename", "filename"},
+    {"diagnostic", 'd', diag_args, "Mi", "Selects the diagnostic options", nullptr},
+    {"help", 'h', nullptr, nullptr, "Shows this help and exits", nullptr},
+    {"version", 'v', nullptr, nullptr, "Prints the version information", nullptr},
+    { }
+};
 
 int main(int argc, char **argv)
 {
@@ -70,46 +66,83 @@ int main(int argc, char **argv)
     return 0;
 #endif
 
-    if (argc == 1)
-    {
-        PrintUsage();
-        return 0;
-    }
-
-    if (HasArg("-v", argc, argv))
-    {
-        PrintVersion();
-        return 0;
-    }
-    else if (HasArg("-h", argc, argv))
-    {
-        PrintHelp();
-        return 0;
-    }
+    Arg_Options_Context options_ctx = NewArgOptionsCtx(options, argc, argv);
+    Arg_Option_Result option_result = { };
 
     Compiler_Options options = DefaultCompilerOptions();
+    const char *source = nullptr;
 
-    s64 d_index = GetArgIndex("-d", argc, argv);
-    if (d_index != -1)
+    while (GetNextOption(&options_ctx, &option_result))
     {
-        if (d_index + 1 < argc)
+        if (option_result.unrecognized)
         {
-            const char *d_arg = argv[d_index + 1];
-            if (strcmp(d_arg, "M") != 0)
+            printf("Unrecognized option '%s', aborting...\n", option_result.unrecognized);
+            return -1;
+        }
+        if (option_result.option)
+        {
+            switch (option_result.option->short_name)
             {
-                printf("Invalid argument for -d option; must be M\n");
-                return -1;
+                case 'o':
+                {
+                    options.output_filename = option_result.arg;
+                } break;
+                case 'd':
+                {
+                    if (option_result.short_args)
+                    {
+                        const char *p = option_result.short_args;
+                        for (; p[0] != '\0'; p++) 
+                        {
+                            switch (p[0])
+                            {
+                                case 'M':
+                                    options.diagnose_memory = true;
+                                    break;
+                                case 'i':
+                                    options.debug_ir = true;
+                                    break;
+
+                                default:
+                                    printf("Unrecognized argument %c for -%c\n",
+                                            p[0], option_result.option->short_name);
+                                    return -1;
+                            }
+                        }
+                    }
+                    else if (option_result.arg)
+                    {
+                        const char *arg = option_result.arg;
+                        if (strcmp(arg, "memory") == 0)
+                            options.diagnose_memory = true;
+                        else if (strcmp(arg, "ir") == 0)
+                            options.debug_ir = true;
+                        else
+                        {
+                            printf("Unrecognized argument %s for --%s\n",
+                                    arg, option_result.option->long_name);
+                            return -1;
+                        }
+                    }
+                } break;
+
+                case 'h':
+                {
+                    PrintHelp(&options_ctx);
+                    return 0;
+                }
+                case 'v':
+                {
+                    PrintVersion();
+                    return 0;
+                }
             }
-            options.diagnose_memory = true;
         }
         else
         {
-            printf("Option -d needs argument; must be M\n");
-            return -1;
+            source = option_result.arg;
         }
     }
-
-    const char *source = argv[1];
 
     Compiler_Context compiler_ctx = NewCompilerContext(options);
 

@@ -2,13 +2,15 @@
 // 2016-03-31
 
 //io :: import "io";
-//import "io";
+import "io";
 
+/*
 FILE :: struct { }
 foreign { hp_write :: (size : s64, data : u8*) : s64; }
 foreign { hp_fprint_int :: (file : FILE*, x : s64) : s64; }
 print :: (str : string) { return hp_write(str.size, str.data -> u8*); }
 print :: (x : s64) { return hp_fprint_int(null, x); }
+*/
 
 // Recursive Fibonacci function
 fibo :: (x : s64) : s64
@@ -40,7 +42,7 @@ fibo2 :: (x : s64) : s64
 {
     a := 0;
     b := 1;
-    while (x > 1)
+    while (x > 0)
     {
         t := a;
         a = b;
@@ -65,7 +67,7 @@ main :: () : s64
     print("\n");
     print("fibo2(10) = ");
     print(fibo2(10));
-    print("\n");
+    println();
     return fibo(10);
 }
 

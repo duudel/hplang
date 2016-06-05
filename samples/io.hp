@@ -66,6 +66,12 @@ print :: (x : s64) : s64
     //return hp_fprint_int(stdout, x);
 }
 
+println :: (x : s64) : s64
+{
+    n := print(x);
+    return n + println();
+}
+
 print :: (x : f64) : s64
 {
     return hp_fprint_f64(stdout, x);

@@ -5,6 +5,7 @@ EXENAME := hplangc.exe
 
 SOURCES := \
 	src/amd64_codegen.cpp \
+	src/args_util.cpp \
 	src/assert.cpp \
 	src/ast_types.cpp \
 	src/codegen.cpp \
@@ -34,12 +35,12 @@ run:
 	@#-./$(EXENAME) samples/compiletime.hp
 	@#-./$(EXENAME) samples/fibo.hp
 	@#-./$(EXENAME) samples/beer.hp
-	@#-./$(EXENAME) samples/factorial.hp
+	-./$(EXENAME) -o samples/factorial samples/factorial.hp
 	@#-./$(EXENAME) samples/nbody.hp
 	@#-./$(EXENAME) samples/simple.hp
-	-./$(EXENAME) samples/hello.hp 2> stderr.out
+	@#-./$(EXENAME) samples/hello.hp 2> stderr.out
 	@#-./$(EXENAME) samples/hello.hp
-	-./compile_out.sh
+	@#-./compile_out.sh
 
 
 GDB := /usr/bin/gdb
