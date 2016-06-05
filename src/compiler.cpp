@@ -331,7 +331,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         return false;
     }
 
-    Codegen_Context cg_ctx = NewCodegenContext((IoFile*)asm_file, ctx, CGT_AMD64_Windows);
+    Codegen_Context cg_ctx = NewCodegenContext((IoFile*)asm_file, ctx, ctx->options.target);
     GenerateCode(&cg_ctx, ir_ctx.routines, ir_ctx.foreign_routines);
 
     OutputCode(&cg_ctx);
@@ -343,9 +343,28 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
 
 #if 1
     //Invoke("compile_out.sh", nullptr, 0);
+    
+    // TODO(henrik): Specify the options for nasm and gcc somewhere else.
+    // Mayby also move the assembling and linking to their own place.
 
     const char *obj_filename = "out.o";
-    const char *nasm_args[] = {"-fwin64", "-o", obj_filename, "--", asm_filename};
+    const char *nasm_fmt = nullptr;
+    switch (ctx->options.target)
+    {
+        case CGT_AMD64_Windows:
+            nasm_fmt = "-fwin64";
+            break;
+        case CGT_AMD64_Unix:
+            nasm_fmt = "-felf64";
+            break;
+        case CGT_COUNT:
+            INVALID_CODE_PATH;
+            break;
+    }
+    const char *nasm_args[] = {
+        nasm_fmt,
+        "-o", obj_filename,
+        "--", asm_filename};
     if (Invoke("nasm", nasm_args, array_length(nasm_args)) != 0)
     {
         fprintf((FILE*)ctx->error_ctx.file, "Could not write assemble the file '%s'\n",
@@ -357,7 +376,28 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     // samples/factorial.hp -> samples/factorial.exe
     const char *bin_filename = ctx->options.output_filename;
     if (!bin_filename) bin_filename = "out";
-    const char *gcc_args[] = {"-Lstdlib", "-o", bin_filename, obj_filename, "-lstdlib"};
+    const char *gcc_target = nullptr;
+    switch (ctx->options.target)
+    {
+        case CGT_AMD64_Windows:
+            //gcc_target = "pei-x86-64";
+            gcc_target = "-Wl,--oformat=pei-x86-64";
+            break;
+        case CGT_AMD64_Unix:
+            //gcc_target = "elf64-x86-64";
+            gcc_target = "-Wl,--oformat=elf64-x86-64";
+            break;
+        case CGT_COUNT:
+            INVALID_CODE_PATH;
+            break;
+    }
+    const char *gcc_args[] = {
+        //"-Wl,--oformat=", gcc_target,
+        gcc_target,
+        "-Lstdlib",
+        "-o", bin_filename,
+        obj_filename,
+        "-lstdlib"};
     if (Invoke("gcc", gcc_args, array_length(gcc_args)) != 0)
     {
         fprintf((FILE*)ctx->error_ctx.file, "Could not link the file '%s'\n",

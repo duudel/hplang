@@ -807,6 +807,11 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
 
         Ir_Operand arg_res = GenExpression(ctx, arg, routine);
 
+        if (TypeIsStruct(arg->expr_type) && arg->type != AST_StringLiteral)
+        {
+            arg_res.type = GetPointerType(&ctx->comp_ctx->env, arg->expr_type);
+        }
+
         s64 instr_idx = routine->instructions.count;
         PushInstruction(ctx, routine, IR_Arg, arg_res,
                 NewImmediateOffset(routine, arg_instr_idx));

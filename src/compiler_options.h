@@ -17,6 +17,8 @@ enum Compilation_Phase
 struct Compiler_Options
 {
     const char *output_filename;
+    Codegen_Target target;
+
     s64 max_error_count;
     s64 max_line_arrow_error_count;
     Compilation_Phase stop_after;

@@ -12,6 +12,10 @@
 namespace hplang
 {
 
+// NOTE(henrik): When RA_DEBUG_INFO is defined, prints some register allocator
+// debug info to stderr.
+#define RA_DEBUG_INFO
+
 enum Opcode_Mod
 {
     NO_MOD = 0,
@@ -2333,13 +2337,13 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
             changed |= AddOper(live_sets[i].live_in, instr->oper1, AF_Read);
             changed |= AddOper(live_sets[i].live_in, instr->oper2, AF_Read);
             changed |= AddOper(live_sets[i].live_in, instr->oper3, AF_Read);
-#if 1
+
             for (Operand_Use *use = instr->uses; use; use = use->next)
             {
                 // NOTE(henrik): the operands are reads, but their access flags may not be reads.
+                // TODO(henrik): Add rax (or the return value registers) to the uses of call instructions as writes
                 changed |= AddOper(live_sets[i].live_in, use->oper, AF_ReadWrite); 
             }
-#endif
 
             Name writes[3] = { };
             if ((instr->oper1.access_flags & AF_Write) != 0)
@@ -2437,7 +2441,7 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
         }
     }
 
-#if DEBUG_LIVENESS
+#if defined(DEBUG_LIVENESS) || defined(RA_DEBUG_INFO)
     fprintf(stderr, "\n--Live in/out-- ");
     PrintName((IoFile*)stderr, routine->name);
     fprintf(stderr, "\n");
@@ -2669,7 +2673,7 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
 
         //ASSERT(!spill.is_fixed);
 
-#if 0
+#ifdef RA_DEBUG_INFO
         fprintf(stderr, "Spilled ");
         PrintName((IoFile*)stderr, spill.name);
         fprintf(stderr, " in reg ");
@@ -2685,8 +2689,8 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
         AddToActive(active, interval);
 
         spill.start = interval.end + 1;
-        //if (spill.end > interval.end)
-        if (spill.end > spill.start)
+        if (spill.end > interval.end)
+        //if (spill.end > spill.start)
         //if (spill.end >= spill.start)
         {
 #if UNSPILL_P_1
@@ -2777,7 +2781,7 @@ static b32 SetOperand(Codegen_Context *ctx,
 #endif
 
         *oper = BaseOffsetOperand(REG_rbp, offs, oper->access_flags);
-#if 0
+#ifdef RA_DEBUG_INFO
         fprintf(stderr, "Local offset %" PRId64 " for ", offs);
         PrintName((IoFile*)stderr, oper_name);
         fprintf(stderr, " at %" PRId64 "\n", instr_index);
@@ -2785,7 +2789,7 @@ static b32 SetOperand(Codegen_Context *ctx,
     }
     else
     {
-#if 0
+#ifdef RA_DEBUG_INFO
         fprintf(stderr, "No local offset for ");
         PrintName((IoFile*)stderr, oper_name);
         fprintf(stderr, " at %" PRId64 "\n", instr_index);
@@ -3096,118 +3100,6 @@ static s64 PrintPadding(FILE *file, s64 len, s64 min_len)
     }
     return (wlen > 0) ? wlen : 0;
 }
-/*
-static s64 PrintString(FILE *file, String str, s64 max_len)
-{
-    bool ellipsis = false;
-    if (str.size < max_len)
-        max_len = str.size;
-    else if (str.size > max_len)
-        ellipsis = true;
-
-    s64 len = 0;
-    for (s64 i = 0; i < max_len - (ellipsis ? 3 : 0); i++)
-    {
-        char c = str.data[i];
-        switch (c)
-        {
-            case '\t': len += 2; fputs("\\t", file); break;
-            case '\n': len += 2; fputs("\\n", file); break;
-            case '\r': len += 2; fputs("\\r", file); break;
-            case '\f': len += 2; fputs("\\f", file); break;
-            case '\v': len += 2; fputs("\\v", file); break;
-            default:
-                len += 1; fputc(c, file);
-        }
-    }
-    if (ellipsis) len += fprintf(file, "...");
-    return len;
-}
-
-static s64 PrintPtr(FILE *file, void *ptr)
-{
-    if (ptr)
-        return fprintf(file, "%p", ptr);
-    else
-        return fprintf(file, "(null)");
-}
-
-static s64 PrintBool(FILE *file, bool value)
-{
-    return fprintf(file, "%s", (value ? "(true)" : "(false)"));
-}
-static s64 PrintIrImmediate(FILE *file, Ir_Operand oper)
-{
-    switch (oper.type->tag)
-    {
-        case TYP_none:
-        case TYP_pending:
-        case TYP_null:
-        case TYP_void:
-
-        case TYP_pointer:   return PrintPtr(file, oper.imm_ptr); break;
-        case TYP_bool:      return PrintBool(file, oper.imm_bool); break;
-        case TYP_char:      return fprintf(file, "'%c'", oper.imm_u8); break;
-        case TYP_u8:        return fprintf(file, "%u", oper.imm_u8); break;
-        case TYP_s8:        return fprintf(file, "%d", oper.imm_s8); break;
-        case TYP_u16:       return fprintf(file, "%u", oper.imm_u16); break;
-        case TYP_s16:       return fprintf(file, "%d", oper.imm_s16); break;
-        case TYP_u32:       return fprintf(file, "%u", oper.imm_u32); break;
-        case TYP_s32:       return fprintf(file, "%d", oper.imm_s32); break;
-        case TYP_u64:       return fprintf(file, "%" PRIu64, oper.imm_u64); break;
-        case TYP_s64:       return fprintf(file, "%" PRId64, oper.imm_s64); break;
-        case TYP_f32:       return fprintf(file, "%ff", oper.imm_f32); break;
-        case TYP_f64:       return fprintf(file, "%fd", oper.imm_f64); break;
-        case TYP_string:
-        {
-            s64 len = 0;
-            len += fprintf(file, "\"");
-            len += PrintString(file, oper.imm_str, 20);
-            len += fprintf(file, "\"");
-            return len;
-        }
-
-        case TYP_Struct:
-        case TYP_Function:
-            INVALID_CODE_PATH;
-            break;
-    }
-    return 0;
-}
-
-static s64 PrintIrLabel(FILE *file, Ir_Operand label_oper)
-{
-    return fprintf(file, "L:%" PRId64, label_oper.label->target_loc);
-}
-
-static s64 PrintIrOperand(IoFile *file, Ir_Operand oper)
-{
-    s64 len = 0;
-    switch (oper.oper_type)
-    {
-        case IR_OPER_None:
-            len += fprintf((FILE*)file, "_");
-            break;
-        case IR_OPER_Variable:
-            len += PrintName(file, oper.var.name);
-            break;
-        case IR_OPER_Temp:
-            len += PrintName(file, oper.temp.name);
-            break;
-        case IR_OPER_Immediate:
-            len += PrintIrImmediate((FILE*)file, oper);
-            break;
-        case IR_OPER_Label:
-            len += PrintIrLabel((FILE*)file, oper);
-            break;
-        case IR_OPER_Routine:
-        case IR_OPER_ForeignRoutine:
-            len += PrintName(file, oper.var.name);
-            break;
-    }
-    return len;
-}
-*/
 
 static s64 PrintOperandV(IoFile *file, Operand oper)
 {

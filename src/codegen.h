@@ -9,14 +9,6 @@
 namespace hplang
 {
 
-enum Codegen_Target
-{
-    CGT_AMD64_Windows,
-    CGT_AMD64_Unix,
-
-    CGT_COUNT
-};
-
 struct Reg
 {
     u8 reg_index;

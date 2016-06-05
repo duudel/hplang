@@ -57,6 +57,14 @@ struct Name
     u32 hash;
 };
 
+enum Codegen_Target
+{
+    CGT_AMD64_Windows,
+    CGT_AMD64_Unix,
+
+    CGT_COUNT
+};
+
 
 template <class E, class U>
 struct Flag
