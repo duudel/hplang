@@ -285,6 +285,44 @@ static Reg float_regs[] = {
 };
 
 // Windows AMD64 ABI register usage
+static Reg_Info win_reg_info[] = {
+    { REG_NONE,    -1,  RF_None },
+    { REG_rax,      0,  RF_CallerSave | RF_Return },
+    { REG_rbx,     -1,  RF_None },
+    { REG_rcx,      0,  RF_CallerSave | RF_Arg },
+    { REG_rdx,      1,  RF_CallerSave | RF_Arg },
+    { REG_rbp,     -1,  RF_NonAllocable },
+    { REG_rsi,     -1,  RF_None },
+    { REG_rdi,     -1,  RF_None },
+    { REG_rsp,     -1,  RF_NonAllocable },
+    { REG_r8,       2,  RF_CallerSave | RF_Arg },
+    { REG_r9,       3,  RF_CallerSave | RF_Arg },
+    { REG_r10,     -1,  RF_CallerSave },
+    { REG_r11,     -1,  RF_CallerSave },
+    { REG_r12,     -1,  RF_None },
+    { REG_r13,     -1,  RF_None },
+    { REG_r14,     -1,  RF_None },
+    { REG_r15,     -1,  RF_None },
+
+    { REG_xmm0,     0,   RF_CallerSave | RF_Arg | RF_Return | RF_Float },
+    { REG_xmm1,     1,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm2,     2,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm3,     3,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm4,    -1,   RF_CallerSave | RF_Float },
+    { REG_xmm5,    -1,   RF_CallerSave | RF_Float },
+    { REG_xmm6,    -1,   RF_CallerSave | RF_Float },
+    { REG_xmm7,    -1,   RF_CallerSave | RF_Float },
+    { REG_xmm8,    -1,   RF_Float },
+    { REG_xmm9,    -1,   RF_Float },
+    { REG_xmm10,   -1,   RF_Float },
+    { REG_xmm11,   -1,   RF_Float },
+    { REG_xmm12,   -1,   RF_Float },
+    { REG_xmm13,   -1,   RF_Float },
+    { REG_xmm14,   -1,   RF_Float },
+    { REG_xmm15,   -1,   RF_Float },
+};
+
+
 static Reg win_arg_regs[] = {
     MakeReg(REG_rcx),
     MakeReg(REG_rdx),
@@ -333,7 +371,44 @@ static Reg win_callee_save[] = {
     MakeReg(REG_xmm15),
 };
 
-// Unix System V ABI
+// Unix System V ABI register usage
+static Reg_Info nix_reg_info[] = {
+    { REG_NONE,    -1,  RF_None },
+    { REG_rax,      0,  RF_CallerSave | RF_Return },
+    { REG_rbx,     -1,  RF_None },
+    { REG_rcx,      0,  RF_CallerSave | RF_Arg },
+    { REG_rdx,      1,  RF_CallerSave | RF_Arg | RF_Return },
+    { REG_rbp,     -1,  RF_NonAllocable },
+    { REG_rsi,     -1,  RF_CallerSave | RF_Arg },
+    { REG_rdi,     -1,  RF_CallerSave | RF_Arg },
+    { REG_rsp,     -1,  RF_NonAllocable },
+    { REG_r8,       2,  RF_CallerSave | RF_Arg },
+    { REG_r9,       3,  RF_CallerSave | RF_Arg },
+    { REG_r10,     -1,  RF_CallerSave },
+    { REG_r11,     -1,  RF_CallerSave },
+    { REG_r12,     -1,  RF_None },
+    { REG_r13,     -1,  RF_None },
+    { REG_r14,     -1,  RF_None },
+    { REG_r15,     -1,  RF_None },
+
+    { REG_xmm0,     0,   RF_CallerSave | RF_Arg | RF_Return | RF_Float },
+    { REG_xmm1,     1,   RF_CallerSave | RF_Arg | RF_Return | RF_Float },
+    { REG_xmm2,     2,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm3,     3,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm4,    -1,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm5,    -1,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm6,    -1,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm7,    -1,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm8,    -1,   RF_CallerSave | RF_Float },
+    { REG_xmm9,    -1,   RF_CallerSave | RF_Float },
+    { REG_xmm10,   -1,   RF_CallerSave | RF_Float },
+    { REG_xmm11,   -1,   RF_CallerSave | RF_Float },
+    { REG_xmm12,   -1,   RF_CallerSave | RF_Float },
+    { REG_xmm13,   -1,   RF_CallerSave | RF_Float },
+    { REG_xmm14,   -1,   RF_CallerSave | RF_Float },
+    { REG_xmm15,   -1,   RF_CallerSave | RF_Float },
+};
+
 static Reg nix_arg_regs[] = {
     MakeReg(REG_rdi),
     MakeReg(REG_rsi),
@@ -401,24 +476,10 @@ void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
         break;
 
     case CGT_AMD64_Windows:
-        InitRegAlloc(ctx->reg_alloc,
-                16 + 16,
-                array_length(general_regs), general_regs,
-                array_length(float_regs), float_regs,
-                array_length(win_arg_regs), win_arg_regs,
-                array_length(win_float_arg_regs), win_float_arg_regs,
-                array_length(win_caller_save), win_caller_save,
-                array_length(win_callee_save), win_callee_save);
+        InitRegAlloc(ctx->reg_alloc, array_length(win_reg_info), win_reg_info);
         break;
     case CGT_AMD64_Unix:
-        InitRegAlloc(ctx->reg_alloc,
-                16 + 16,
-                array_length(general_regs), general_regs,
-                array_length(float_regs), float_regs,
-                array_length(nix_arg_regs), nix_arg_regs,
-                array_length(nix_float_arg_regs), nix_float_arg_regs,
-                array_length(nix_caller_save), nix_caller_save,
-                array_length(nix_callee_save), nix_callee_save);
+        InitRegAlloc(ctx->reg_alloc, array_length(nix_reg_info), nix_reg_info);
         break;
     }
 }
@@ -1610,12 +1671,13 @@ static s64 PushArgs(Codegen_Context *ctx,
         ctx->comment = &arg_instr->comment;
 
         Type *arg_type = arg_instr->target.type;
+        Oper_Data_Type arg_data_type = DataTypeFromType(arg_type);
         if (TypeIsStruct(arg_type))
         {
-            const Reg *arg_reg = nullptr;
-            arg_reg = GetArgRegister(ctx->reg_alloc, arg_reg_idx);
+            const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, arg_reg_idx);
             float_arg_reg_idx--;
             arg_reg_idx--;
+
             if (arg_reg)
             {
                 if (arg_type->size > 8)
@@ -1662,23 +1724,14 @@ static s64 PushArgs(Codegen_Context *ctx,
         }
         else
         {
-            const Reg *arg_reg = nullptr;
-            Oper_Data_Type data_type = DataTypeFromType(arg_type);
-            if (TypeIsFloat(arg_type))
-            {
-                arg_reg = GetFloatArgRegister(ctx->reg_alloc, float_arg_reg_idx);
-                float_arg_reg_idx--;
-                arg_reg_idx--;
-            }
-            else
-            {
-                arg_reg = GetArgRegister(ctx->reg_alloc, arg_reg_idx);
-                float_arg_reg_idx--;
-                arg_reg_idx--;
-            }
+            const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, arg_reg_idx);
+            //AdvanceArgIndex(&arg_idx, &float_arg_idx);
+            float_arg_reg_idx--;
+            arg_reg_idx--;
+
             if (arg_reg)
             {
-                Operand arg_oper = FixedRegOperand(ctx, *arg_reg, data_type, AF_Write);
+                Operand arg_oper = FixedRegOperand(ctx, *arg_reg, arg_data_type, AF_Write);
                 PushLoad(ctx,
                         arg_oper,
                         IrOperand(ctx, &arg_instr->target, AF_Read));
@@ -2117,16 +2170,6 @@ static b32 AddOper(Array<Name_Data_Type> &set, Operand oper, Oper_Access_Flags a
     return false;
 }
 
-struct Live_Interval
-{
-    s32 start;
-    s32 end;
-    Name name;
-    Reg reg;
-    Oper_Data_Type data_type;
-    b32 is_fixed;
-};
-
 static void PrintInstruction(IoFile *file, const Instruction *instr);
 
 void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
@@ -2375,16 +2418,10 @@ static void AddToActive(Array<Live_Interval> &active, Live_Interval interval)
     array::Insert(active, index, interval);
 }
 
-struct Spill_Info
-{
-    Live_Interval spill;
-    s32 instr_index;
-    b32 is_spill;
-};
-Array<Spill_Info> spills = { };
-
 static void InsertSpills(Codegen_Context *ctx)
 {
+    Reg_Alloc *reg_alloc = ctx->reg_alloc;
+    Array<Spill_Info> &spills = reg_alloc->spills;
     for (s64 i = 0; i < spills.count - 1; i++)
     {
         for (s64 j = i + 1; j < spills.count; j++)
@@ -2426,22 +2463,22 @@ static void InsertSpills(Codegen_Context *ctx)
     }
 }
 
-static void Spill(Live_Interval spill, s64 instr_index)
+static void Spill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
 {
     Spill_Info spill_info = { };
     spill_info.spill = spill;
     spill_info.instr_index = instr_index;
     spill_info.is_spill = true;
-    array::Push(spills, spill_info);
+    array::Push(reg_alloc->spills, spill_info);
 }
 
-static void Unspill(Live_Interval spill, s64 instr_index)
+static void Unspill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
 {
     Spill_Info spill_info = { };
     spill_info.spill = spill;
     spill_info.instr_index = instr_index;
     spill_info.is_spill = false;
-    array::Push(spills, spill_info);
+    array::Push(reg_alloc->spills, spill_info);
 }
 
 static void SpillAtInterval(Codegen_Context *ctx, Array<Live_Interval> &active, Live_Interval interval)
@@ -2450,7 +2487,7 @@ static void SpillAtInterval(Codegen_Context *ctx, Array<Live_Interval> &active, 
     Live_Interval spill = active[spill_i];
     if (spill.end > interval.end)
     {
-        Spill(spill, interval.start);
+        Spill(ctx->reg_alloc, spill, interval.start);
 
         interval.reg = spill.reg;
         GetLocalOffset(ctx, spill.name, spill.data_type);
@@ -2459,7 +2496,7 @@ static void SpillAtInterval(Codegen_Context *ctx, Array<Live_Interval> &active, 
     }
     else
     {
-        Spill(spill, interval.start);
+        Spill(ctx->reg_alloc, spill, interval.start);
 
         GetLocalOffset(ctx, interval.name, interval.data_type);
     }
@@ -2499,12 +2536,7 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
     else
     {
         Live_Interval spill = active[spill_i];
-        Spill(spill, interval.start);
-
-        //if (spill.data_type == Oper_Data_Type::F32)
-        //    INVALID_CODE_PATH;
-        //if (interval.data_type == Oper_Data_Type::F32)
-        //    INVALID_CODE_PATH;
+        Spill(ctx->reg_alloc, spill, interval.start);
 
         //ASSERT(!spill.is_fixed);
 
@@ -2527,7 +2559,7 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
         //if (spill.end > spill.start)
         if (spill.end >= spill.start)
         {
-            Unspill(spill, spill.start);
+            Unspill(ctx->reg_alloc, spill, spill.start);
             AddToUnhandled(unhandled, spill);
         }
     }
@@ -2635,7 +2667,7 @@ static void SpillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active, 
     {
         if (!active[i].is_fixed && IsCallerSave(reg_alloc, active[i].reg))
         {
-            Spill(active[i], instr_index);
+            Spill(reg_alloc, active[i], instr_index);
         }
     }
 }
@@ -2646,7 +2678,7 @@ static void UnspillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active
     {
         if (!active[i].is_fixed && IsCallerSave(reg_alloc, active[i].reg))
         {
-            Unspill(active[i], instr_index);
+            Unspill(reg_alloc, active[i], instr_index);
         }
     }
 }
@@ -2724,10 +2756,8 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
 static void LinearScanRegAllocation(Codegen_Context *ctx,
         Array<Live_Interval> &live_intervals)
 {
-    array::Clear(spills);
-
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
-    ClearRegAllocs(reg_alloc);
+    ResetRegAlloc(reg_alloc);
 
     Routine *routine = ctx->current_routine;
 
@@ -2753,7 +2783,8 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             {
                 SpillFixedRegAtInterval(ctx, live_intervals, active_f, interval);
             }
-            else if (active_f.count == reg_alloc->float_reg_count)
+            else if (reg_alloc->free_float_regs.count == 0)
+            //else if (active_f.count == reg_alloc->float_reg_count)
             {
                 SpillAtInterval(ctx, active_f, interval);
             }
@@ -2770,7 +2801,8 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             {
                 SpillFixedRegAtInterval(ctx, live_intervals, active, interval);
             }
-            else if (active.count == reg_alloc->general_reg_count)
+            else if (reg_alloc->free_regs.count == 0)
+            //else if (active.count == reg_alloc->general_reg_count)
             {
                 SpillAtInterval(ctx, active, interval);
             }
