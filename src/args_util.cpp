@@ -12,6 +12,7 @@ Arg_Options_Context NewArgOptionsCtx(const Arg_Option *options, int argc, char *
     Arg_Options_Context ctx = { };
     ctx.argc = argc;
     ctx.argv = argv;
+    ctx.arg_index = 1; // NOTE(henrik): To skip the name of the command
     ctx.options = options;
     return ctx;
 }

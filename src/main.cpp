@@ -37,12 +37,13 @@ void PrintVersion()
 static const char *diag_args[] = {
     "memory",
     "ir",
+    "regalloc",
     nullptr
 };
 
 static const Arg_Option options[] = {
     {"output", 'o', nullptr, nullptr, "Sets the output filename", "filename"},
-    {"diagnostic", 'd', diag_args, "Mi", "Selects the diagnostic options", nullptr},
+    {"diagnostic", 'd', diag_args, "MiR", "Selects the diagnostic options", nullptr},
     {"help", 'h', nullptr, nullptr, "Shows this help and exits", nullptr},
     {"version", 'v', nullptr, nullptr, "Prints the version information", nullptr},
     { }
@@ -92,7 +93,7 @@ int main(int argc, char **argv)
                     if (option_result.short_args)
                     {
                         const char *p = option_result.short_args;
-                        for (; p[0] != '\0'; p++) 
+                        for (; p[0] != '\0'; p++)
                         {
                             switch (p[0])
                             {
@@ -101,6 +102,9 @@ int main(int argc, char **argv)
                                     break;
                                 case 'i':
                                     options.debug_ir = true;
+                                    break;
+                                case 'R':
+                                    options.debug_reg_alloc = true;
                                     break;
 
                                 default:
@@ -117,6 +121,8 @@ int main(int argc, char **argv)
                             options.diagnose_memory = true;
                         else if (strcmp(arg, "ir") == 0)
                             options.debug_ir = true;
+                        else if (strcmp(arg, "regalloc") == 0)
+                            options.debug_reg_alloc = true;
                         else
                         {
                             printf("Unrecognized argument %s for --%s\n",
@@ -144,20 +150,27 @@ int main(int argc, char **argv)
         }
     }
 
+    if (!source)
+    {
+        printf("No source file specified\n\n");
+        PrintUsage(&options_ctx);
+        return 0;
+    }
+
     Compiler_Context compiler_ctx = NewCompilerContext(options);
 
     Open_File *file = OpenFile(&compiler_ctx, source);
     if (!file)
     {
-        fprintf(stderr, "Error reading source file '%s'\n", source);
+        printf("Error reading source file '%s'\n", source);
     }
     if (file && Compile(&compiler_ctx, file))
     {
-        fprintf(stderr, "Compilation ok\n");
+        printf("Compilation ok\n");
     }
     else
     {
-        fprintf(stderr, "Compilation failed\n");
+        printf("Compilation failed\n");
     }
 
     FreeCompilerContext(&compiler_ctx);

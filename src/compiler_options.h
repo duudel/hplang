@@ -25,6 +25,7 @@ struct Compiler_Options
 
     b32 diagnose_memory;
     b32 debug_ir;
+    b32 debug_reg_alloc;
 };
 
 Compiler_Options DefaultCompilerOptions();

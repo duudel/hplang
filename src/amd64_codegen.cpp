@@ -2623,8 +2623,8 @@ static b32 SetOperand(Codegen_Context *ctx,
         fprintf(stderr, "No local offset for ");
         PrintName((IoFile*)stderr, oper_name);
         fprintf(stderr, " at %" PRId64 "\n", instr_index);
-        //INVALID_CODE_PATH;
 #endif
+        //INVALID_CODE_PATH;
     }
     return false;
 }

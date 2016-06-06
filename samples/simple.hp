@@ -12,50 +12,11 @@ import "io";
 //    //return y + 0.2;
 //}
 
-get_magnitude :: (n :s64)
-{
-    magnitude : s64 = 1;
-    while (n > 0)
-    {
-        n /= 10;
-        magnitude *= 10;
-    }
-    magnitude /= 10;
-    return magnitude;
-}
-
-print_int :: (x : s64)
-{
-    if (x == 0)  return print("0");
-    neg := x < 0;
-    x = (neg ? -x : x);
-
-    magnitude := get_magnitude(x);
-
-    written : s64 = 0;
-    if neg  written += print("-");
-    while (magnitude > 0)
-    {
-        y := x / magnitude;
-        x -= y * magnitude;
-        magnitude /= 10;
-        //hp_fprint_int(stdout, y);
-        //print("; ");
-        //c : u8 = (('0' -> u8) + y) -> u8;
-        c := ('0' -> u8);
-        c += y -> u8;
-        written += hp_fwrite(stdout, 1, &c);
-    }
-    return written;
-}
-
 main :: ()
 {
-    print_int(5);
-
-    //z := func(x, 0.5);
-    //if (z > 0.0)
-    //    x = x + 5;
+    z := func(x, 0.5);
+    if (z > 0.0)
+        x = x + 5;
 
     //printf("hello %s!\n".data, "world".data);
 

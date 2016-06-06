@@ -22,10 +22,8 @@ beer :: (n : s64)
     if n <= 0  return;
 
     bottles(n);
-    //print(n);
     println(" on the wall");
     bottles(n);
-    //print(n);
     println();
     println("Take one down, pass it around");
     bottles(n - 1);
@@ -38,5 +36,4 @@ beer :: (n : s64)
 main :: ()
 {
     beer(99);
-    //print(99);
 }

@@ -1109,9 +1109,9 @@ void Lex(Lexer_Context *ctx)
     fsm.state = LS_Default;
     fsm.carriage_return = false;
 
-    while (cur < text_length - 1)
+    while (!fsm.done && cur < text_length - 1)
     {
-        while (!fsm.emit && cur < text_length)
+        while (!fsm.emit && !fsm.done && cur < text_length)
         {
             char c = text[cur];
             fsm = lex_default(fsm, c);
