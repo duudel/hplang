@@ -1197,6 +1197,8 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 ErrorBinaryOperands(ctx, expr->file_loc, "+", ltype, rtype);
                 return GetBuiltinType(TYP_none);
             }
+            ASSERT(TypesEqual(expr->binary_expr.left->expr_type,
+                        expr->binary_expr.right->expr_type));
             return type;
         } break;
     case BIN_OP_Subtract:
@@ -1216,6 +1218,8 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 ErrorBinaryOperands(ctx, expr->file_loc, "-", ltype, rtype);
                 return GetBuiltinType(TYP_none);
             }
+            ASSERT(TypesEqual(expr->binary_expr.left->expr_type,
+                        expr->binary_expr.right->expr_type));
             return type;
         } break;
     case BIN_OP_Multiply:
@@ -1226,6 +1230,8 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 ErrorBinaryOperands(ctx, expr->file_loc, "*", ltype, rtype);
                 return GetBuiltinType(TYP_none);
             }
+            ASSERT(TypesEqual(expr->binary_expr.left->expr_type,
+                        expr->binary_expr.right->expr_type));
             return type;
         } break;
     case BIN_OP_Divide:
@@ -1236,6 +1242,8 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 ErrorBinaryOperands(ctx, expr->file_loc, "/", ltype, rtype);
                 return GetBuiltinType(TYP_none);
             }
+            ASSERT(TypesEqual(expr->binary_expr.left->expr_type,
+                        expr->binary_expr.right->expr_type));
             return type;
         } break;
     case BIN_OP_Modulo:
@@ -1316,45 +1324,75 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
 
     case BIN_OP_Equal:
         {
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "==", ltype, rtype);
+            return GetBuiltinType(TYP_bool);
+#if 0
             if (CheckTypeCoercion(ltype, rtype))      { }
             else if (CheckTypeCoercion(rtype, ltype)) { }
             else { ErrorBinaryOperands(ctx, expr->file_loc, "==", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
+#endif
         } break;
     case BIN_OP_NotEqual:
         {
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "!=", ltype, rtype);
+            return GetBuiltinType(TYP_bool);
+#if 0
             if (CheckTypeCoercion(ltype, rtype))      { }
             else if (CheckTypeCoercion(rtype, ltype)) { }
             else { ErrorBinaryOperands(ctx, expr->file_loc, "!=", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
+#endif
         } break;
     case BIN_OP_Less:
         {
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "<", ltype, rtype);
+            return GetBuiltinType(TYP_bool);
+#if 0
             if (CheckTypeCoercion(ltype, rtype))      { }
             else if (CheckTypeCoercion(rtype, ltype)) { }
             else { ErrorBinaryOperands(ctx, expr->file_loc, "<", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
+#endif
         } break;
     case BIN_OP_LessEq:
         {
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "<=", ltype, rtype);
+            return GetBuiltinType(TYP_bool);
+#if 0
             if (CheckTypeCoercion(ltype, rtype))      { }
             else if (CheckTypeCoercion(rtype, ltype)) { }
             else { ErrorBinaryOperands(ctx, expr->file_loc, "<=", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
+#endif
         } break;
     case BIN_OP_Greater:
         {
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type) ErrorBinaryOperands(ctx, expr->file_loc, ">", ltype, rtype);
+            return GetBuiltinType(TYP_bool);
+#if 0
             if (CheckTypeCoercion(ltype, rtype))      { }
             else if (CheckTypeCoercion(rtype, ltype)) { }
             else { ErrorBinaryOperands(ctx, expr->file_loc, ">", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
+#endif
         } break;
     case BIN_OP_GreaterEq:
         {
+            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (!type) ErrorBinaryOperands(ctx, expr->file_loc, ">=", ltype, rtype);
+            return GetBuiltinType(TYP_bool);
+#if 0
             if (CheckTypeCoercion(ltype, rtype))      { }
             else if (CheckTypeCoercion(rtype, ltype)) { }
             else { ErrorBinaryOperands(ctx, expr->file_loc, ">=", ltype, rtype); }
             return GetBuiltinType(TYP_bool);
+#endif
         } break;
 
     case BIN_OP_Range:

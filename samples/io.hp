@@ -40,7 +40,7 @@ print :: (x : s64) : s64
     x = (neg ? -x : x);
 
     val := x;
-    magnitude := 1;
+    magnitude : s64 = 1;
     while (val > 0)
     {
         val /= 10;

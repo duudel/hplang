@@ -166,12 +166,22 @@ IR_IMM(String, TYP_string, imm_str)
 
 #undef IR_IMM
 
+static Type* StripPendingType(Type *type)
+{
+    if (type->tag == TYP_pending)
+    {
+        ASSERT(type->base_type);
+        return type->base_type;
+    }
+    return type;
+}
+
 static Ir_Operand NewImmediateInt(Ir_Routine *routine, u64 value, Type *type)
 {
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Immediate;
-    oper.type = type;
+    oper.type = StripPendingType(type);
     oper.imm_u64 = value;
     return oper;
 }
@@ -191,7 +201,7 @@ static Ir_Operand NewVariableRef(Ir_Routine *routine, Type *type, Name name)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Variable;
-    oper.type = type;
+    oper.type = StripPendingType(type);
     oper.var.name = name;
     return oper;
 }
@@ -202,7 +212,7 @@ static Ir_Operand NewGlobalVariableRef(Ir_Routine *routine, Type *type, Name nam
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_GlobalVariable;
-    oper.type = type;
+    oper.type = StripPendingType(type);
     oper.var.name = name;
     return oper;
 }
@@ -213,7 +223,7 @@ static Ir_Operand NewRoutineRef(Ir_Routine *routine, Type *type, Name name)
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Routine;
-    oper.type = type;
+    oper.type = StripPendingType(type);
     oper.var.name = name;
     return oper;
 }
@@ -223,7 +233,7 @@ static Ir_Operand NewForeignRoutineRef(Ir_Routine *routine, Type *type, Name nam
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_ForeignRoutine;
-    oper.type = type;
+    oper.type = StripPendingType(type);
     oper.var.name = name;
     return oper;
 }
@@ -238,7 +248,7 @@ static Ir_Operand NewTemp(Ir_Gen_Context *ctx, Ir_Routine *routine, Type *type)
 
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Temp;
-    oper.type = type;
+    oper.type = StripPendingType(type);
     //oper.temp.temp_id = routine->temp_count++;
     oper.temp.name = PushName(&ctx->arena, buf);
     return oper;
@@ -326,8 +336,8 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     Ast_Expr *oper_expr = expr->typecast_expr.expr;
     Ir_Operand oper_res = GenExpression(ctx, oper_expr, routine);
 
-    Type *oper_type = oper_expr->expr_type;
-    Ir_Operand res = NewTemp(ctx, routine, oper_type);
+    Ir_Operand res = NewTemp(ctx, routine, expr->expr_type);
+    Type *oper_type = oper_res.type;
     Type *res_type = res.type;
     switch (oper_type->tag)
     {
@@ -527,8 +537,8 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
 {
     Ast_Expr *base_expr = expr->access_expr.base;
     Ast_Expr *member_expr = expr->access_expr.member;
-    Type *base_type = base_expr->expr_type;
-    Type *member_type = member_expr->expr_type;
+    Type *base_type = StripPendingType(base_expr->expr_type);
+    Type *member_type = StripPendingType(member_expr->expr_type);
 
     Name member_name = member_expr->variable_ref.name;
     s64 member_index = 0;
@@ -677,35 +687,35 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     switch (op)
     {
         case BIN_OP_Add:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Add, target, loper, roper);
             break;
         case BIN_OP_Subtract:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Sub, target, loper, roper);
             break;
         case BIN_OP_Multiply:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mul, target, loper, roper);
             break;
         case BIN_OP_Divide:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Div, target, loper, roper);
             break;
         case BIN_OP_Modulo:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mod, target, loper, roper);
             break;
         case BIN_OP_BitAnd:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_And, target, loper, roper);
             break;
         case BIN_OP_BitOr:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Or, target, loper, roper);
             break;
         case BIN_OP_BitXor:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Xor, target, loper, roper);
             break;
         case BIN_OP_And:
@@ -1196,11 +1206,19 @@ static s64 PrintBool(FILE *file, bool value)
 static s64 PrintImmediate(FILE *file, Ir_Operand oper)
 {
     s64 len = 0;
-    switch (oper.type->tag)
+    Type *type = oper.type;
+    if (type->tag == TYP_pending)
+        type = type->base_type;
+
+    switch (type->tag)
     {
-        case TYP_none:
         case TYP_pending:
+            INVALID_CODE_PATH;
+            break;
         case TYP_null:
+            INVALID_CODE_PATH;
+            break;
+        case TYP_none:
         case TYP_void:
             INVALID_CODE_PATH;
             break;

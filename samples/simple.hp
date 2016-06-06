@@ -2,35 +2,69 @@
 
 import "io";
 
-foreign {
-    printf :: (fmt : char*, a1 : char*) : s64;
+//foreign {
+//    printf :: (fmt : char*, a1 : char*) : s64;
+//}
+//
+//func :: (x : s64, y : f64) : f64
+//{
+//    return (x > 0) ? y : 0.0;
+//    //return y + 0.2;
+//}
+
+get_magnitude :: (n :s64)
+{
+    magnitude : s64 = 1;
+    while (n > 0)
+    {
+        n /= 10;
+        magnitude *= 10;
+    }
+    magnitude /= 10;
+    return magnitude;
 }
 
-func :: (x : s64, y : f64) : f64
+print_int :: (x : s64)
 {
-    return (x > 0) ? y : 0.0;
-    //return y + 0.2;
+    if (x == 0)  return print("0");
+    neg := x < 0;
+    x = (neg ? -x : x);
+
+    magnitude := get_magnitude(x);
+
+    written : s64 = 0;
+    if neg  written += print("-");
+    while (magnitude > 0)
+    {
+        y := x / magnitude;
+        x -= y * magnitude;
+        magnitude /= 10;
+        //hp_fprint_int(stdout, y);
+        //print("; ");
+        //c : u8 = (('0' -> u8) + y) -> u8;
+        c := ('0' -> u8);
+        c += y -> u8;
+        written += hp_fwrite(stdout, 1, &c);
+    }
+    return written;
 }
 
 main :: ()
 {
-    x : s64 = 1;
-    y : s64 = 2;
-    result := (x - 128) * 98;
-    //result = (x - 128) * 98;
-    z := func(x, 0.5);
-    if (z > 0.0)
-        x = x + 5;
+    print_int(5);
 
-    printf("hello %s!\n".data, "world".data);
+    //z := func(x, 0.5);
+    //if (z > 0.0)
+    //    x = x + 5;
 
-    s := "A string whose length is ...";
-    println(s.size);
-    println(s);
-    s.size = 10;
-    println(s.size);
-    println(s);
+    //printf("hello %s!\n".data, "world".data);
 
-    return x + y;
-    //return x + y * result;
+    //s := "A string whose length is ...";
+    //println(s.size);
+    //println(s);
+    //s.size = 10;
+    //println(s.size);
+    //println(s);
+
+    return 0;
 }

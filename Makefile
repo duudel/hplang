@@ -38,7 +38,7 @@ run:
 	@#-./$(EXENAME) -di tests/member_access.hp 2> stderr.out
 	@#-./$(EXENAME) -o samples/factorial samples/factorial.hp
 	@#-./$(EXENAME) samples/nbody.hp
-	@#-./$(EXENAME) samples/simple.hp
+	@#-./$(EXENAME) -di samples/simple.hp 2> stderr.out
 	@#-./$(EXENAME) samples/hello.hp 2> stderr.out
 	@#-./$(EXENAME) samples/hello.hp
 	@#-./compile_out.sh

@@ -1373,7 +1373,10 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                     PushZeroReg(ctx, rdx);
                 PushLoad(ctx, temp, oper2);
                 PushInstruction(ctx, div_op, R_(temp), S_(RW_(rax)), S_(RW_(rdx)));
-                PushLoad(ctx, IrOperand(ctx, &ir_instr->target, AF_Write), R_(rax), S_(R_(rdx)));
+                if (ir_instr->target == ir_instr->oper1)
+                    PushLoad(ctx, RW_(oper1), R_(rax), S_(R_(rdx)));
+                else
+                    PushLoad(ctx, IrOperand(ctx, &ir_instr->target, AF_Write), R_(rax), S_(R_(rdx)));
             }
         } break;
     case IR_Mod:
@@ -1397,7 +1400,10 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                     PushZeroReg(ctx, rdx);
                 PushLoad(ctx, temp, oper2);
                 PushInstruction(ctx, div_op, R_(temp), S_(RW_(rax)), S_(RW_(rdx)));
-                PushLoad(ctx, IrOperand(ctx, &ir_instr->target, AF_Write), R_(rdx));
+                if (ir_instr->target == ir_instr->oper1)
+                    PushLoad(ctx, RW_(oper1), R_(rdx));
+                else
+                    PushLoad(ctx, IrOperand(ctx, &ir_instr->target, AF_Write), R_(rdx));
             }
         } break;
 
@@ -1520,7 +1526,7 @@ static s64 GetLocalOffset(Codegen_Context *ctx, Name name, Oper_Data_Type data_t
     offs = PushStruct<Local_Offset>(&ctx->arena);
 
     //routine->locals_size += GetAlignedSize(ir_oper->type);
-#if 1
+#if 0
     routine->locals_size += 8;
     routine->locals_size = Align(routine->locals_size, 8);
 #else
@@ -2518,8 +2524,8 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
         AddToActive(active, interval);
 
         spill.start = interval.end + 1;
-        if (spill.end > spill.start)
-        //if (spill.end >= spill.start)
+        //if (spill.end > spill.start)
+        if (spill.end >= spill.start)
         {
             Unspill(spill, spill.start);
             AddToUnhandled(unhandled, spill);

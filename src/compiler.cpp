@@ -343,6 +343,9 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     FreeIrGenContext(&ir_ctx);
     FreeCodegenContext(&cg_ctx);
 
+    fflush((FILE*)ctx->error_ctx.file);
+    fflush((FILE*)ctx->debug_file);
+
 #if 1
     //Invoke("compile_out.sh", nullptr, 0);
     
