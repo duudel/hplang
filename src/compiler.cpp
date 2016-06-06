@@ -19,7 +19,8 @@ namespace hplang
 Compiler_Context NewCompilerContext(Compiler_Options options)
 {
     Compiler_Context result = { };
-    result.error_ctx.file = (IoFile*)stderr;
+    result.error_ctx.file = (IoFile*)stdout;
+    result.debug_file = (IoFile*)stderr;
     result.options = options;
     result.env = NewEnvironment("main");
     result.result = RES_OK;
@@ -195,23 +196,24 @@ static void PrintMemoryDiagnostic(Compiler_Context *ctx)
     if (!ctx->options.diagnose_memory)
         return;
 
-    IoFile *file = ctx->error_ctx.file;
+    IoFile *file = ctx->debug_file;
+    FILE *f = (FILE*)file;
     s64 used, unused;
 
     GetMemoryArenaUsage(&ctx->arena, &used, &unused);
-    fprintf((FILE*)file, "ctx (used = %" PRId64 "; unused = %" PRId64 ")\n",
+    fprintf(f, "ctx (used = %" PRId64 "; unused = %" PRId64 ")\n",
             used, unused);
 
     GetMemoryArenaUsage(&ctx->env.arena, &used, &unused);
-    fprintf((FILE*)file, "env (used = %" PRId64 "; unused = %" PRId64 ")\n",
+    fprintf(f, "env (used = %" PRId64 "; unused = %" PRId64 ")\n",
             used, unused);
 
     for (s64 i = 0; i < ctx->modules.count; i++)
     {
         Module *module = array::At(ctx->modules, i);
-        fprintf((FILE*)file, "module '");
+        fprintf(f, "module '");
         PrintString(file, module->module_file->filename);
-        fprintf((FILE*)file, "':\n");
+        fprintf(f, "':\n");
         PrintAstMem(file, &module->ast);
     }
 }
@@ -311,7 +313,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     GenIr(&ir_ctx);
 
     if (ctx->options.debug_ir)
-        PrintIr(ctx->error_ctx.file, &ir_ctx);
+        PrintIr(ctx->debug_file, &ir_ctx);
 
     PrintMemoryDiagnostic(ctx);
 
@@ -367,7 +369,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         "--", asm_filename};
     if (Invoke("nasm", nasm_args, array_length(nasm_args)) != 0)
     {
-        fprintf((FILE*)ctx->error_ctx.file, "Could not write assemble the file '%s'\n",
+        fprintf((FILE*)ctx->error_ctx.file, "Could not assemble the file '%s'\n",
                 asm_filename);
         return false;
     }

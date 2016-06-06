@@ -34,6 +34,7 @@ struct Compiler_Context
 {
     Memory_Arena arena;
     Error_Context error_ctx;
+    IoFile *debug_file;
     Compiler_Options options;
 
     Module_List modules;

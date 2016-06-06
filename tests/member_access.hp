@@ -7,17 +7,24 @@ my_struct :: struct
     y : f32;
 }
 
-test :: ()
+main :: ()
 {
     s : string = "a string";
-    s.size;
-    s.data;
+    size := s.size;
+    data := s.data;
 
-    m : my_struct;
-    m.x = 1.0f;
-    m.y = -3.04e2f;
+    s.size = 15;
+    s.data = null;
 
-    pm := &m;
-    pm.x *= 3.0f;
-    pm.y = m.x * pm.x - 2;
+    //m : my_struct;
+    //m.x = 1.0f;
+    //m.y = -3.04e2f;
+
+    //a := m.y;
+
+    //pm := &m;
+    //pm.x *= 3.0f;
+    //pm.y = m.x * pm.x - 2;
+
+    //b := pm.y;
 }

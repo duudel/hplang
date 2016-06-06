@@ -9,6 +9,12 @@ namespace hplang
 #define IR_OPCODES\
     PASTE_IR(IR_Label)\
     \
+    PASTE_IR(IR_VarDecl)\
+    \
+    PASTE_IR(IR_Mov)\
+    PASTE_IR(IR_MovMember)\
+    PASTE_IR(IR_MovElement)\
+    \
     PASTE_IR(IR_Add)\
     PASTE_IR(IR_Sub)\
     PASTE_IR(IR_Mul)\
@@ -25,10 +31,6 @@ namespace hplang
     PASTE_IR(IR_And)\
     PASTE_IR(IR_Or)\
     PASTE_IR(IR_Xor)\
-    \
-    PASTE_IR(IR_Mov)\
-    PASTE_IR(IR_MovMember)\
-    PASTE_IR(IR_MovElement)\
     \
     PASTE_IR(IR_Neg)\
     PASTE_IR(IR_Not)\

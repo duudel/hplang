@@ -548,6 +548,20 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     return member_res;
 }
 
+#if 0
+static Ir_Operand GenSubscriptExprLoad(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
+{
+    Ast_Expr *base_expr = expr->subscript_expr.base;
+    Ast_Expr *index_expr = expr->subscript_expr.index;
+
+    Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
+    Ir_Operand index_res = GenExpression(ctx, index_expr, routine);
+    Ir_Operand elem_res = NewTemp(ctx, routine, expr->expr_type);
+    PushInstruction(ctx, routine, IR_LoadElement, elem_res, base_res, index_res);
+    return elem_res;
+}
+#endif
+
 static Ir_Operand GenSubscriptExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
     Ast_Expr *base_expr = expr->subscript_expr.base;
@@ -663,27 +677,35 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     switch (op)
     {
         case BIN_OP_Add:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Add, target, loper, roper);
             break;
         case BIN_OP_Subtract:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Sub, target, loper, roper);
             break;
         case BIN_OP_Multiply:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mul, target, loper, roper);
             break;
         case BIN_OP_Divide:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Div, target, loper, roper);
             break;
         case BIN_OP_Modulo:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mod, target, loper, roper);
             break;
         case BIN_OP_BitAnd:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_And, target, loper, roper);
             break;
         case BIN_OP_BitOr:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Or, target, loper, roper);
             break;
         case BIN_OP_BitXor:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Xor, target, loper, roper);
             break;
         case BIN_OP_And:
@@ -724,34 +746,45 @@ static Ir_Operand GenAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Rout
     Ast_Expr *left = expr->assignment.left;
     Ast_Expr *right = expr->assignment.right;
     Ir_Operand loper = GenExpression(ctx, left, routine);
+    //Ir_Operand loper = GenRefExpression(ctx, left, routine);
     Ir_Operand roper = GenExpression(ctx, right, routine);
     switch (op)
     {
         case AS_OP_Assign:
+            roper.type = loper.type;
+            //PushInstruction(ctx, routine, IR_Store, loper, roper);
             PushInstruction(ctx, routine, IR_Mov, loper, roper);
             break;
         case AS_OP_AddAssign:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Add, loper, loper, roper);
             break;
         case AS_OP_SubtractAssign:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Sub, loper, loper, roper);
             break;
         case AS_OP_MultiplyAssign:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mul, loper, loper, roper);
             break;
         case AS_OP_DivideAssign:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Div, loper, loper, roper);
             break;
         case AS_OP_ModuloAssign:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mod, loper, loper, roper);
             break;
         case AS_OP_BitAndAssign:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_And, loper, loper, roper);
             break;
         case AS_OP_BitOrAssign:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Or, loper, loper, roper);
             break;
         case AS_OP_BitXorAssign:
+            roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Xor, loper, loper, roper);
             break;
     }
@@ -807,6 +840,8 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
 
         Ir_Operand arg_res = GenExpression(ctx, arg, routine);
 
+        // NOTE(henrik): Struct types are passed as pointer (string literal is a
+        // special case for now).
         if (TypeIsStruct(arg->expr_type) && arg->type != AST_StringLiteral)
         {
             arg_res.type = GetPointerType(&ctx->comp_ctx->env, arg->expr_type);
@@ -973,10 +1008,12 @@ static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine
     Symbol *symbol = node->variable_decl.symbol;
     Ast_Expr *init_expr = node->variable_decl.init_expr;
 
+    Ir_Operand var_oper = NewVariableRef(routine, init_expr->expr_type, symbol->unique_name);
+    PushInstruction(ctx, routine, IR_VarDecl, var_oper);
+
     if (init_expr)
     {
         Ir_Operand init_res = GenExpression(ctx, init_expr, routine);
-        Ir_Operand var_oper = NewVariableRef(routine, init_expr->expr_type, symbol->unique_name);
         PushInstruction(ctx, routine, IR_Mov, var_oper, init_res);
     }
 

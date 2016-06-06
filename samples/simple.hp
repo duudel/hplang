@@ -1,5 +1,7 @@
 // A simple sample program
 
+import "io";
+
 foreign {
     printf :: (fmt : char*, a1 : char*) : s64;
 }
@@ -21,6 +23,13 @@ main :: ()
         x = x + 5;
 
     printf("hello %s!\n".data, "world".data);
+
+    s := "A string whose length is ...";
+    println(s.size);
+    println(s);
+    s.size = 10;
+    println(s.size);
+    println(s);
 
     return x + y;
     //return x + y * result;

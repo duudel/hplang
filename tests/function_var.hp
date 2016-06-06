@@ -25,7 +25,7 @@ call_f2 :: (f : ftype, a : s32, b : f32) : bool
     return f(a, b);
 }
 
-test :: ()
+main :: ()
 {
     f := func;
     // TODO: Here is a problem: cannot cast. Also, how to determine, which

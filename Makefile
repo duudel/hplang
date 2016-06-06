@@ -34,7 +34,8 @@ build:
 run:
 	@#-./$(EXENAME) samples/compiletime.hp
 	@#-./$(EXENAME) samples/fibo.hp
-	-./$(EXENAME) -di -o samples/beer samples/beer.hp 2> stderr.out
+	-./$(EXENAME) -o samples/beer samples/beer.hp 2> stderr.out
+	@#-./$(EXENAME) -di tests/member_access.hp 2> stderr.out
 	@#-./$(EXENAME) -o samples/factorial samples/factorial.hp
 	@#-./$(EXENAME) samples/nbody.hp
 	@#-./$(EXENAME) samples/simple.hp
