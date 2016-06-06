@@ -67,6 +67,7 @@ enum Opcode_Mod
     \
     PASTE_OP(lea,       O1_REG | O2_MEM)\
     PASTE_OP(mov,       O1_RM | O2_RM | O2_IMM)\
+    PASTE_OP(movsx,     O1_RM | O2_RM | O2_IMM)\
     PASTE_OP(movss,     O1_RM | O2_RM)\
     PASTE_OP(movsd,     O1_RM | O2_RM)\
     \
@@ -249,40 +250,6 @@ Reg MakeReg(Amd64_Register r)
     return reg;
 }
 
-static Reg general_regs[] = {
-    MakeReg(REG_rax),
-    MakeReg(REG_rbx),
-    MakeReg(REG_rcx),
-    MakeReg(REG_rdx),
-    MakeReg(REG_rdi),
-    MakeReg(REG_rsi),
-    MakeReg(REG_r8),
-    MakeReg(REG_r9),
-    MakeReg(REG_r10),
-    MakeReg(REG_r12),
-    MakeReg(REG_r13),
-    MakeReg(REG_r14),
-    MakeReg(REG_r15),
-};
-
-static Reg float_regs[] = {
-    MakeReg(REG_xmm0),
-    MakeReg(REG_xmm1),
-    MakeReg(REG_xmm2),
-    MakeReg(REG_xmm3),
-    MakeReg(REG_xmm4),
-    MakeReg(REG_xmm5),
-    MakeReg(REG_xmm6),
-    MakeReg(REG_xmm7),
-    MakeReg(REG_xmm8),
-    MakeReg(REG_xmm9),
-    MakeReg(REG_xmm10),
-    MakeReg(REG_xmm11),
-    MakeReg(REG_xmm12),
-    MakeReg(REG_xmm13),
-    MakeReg(REG_xmm14),
-    MakeReg(REG_xmm15),
-};
 
 // Windows AMD64 ABI register usage
 static Reg_Info win_reg_info[] = {
@@ -320,55 +287,6 @@ static Reg_Info win_reg_info[] = {
     { REG_xmm13,   -1,   RF_Float },
     { REG_xmm14,   -1,   RF_Float },
     { REG_xmm15,   -1,   RF_Float },
-};
-
-
-static Reg win_arg_regs[] = {
-    MakeReg(REG_rcx),
-    MakeReg(REG_rdx),
-    MakeReg(REG_r8),
-    MakeReg(REG_r9),
-};
-static Reg win_float_arg_regs[] = {
-    MakeReg(REG_xmm0),
-    MakeReg(REG_xmm1),
-    MakeReg(REG_xmm2),
-    MakeReg(REG_xmm3),
-};
-
-static Reg win_caller_save[] = {
-    MakeReg(REG_rax),
-    MakeReg(REG_rcx),
-    MakeReg(REG_rdx),
-    MakeReg(REG_r8),
-    MakeReg(REG_r9),
-    MakeReg(REG_r10),
-    MakeReg(REG_r11),
-    MakeReg(REG_xmm0),
-    MakeReg(REG_xmm1),
-    MakeReg(REG_xmm2),
-    MakeReg(REG_xmm3),
-    MakeReg(REG_xmm4),
-    MakeReg(REG_xmm5),
-    MakeReg(REG_xmm6),
-    MakeReg(REG_xmm7),
-};
-static Reg win_callee_save[] = {
-    MakeReg(REG_rbx),
-    MakeReg(REG_rdi),
-    MakeReg(REG_rsi),
-    MakeReg(REG_r12),
-    MakeReg(REG_r13),
-    MakeReg(REG_r14),
-    MakeReg(REG_r15),
-    MakeReg(REG_xmm8),
-    MakeReg(REG_xmm9),
-    MakeReg(REG_xmm10),
-    MakeReg(REG_xmm11),
-    MakeReg(REG_xmm12),
-    MakeReg(REG_xmm13),
-    MakeReg(REG_xmm14),
-    MakeReg(REG_xmm15),
 };
 
 // Unix System V ABI register usage
@@ -409,62 +327,10 @@ static Reg_Info nix_reg_info[] = {
     { REG_xmm15,   -1,   RF_CallerSave | RF_Float },
 };
 
-static Reg nix_arg_regs[] = {
-    MakeReg(REG_rdi),
-    MakeReg(REG_rsi),
-    MakeReg(REG_rdx),
-    MakeReg(REG_rcx),
-    MakeReg(REG_r8),
-    MakeReg(REG_r9),
-};
-static Reg nix_float_arg_regs[] = {
-    MakeReg(REG_xmm0),
-    MakeReg(REG_xmm1),
-    MakeReg(REG_xmm2),
-    MakeReg(REG_xmm3),
-    MakeReg(REG_xmm4),
-    MakeReg(REG_xmm5),
-    MakeReg(REG_xmm6),
-    MakeReg(REG_xmm7),
-};
-
-static Reg nix_caller_save[] = {
-    MakeReg(REG_rax),
-    MakeReg(REG_rcx),
-    MakeReg(REG_rdx),
-    MakeReg(REG_rdi),
-    MakeReg(REG_rsi),
-    MakeReg(REG_r8),
-    MakeReg(REG_r9),
-    MakeReg(REG_r10),
-    MakeReg(REG_r11),
-    MakeReg(REG_xmm0),
-    MakeReg(REG_xmm1),
-    MakeReg(REG_xmm2),
-    MakeReg(REG_xmm3),
-    MakeReg(REG_xmm4),
-    MakeReg(REG_xmm5),
-    MakeReg(REG_xmm6),
-    MakeReg(REG_xmm7),
-    MakeReg(REG_xmm8),
-    MakeReg(REG_xmm9),
-    MakeReg(REG_xmm10),
-    MakeReg(REG_xmm11),
-    MakeReg(REG_xmm12),
-    MakeReg(REG_xmm13),
-    MakeReg(REG_xmm14),
-    MakeReg(REG_xmm15),
-};
-static Reg nix_callee_save[] = {
-    MakeReg(REG_rbx),
-    MakeReg(REG_r12),
-    MakeReg(REG_r13),
-    MakeReg(REG_r14),
-    MakeReg(REG_r15),
-};
 
 void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
 {
+    // TODO(henrik): Fix this! Do not do this. Are the names even needed?
     for (s64 i = 0; i < array_length(reg_names); i++)
     {
         reg_names[i] = PushName(&ctx->arena, reg_name_strings_8b[i]);
@@ -551,7 +417,6 @@ static Operand FixedRegOperand(Codegen_Context *ctx, Reg reg, Oper_Data_Type dat
 static Operand FixedRegOperand(Codegen_Context *ctx, Amd64_Register reg, Oper_Data_Type data_type, Oper_Access_Flags access_flags)
 {
     return FixedRegOperand(ctx, MakeReg(reg), data_type, access_flags);
-    //return FixedRegOperand(ctx, MakeReg(reg), Oper_Data_Type::U64, access_flags);
 }
 
 static Operand VirtualRegOperand(Name name, Oper_Data_Type data_type, Oper_Access_Flags access_flags)
@@ -1157,7 +1022,7 @@ static void PushLoad(Codegen_Context *ctx,
         Instruction_List &instructions,
         Operand oper1, Operand oper2, Operand oper3 = NoneOperand())
 {
-    //ASSERT(oper1.data_type == oper2.data_type);
+    ASSERT(oper1.data_type == oper2.data_type);
     switch (oper1.data_type)
     {
     case Oper_Data_Type::F32:
@@ -1885,9 +1750,25 @@ static void GenerateCode(Codegen_Context *ctx,
                     }
                     else
                     {
+                        // TODO(henrik): remove this data_type "coercion"
                         oper1.data_type = target.data_type;
                         PushLoad(ctx, target, oper1);
                     }
+                }
+            } break;
+        case IR_MovSX:
+            {
+                Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
+                {
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoad(ctx, temp, oper1);
+                    PushInstruction(ctx, OP_movsx, target, R_(temp));
+                }
+                else
+                {
+                    PushInstruction(ctx, OP_movsx, target, oper1);
                 }
             } break;
         //case IR_Store:
@@ -1913,7 +1794,7 @@ static void GenerateCode(Codegen_Context *ctx,
                 else
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                    Operand temp = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                    Operand temp = TempOperand(ctx, target.data_type, AF_Write);
                     PushLoadAddr(ctx,
                             temp,
                             BaseOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read));
@@ -1949,16 +1830,8 @@ static void GenerateCode(Codegen_Context *ctx,
                 if (ir_instr->target.oper_type != IR_OPER_None)
                 {
                     Oper_Data_Type data_type = DataTypeFromType(ir_instr->target.type);
-                    Reg ret_reg;
-                    if (TypeIsFloat(ir_instr->target.type))
-                    {
-                        ret_reg = MakeReg(REG_xmm0);
-                    }
-                    else
-                    {
-                        ret_reg = MakeReg(REG_rax);
-                    }
-                    Operand ret_oper = FixedRegOperand(ctx, ret_reg, data_type, AF_Write);
+                    const Reg *ret_reg = GetReturnRegister(ctx->reg_alloc, data_type, 0);
+                    Operand ret_oper = FixedRegOperand(ctx, *ret_reg, data_type, AF_Write);
                     call->oper2 = S_(ret_oper);
                     PushLoad(ctx,
                         IrOperand(ctx, &ir_instr->target, AF_Write),
@@ -1986,18 +1859,10 @@ static void GenerateCode(Codegen_Context *ctx,
             if (ir_instr->target.oper_type != IR_OPER_None)
             {
                 Oper_Data_Type data_type = DataTypeFromType(ir_instr->target.type);
-                if (TypeIsFloat(ir_instr->target.type))
-                {
-                    PushLoad(ctx,
-                        RegOperand(REG_xmm0, data_type, AF_Write),
-                        IrOperand(ctx, &ir_instr->target, AF_Read));
-                }
-                else
-                {
-                    PushLoad(ctx,
-                        RegOperand(REG_rax, data_type, AF_Write),
-                        IrOperand(ctx, &ir_instr->target, AF_Read));
-                }
+                const Reg *ret_reg = GetReturnRegister(ctx->reg_alloc, data_type, 0);
+                PushLoad(ctx,
+                    RegOperand(*ret_reg, data_type, AF_Write),
+                    IrOperand(ctx, &ir_instr->target, AF_Read));
             }
             PushInstruction(ctx, OP_jmp,
                     LabelOperand(ctx->current_routine->return_label.name, AF_Read));
@@ -2537,8 +2402,6 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
     {
         Live_Interval spill = active[spill_i];
         Spill(ctx->reg_alloc, spill, interval.start);
-
-        //ASSERT(!spill.is_fixed);
 
 #ifdef RA_DEBUG_INFO
         fprintf(stderr, "Spilled ");

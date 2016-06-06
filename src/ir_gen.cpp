@@ -388,6 +388,11 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
             case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
+            case TYP_s16:
+            case TYP_s32:
+            case TYP_s64:
+                PushInstruction(ctx, routine, IR_MovSX, res, oper_res);
+                break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
@@ -413,6 +418,10 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
                 break;
             case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
+                break;
+            case TYP_s32:
+            case TYP_s64:
+                PushInstruction(ctx, routine, IR_MovSX, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
@@ -440,6 +449,9 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
                 break;
             case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
+                break;
+            case TYP_s64:
+                PushInstruction(ctx, routine, IR_MovSX, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
@@ -687,35 +699,27 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     switch (op)
     {
         case BIN_OP_Add:
-            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Add, target, loper, roper);
             break;
         case BIN_OP_Subtract:
-            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Sub, target, loper, roper);
             break;
         case BIN_OP_Multiply:
-            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mul, target, loper, roper);
             break;
         case BIN_OP_Divide:
-            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Div, target, loper, roper);
             break;
         case BIN_OP_Modulo:
-            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mod, target, loper, roper);
             break;
         case BIN_OP_BitAnd:
-            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_And, target, loper, roper);
             break;
         case BIN_OP_BitOr:
-            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Or, target, loper, roper);
             break;
         case BIN_OP_BitXor:
-            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Xor, target, loper, roper);
             break;
         case BIN_OP_And:
@@ -761,40 +765,40 @@ static Ir_Operand GenAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Rout
     switch (op)
     {
         case AS_OP_Assign:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             //PushInstruction(ctx, routine, IR_Store, loper, roper);
             PushInstruction(ctx, routine, IR_Mov, loper, roper);
             break;
         case AS_OP_AddAssign:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Add, loper, loper, roper);
             break;
         case AS_OP_SubtractAssign:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Sub, loper, loper, roper);
             break;
         case AS_OP_MultiplyAssign:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mul, loper, loper, roper);
             break;
         case AS_OP_DivideAssign:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Div, loper, loper, roper);
             break;
         case AS_OP_ModuloAssign:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Mod, loper, loper, roper);
             break;
         case AS_OP_BitAndAssign:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_And, loper, loper, roper);
             break;
         case AS_OP_BitOrAssign:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Or, loper, loper, roper);
             break;
         case AS_OP_BitXorAssign:
-            roper.type = loper.type;
+            //roper.type = loper.type;
             PushInstruction(ctx, routine, IR_Xor, loper, loper, roper);
             break;
     }

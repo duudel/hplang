@@ -1327,72 +1327,36 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "==", ltype, rtype);
             return GetBuiltinType(TYP_bool);
-#if 0
-            if (CheckTypeCoercion(ltype, rtype))      { }
-            else if (CheckTypeCoercion(rtype, ltype)) { }
-            else { ErrorBinaryOperands(ctx, expr->file_loc, "==", ltype, rtype); }
-            return GetBuiltinType(TYP_bool);
-#endif
         } break;
     case BIN_OP_NotEqual:
         {
             type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "!=", ltype, rtype);
             return GetBuiltinType(TYP_bool);
-#if 0
-            if (CheckTypeCoercion(ltype, rtype))      { }
-            else if (CheckTypeCoercion(rtype, ltype)) { }
-            else { ErrorBinaryOperands(ctx, expr->file_loc, "!=", ltype, rtype); }
-            return GetBuiltinType(TYP_bool);
-#endif
         } break;
     case BIN_OP_Less:
         {
             type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "<", ltype, rtype);
             return GetBuiltinType(TYP_bool);
-#if 0
-            if (CheckTypeCoercion(ltype, rtype))      { }
-            else if (CheckTypeCoercion(rtype, ltype)) { }
-            else { ErrorBinaryOperands(ctx, expr->file_loc, "<", ltype, rtype); }
-            return GetBuiltinType(TYP_bool);
-#endif
         } break;
     case BIN_OP_LessEq:
         {
             type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "<=", ltype, rtype);
             return GetBuiltinType(TYP_bool);
-#if 0
-            if (CheckTypeCoercion(ltype, rtype))      { }
-            else if (CheckTypeCoercion(rtype, ltype)) { }
-            else { ErrorBinaryOperands(ctx, expr->file_loc, "<=", ltype, rtype); }
-            return GetBuiltinType(TYP_bool);
-#endif
         } break;
     case BIN_OP_Greater:
         {
             type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, ">", ltype, rtype);
             return GetBuiltinType(TYP_bool);
-#if 0
-            if (CheckTypeCoercion(ltype, rtype))      { }
-            else if (CheckTypeCoercion(rtype, ltype)) { }
-            else { ErrorBinaryOperands(ctx, expr->file_loc, ">", ltype, rtype); }
-            return GetBuiltinType(TYP_bool);
-#endif
         } break;
     case BIN_OP_GreaterEq:
         {
             type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, ">=", ltype, rtype);
             return GetBuiltinType(TYP_bool);
-#if 0
-            if (CheckTypeCoercion(ltype, rtype))      { }
-            else if (CheckTypeCoercion(rtype, ltype)) { }
-            else { ErrorBinaryOperands(ctx, expr->file_loc, ">=", ltype, rtype); }
-            return GetBuiltinType(TYP_bool);
-#endif
         } break;
 
     case BIN_OP_Range:
@@ -1401,6 +1365,35 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
 
     }
     return type;
+}
+
+static Type* CoerceAssignmentExprType(Sem_Check_Context *ctx,
+        Ast_Expr *expr, Ast_Expr *left, Ast_Expr *right,
+        Type *ltype, Type *rtype)
+{
+    (void)left;
+    if (TypeIsNone(ltype) || TypeIsNone(rtype))
+        return GetBuiltinType(TYP_none);
+
+    if (TypeIsPending(ltype))
+    {
+        if (!ltype->base_type)
+            return ltype;
+        ltype = ltype->base_type;
+    }
+    if (TypeIsPending(rtype))
+    {
+        if (!rtype->base_type)
+            return ltype;
+        rtype = rtype->base_type;
+    }
+
+    if (!TypesEqual(ltype, rtype))
+    {
+        Ast_Expr *cast_expr = MakeTypecast(ctx, right, ltype);
+        expr->binary_expr.right = cast_expr;
+    }
+    return ltype;
 }
 
 static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
@@ -1414,81 +1407,80 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_T
     Type *rtype = CheckExpr(ctx, right, &rvt);
     ASSERT(ltype && rtype);
 
+    *vt = lvt;
+
     if (TypeIsNone(ltype) || TypeIsNone(rtype))
         return GetBuiltinType(TYP_none);
 
     if (lvt != VT_Assignable)
     {
         Error(ctx, left->file_loc, "Assignment to non-l-value expression");
+        return ltype;
     }
-    else
+
+    switch (op)
     {
-        switch (op)
+    case AS_OP_Assign:
         {
-        case AS_OP_Assign:
-            {
-                if (CheckTypeCoercion(rtype, ltype))
-                    break;
-                ErrorBinaryOperands(ctx, expr->file_loc, "=", ltype, rtype);
-            } break;
-        case AS_OP_AddAssign:
-            {
-                if (CheckTypeCoercion(rtype, ltype))
-                    break;
-                else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
-                    break;
-                ErrorBinaryOperands(ctx, expr->file_loc, "+=", ltype, rtype);
-            } break;
-        case AS_OP_SubtractAssign:
-            {
-                if (CheckTypeCoercion(rtype, ltype))
-                    break;
-                else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
-                    break;
-                ErrorBinaryOperands(ctx, expr->file_loc, "-=", ltype, rtype);
-            } break;
-        case AS_OP_MultiplyAssign:
-            {
-                if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-                    break;
-                ErrorBinaryOperands(ctx, expr->file_loc, "*=", ltype, rtype);
-            } break;
-        case AS_OP_DivideAssign:
-            {
-                if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
-                    break;
-                ErrorBinaryOperands(ctx, expr->file_loc, "/=", ltype, rtype);
-            } break;
-        case AS_OP_ModuloAssign:
-            {
-                // TODO(henrik): Should modulo work for floats too?
-                if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                    break;
-                ErrorBinaryOperands(ctx, expr->file_loc, "%=", ltype, rtype);
-            } break;
+            if (CheckTypeCoercion(rtype, ltype))
+                return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
+            ErrorBinaryOperands(ctx, expr->file_loc, "=", ltype, rtype);
+        } break;
+    case AS_OP_AddAssign:
+        {
+            if (CheckTypeCoercion(rtype, ltype))
+                return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
+            else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
+                break;
+            ErrorBinaryOperands(ctx, expr->file_loc, "+=", ltype, rtype);
+        } break;
+    case AS_OP_SubtractAssign:
+        {
+            if (CheckTypeCoercion(rtype, ltype))
+                return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
+            else if (TypeIsPointer(ltype) && TypeIsIntegral(rtype))
+                break;
+            ErrorBinaryOperands(ctx, expr->file_loc, "-=", ltype, rtype);
+        } break;
+    case AS_OP_MultiplyAssign:
+        {
+            if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
+                return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
+            ErrorBinaryOperands(ctx, expr->file_loc, "*=", ltype, rtype);
+        } break;
+    case AS_OP_DivideAssign:
+        {
+            if (TypeIsNumeric(ltype) && TypeIsNumeric(rtype))
+                return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
+            ErrorBinaryOperands(ctx, expr->file_loc, "/=", ltype, rtype);
+        } break;
+    case AS_OP_ModuloAssign:
+        {
+            // TODO(henrik): Should modulo work for floats too?
+            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
+            ErrorBinaryOperands(ctx, expr->file_loc, "%=", ltype, rtype);
+        } break;
 
-        case AS_OP_BitAndAssign:
-            {
-                if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                    break;
-                ErrorBinaryOperands(ctx, expr->file_loc, "&=", ltype, rtype);
-            } break;
-        case AS_OP_BitOrAssign:
-            {
-                if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                    break;
-                ErrorBinaryOperands(ctx, expr->file_loc, "|=", ltype, rtype);
-            } break;
-        case AS_OP_BitXorAssign:
-            {
-                if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
-                    break;
-                ErrorBinaryOperands(ctx, expr->file_loc, "^=", ltype, rtype);
-            } break;
-        }
+    case AS_OP_BitAndAssign:
+        {
+            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
+            ErrorBinaryOperands(ctx, expr->file_loc, "&=", ltype, rtype);
+        } break;
+    case AS_OP_BitOrAssign:
+        {
+            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
+            ErrorBinaryOperands(ctx, expr->file_loc, "|=", ltype, rtype);
+        } break;
+    case AS_OP_BitXorAssign:
+        {
+            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
+            ErrorBinaryOperands(ctx, expr->file_loc, "^=", ltype, rtype);
+        } break;
     }
-
-    *vt = lvt;
     return ltype;
 }
 
