@@ -28,6 +28,8 @@ struct Live_Interval
 {
     s32 start;
     s32 end;
+    Live_Interval *next;
+
     Name name;
     Reg reg;
     Oper_Data_Type data_type;

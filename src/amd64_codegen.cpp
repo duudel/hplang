@@ -2130,8 +2130,7 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
     }
 
     // Reduce liveness information to coarse live intervals
-    s64 current_I = 0;
-    for (; current_I < live_sets.count; current_I++)
+    for (s64 current_I = 0; current_I < live_sets.count; current_I++)
     {
         Live_Sets &sets = live_sets[current_I];
         for (s64 out_I = 0; out_I < sets.live_out.count; out_I++)
@@ -2143,8 +2142,7 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
             li.reg = name_dt.fixed_reg;
             li.data_type = name_dt.data_type;
             li.is_fixed = (name_dt.fixed_reg.reg_index != REG_NONE);
-            s64 instr_i = current_I + 1;
-            for (; instr_i < live_sets.count; instr_i++)
+            for (s64 instr_i = current_I + 1; instr_i < live_sets.count; instr_i++)
             {
                 Live_Sets &ls = live_sets[instr_i];
                 b32 live_in = false;
@@ -2175,7 +2173,24 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
             }
             Live_Interval *new_li = PushStruct<Live_Interval>(&ctx->arena);
             *new_li = li;
-            array::Push(live_intervals, new_li);
+
+            Live_Interval *prev_li = nullptr;
+            for (s64 i = 0; i < live_intervals.count; i++)
+            {
+                if (li.name == live_intervals[i]->name)
+                {
+                    prev_li = live_intervals[i];
+                    break;
+                }
+            }
+            if (!prev_li)
+                array::Push(live_intervals, new_li);
+            else
+            {
+                while (prev_li->next)
+                    prev_li = prev_li->next;
+                prev_li->next = new_li;
+            }
         }
     }
 
@@ -2232,7 +2247,9 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
 }
 
 static void ExpireOldIntervals(Codegen_Context *ctx,
-        Array<Live_Interval> &active, Live_Interval interval,
+        Array<Live_Interval> &active,
+        Array<Live_Interval> &unhandled,
+        Live_Interval interval,
         s64 instr_index)
 {
     (void)interval;
@@ -2243,10 +2260,11 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
         //if (active_interval.end >= interval.start)
             return;
         array::Erase(active, i);
-        if (IsFloatRegister(ctx->reg_alloc, active_interval.reg))
-            array::Push(ctx->reg_alloc->free_float_regs, active_interval.reg);
-        else
-            array::Push(ctx->reg_alloc->free_regs, active_interval.reg);
+
+        if (active_interval.next)
+            array::Push(unhandled, *active_interval.next);
+
+        ReleaseRegister(ctx->reg_alloc, active_interval.reg, active_interval.data_type);
     }
 }
 
@@ -2636,8 +2654,8 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
         if (i + 1 < live_intervals.count)
             next_interval_start = live_intervals[i + 1].start;
 
-        ExpireOldIntervals(ctx, active, interval, interval.start);
-        ExpireOldIntervals(ctx, active_f, interval, interval.start);
+        ExpireOldIntervals(ctx, active, live_intervals, interval, interval.start);
+        ExpireOldIntervals(ctx, active_f, live_intervals, interval, interval.start);
 
         if (interval.data_type == Oper_Data_Type::F32 ||
             interval.data_type == Oper_Data_Type::F64)
@@ -2647,7 +2665,6 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
                 SpillFixedRegAtInterval(ctx, live_intervals, active_f, interval);
             }
             else if (reg_alloc->free_float_regs.count == 0)
-            //else if (active_f.count == reg_alloc->float_reg_count)
             {
                 SpillAtInterval(ctx, active_f, interval);
             }
@@ -2665,7 +2682,6 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
                 SpillFixedRegAtInterval(ctx, live_intervals, active, interval);
             }
             else if (reg_alloc->free_regs.count == 0)
-            //else if (active.count == reg_alloc->general_reg_count)
             {
                 SpillAtInterval(ctx, active, interval);
             }
@@ -2681,8 +2697,8 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             instr_i < next_interval_start;
             instr_i++)
         {
-            ExpireOldIntervals(ctx, active, interval, instr_i);
-            ExpireOldIntervals(ctx, active_f, interval, instr_i);
+            ExpireOldIntervals(ctx, active, live_intervals, interval, instr_i);
+            ExpireOldIntervals(ctx, active_f, live_intervals, interval, instr_i);
 
             ScanInstruction(ctx, routine, active, active_f, instr_i);
         }
@@ -2747,6 +2763,37 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
 
     Array<Live_Interval*> live_interval_set = { };
     ComputeLiveness(ctx, ir_routine, routine, live_interval_set);
+
+    for (s64 i = 0; i < live_interval_set.count; i++)
+    {
+        Live_Interval **interval = &live_interval_set[i];
+        if (!(*interval)->next) continue;
+
+        bool done = false;
+        while (!done)
+        {
+            Live_Interval **prev = interval;
+            Live_Interval *ival = *interval;
+            Live_Interval *next = ival->next;
+
+            done = true;
+
+            while (next)
+            {
+                if (next->start < ival->start)
+                {
+                    ival->next = next->next;
+                    next->next = ival;
+                    *prev = next;
+
+                    done = false;
+                }
+                prev = &ival->next;
+                ival = next;
+                next = next->next;
+            }
+        }
+    }
 
     Array<Live_Interval> live_intervals = { };
     for (s64 i = 0; i < live_interval_set.count; i++)
