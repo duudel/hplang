@@ -5,18 +5,23 @@ import "io";
 //foreign {
 //    printf :: (fmt : char*, a1 : char*) : s64;
 //}
-//
-//func :: (x : s64, y : f64) : f64
-//{
-//    return (x > 0) ? y : 0.0;
-//    //return y + 0.2;
-//}
+
+func :: (x : s64, y : f64) : f64
+{
+    return (x > 0) ? y : 0.0;
+    //return y + 0.2;
+}
 
 main :: ()
 {
+    x := 12;
     z := func(x, 0.5);
     if (z > 0.0)
         x = x + 5;
+
+    y := 2.0;
+
+    x + y;
 
     //printf("hello %s!\n".data, "world".data);
 

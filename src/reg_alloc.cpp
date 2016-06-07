@@ -139,7 +139,7 @@ const Reg* GetReturnRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64
         data_type == Oper_Data_Type::F64)
     {
         if (ret_index < reg_alloc->float_regs.return_regs.count)
-            return &reg_alloc->general_regs.return_regs[ret_index];
+            return &reg_alloc->float_regs.return_regs[ret_index];
     }
     else
     {
@@ -166,6 +166,19 @@ const Reg* GetArgRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64 ar
     return nullptr;
 }
 
+
+b32 HasFreeRegisters(Reg_Alloc *reg_alloc, Oper_Data_Type data_type)
+{
+    switch (data_type)
+    {
+    case Oper_Data_Type::F32:
+    case Oper_Data_Type::F64:
+        return reg_alloc->free_float_regs.count > 0;
+    default:
+        break;
+    }
+    return reg_alloc->free_regs.count > 0;
+}
 
 static Reg GetFreeGeneralRegister(Reg_Alloc *reg_alloc)
 {

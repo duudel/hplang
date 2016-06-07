@@ -74,6 +74,7 @@ b32 IsCallerSave(Reg_Alloc *reg_alloc, Reg reg);
 b32 IsCalleeSave(Reg_Alloc *reg_alloc, Reg reg);
 b32 IsFloatRegister(Reg_Alloc *reg_alloc, Reg reg);
 
+b32 HasFreeRegisters(Reg_Alloc *reg_alloc, Oper_Data_Type data_type);
 Reg GetFreeRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type);
 void ReleaseRegister(Reg_Alloc *reg_alloc, Reg reg, Oper_Data_Type data_type);
 

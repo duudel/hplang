@@ -2466,14 +2466,13 @@ static b32 SetRegOperand(Array<Live_Interval> active, Operand *oper, Name oper_n
 }
 
 static b32 SetOperand(Codegen_Context *ctx,
-        Array<Live_Interval> active, Array<Live_Interval> active_f,
+        Array<Live_Interval> active,
         Operand *oper, s64 instr_index)
 {
     if (oper->type == Oper_Type::FixedRegister)
         return true;
     Name oper_name = GetOperName(*oper);
     if (SetRegOperand(active, oper, oper_name)) return true;
-    if (SetRegOperand(active_f, oper, oper_name)) return true;
 
     (void)instr_index;
     s64 offs;
@@ -2579,7 +2578,7 @@ static void UnspillActives(Array<Live_Interval> active, s64 instr_index)
 #endif
 
 static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
-        Array<Live_Interval> active, Array<Live_Interval> active_f,
+        Array<Live_Interval> active,
         s64 instr_i)
 {
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
@@ -2587,9 +2586,7 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
     if ((Amd64_Opcode)instr->opcode == OP_call)
     {
         SpillCallerSaves(reg_alloc, active, instr_i - 1);
-        SpillCallerSaves(reg_alloc, active_f, instr_i - 1);
         UnspillCallerSaves(reg_alloc, active, instr_i + 1);
-        UnspillCallerSaves(reg_alloc, active_f, instr_i + 1);
     }
     else if ((instr->flags & IF_Branch) != 0)
     {
@@ -2608,13 +2605,13 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
         //UnspillActives(active, instr_i);
         //UnspillActives(active_f, instr_i);
     }
-    SetOperand(ctx, active, active_f, &instr->oper1, instr_i);
-    SetOperand(ctx, active, active_f, &instr->oper2, instr_i);
-    SetOperand(ctx, active, active_f, &instr->oper3, instr_i);
+    SetOperand(ctx, active, &instr->oper1, instr_i);
+    SetOperand(ctx, active, &instr->oper2, instr_i);
+    SetOperand(ctx, active, &instr->oper3, instr_i);
 }
 
 static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
-        Array<Live_Interval> active, Array<Live_Interval> active_f,
+        Array<Live_Interval> active,
         s64 interval_start, s64 next_interval_start)
 {
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
@@ -2624,13 +2621,11 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
         if ((Amd64_Opcode)instr->opcode == OP_call)
         {
             SpillCallerSaves(reg_alloc, active, instr_i - 1);
-            SpillCallerSaves(reg_alloc, active_f, instr_i - 1);
             UnspillCallerSaves(reg_alloc, active, instr_i + 1);
-            UnspillCallerSaves(reg_alloc, active_f, instr_i + 1);
         }
-        SetOperand(ctx, active, active_f, &instr->oper1, instr_i);
-        SetOperand(ctx, active, active_f, &instr->oper2, instr_i);
-        SetOperand(ctx, active, active_f, &instr->oper3, instr_i);
+        SetOperand(ctx, active, &instr->oper1, instr_i);
+        SetOperand(ctx, active, &instr->oper2, instr_i);
+        SetOperand(ctx, active, &instr->oper3, instr_i);
     }
 }
 
@@ -2645,7 +2640,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
     s32 last_interval_start = 0;
     s32 last_interval_end = 0;
     Array<Live_Interval> active = { };
-    Array<Live_Interval> active_f = { };
+    //Array<Live_Interval> inactive = { };
 
     for (s64 i = 0; i < live_intervals.count; i++)
     {
@@ -2655,42 +2650,20 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             next_interval_start = live_intervals[i + 1].start;
 
         ExpireOldIntervals(ctx, active, live_intervals, interval, interval.start);
-        ExpireOldIntervals(ctx, active_f, live_intervals, interval, interval.start);
 
-        if (interval.data_type == Oper_Data_Type::F32 ||
-            interval.data_type == Oper_Data_Type::F64)
+        if (interval.reg.reg_index != REG_NONE)
         {
-            if (interval.reg.reg_index != REG_NONE)
-            {
-                SpillFixedRegAtInterval(ctx, live_intervals, active_f, interval);
-            }
-            else if (reg_alloc->free_float_regs.count == 0)
-            {
-                SpillAtInterval(ctx, active_f, interval);
-            }
-            else
-            {
-                Reg reg = GetFreeRegister(reg_alloc, interval.data_type);
-                interval.reg = reg;
-                AddToActive(active_f, interval);
-            }
+            SpillFixedRegAtInterval(ctx, live_intervals, active, interval);
+        }
+        else if (!HasFreeRegisters(reg_alloc, interval.data_type))
+        {
+            SpillAtInterval(ctx, active, interval);
         }
         else
         {
-            if (interval.reg.reg_index != REG_NONE)
-            {
-                SpillFixedRegAtInterval(ctx, live_intervals, active, interval);
-            }
-            else if (reg_alloc->free_regs.count == 0)
-            {
-                SpillAtInterval(ctx, active, interval);
-            }
-            else
-            {
-                Reg reg = GetFreeRegister(reg_alloc, interval.data_type);
-                interval.reg = reg;
-                AddToActive(active, interval);
-            }
+            Reg reg = GetFreeRegister(reg_alloc, interval.data_type);
+            interval.reg = reg;
+            AddToActive(active, interval);
         }
 
         for (s64 instr_i = interval.start;
@@ -2698,9 +2671,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             instr_i++)
         {
             ExpireOldIntervals(ctx, active, live_intervals, interval, instr_i);
-            ExpireOldIntervals(ctx, active_f, live_intervals, interval, instr_i);
-
-            ScanInstruction(ctx, routine, active, active_f, instr_i);
+            ScanInstruction(ctx, routine, active, instr_i);
         }
         //ScanInstructions(ctx, routine, active, active_f,
         //        interval.start, next_interval_start - 1);
@@ -2710,13 +2681,13 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             last_interval_end = interval.end;
     }
 
-    ScanInstructions(ctx, routine, active, active_f,
+    ScanInstructions(ctx, routine, active,
             last_interval_start, last_interval_end);
 
     InsertSpills(ctx);
 
     array::Free(active);
-    array::Free(active_f);
+    //array::Free(inactive);
 }
 
 static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
