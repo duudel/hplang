@@ -2197,17 +2197,11 @@ b32 Check(Sem_Check_Context *ctx)
         }
     } while (ctx->pending_exprs.count > 0 && round < 10);
 
-    //s64 index = 0;
-    //while (ContinueChecking(ctx) &&
-    //       index < ctx->pending_exprs.count)
-    //{
-    //    Pending_Expr pe = array::At(ctx->pending_exprs, index);
-    //    SetCurrentScope(ctx->env, pe.scope);
-    //    Value_Type vt;
-    //    CheckExpression(ctx, pe.expr, &vt);
-
-    //    index++;
-    //}
+    if (ctx->pending_exprs.count > 0)
+    {
+        Pending_Expr pe = array::At(ctx->pending_exprs, 0);
+        Error(ctx, pe.expr->file_loc, "Could not infer the type of expression");
+    }
 
     return HasError(ctx->comp_ctx);
 }
