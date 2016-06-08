@@ -46,7 +46,8 @@ void Beer_Test(Test_Context *test_ctx, Compiler_Context comp_ctx)
         TEST(main_sym->sym_type == SYM_Function);
         if (TEST(main_sym->type->tag == TYP_Function))
         {
-            TEST(TypeIsVoid(main_sym->type->function_type.return_type));
+            TEST(TypeIsIntegral(main_sym->type->function_type.return_type));
+            TEST(TypeIsSigned(main_sym->type->function_type.return_type));
         }
     }
     if (TEST(beer_sym != nullptr))
@@ -127,11 +128,11 @@ Test tests[] = {
     (Test){ CP_CodeGen, "tests/beer_test.hp",           {}, {}, {}, Beer_Test },
     (Test){ CP_CodeGen, "tests/pointer_arith.hp",       {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/member_access.hp",       {}, {}, {}, nullptr },
-    //(Test){ CP_CodeGen, "tests/module_test.hp",         {}, {}, {}, nullptr },
-    //(Test){ CP_CodeGen, "tests/modules_test.hp",        {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/module_test.hp",         {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/modules_test.hp",        {}, {}, {}, nullptr },
     //(Test){ CP_CodeGen, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
     //(Test){ CP_CodeGen, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
-    //(Test){ CP_CodeGen, "tests/function_var.hp",        {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/function_var.hp",        {}, {}, {}, nullptr },
     //(Test){ CP_CodeGen, "tests/struct_as_arg.hp",       {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/arg_passing.hp",         {}, {}, {}, nullptr },
 };

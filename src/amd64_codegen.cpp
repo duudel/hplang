@@ -44,6 +44,7 @@ enum Opcode_Mod
 // are 64 bit wide. The condition "cmovg a, b" can be replaced with "cmovl b, a".
 #define OPCODES\
     PASTE_OP(LABEL,     NO_MOD)\
+    PASTE_OP(SPILL,     NO_MOD)\
     \
     PASTE_OP(nop,       NO_MOD)\
     \
@@ -253,7 +254,7 @@ Reg MakeReg(Amd64_Register r)
 
 // Windows AMD64 ABI register usage
 static Reg_Info win_reg_info[] = {
-    { REG_NONE,    -1,  RF_None },
+    { REG_NONE,    -1,  RF_None | RF_NonAllocable },
     { REG_rax,      0,  RF_CallerSave | RF_Return },
     { REG_rbx,     -1,  RF_None },
     { REG_rcx,      0,  RF_CallerSave | RF_Arg },
@@ -291,7 +292,7 @@ static Reg_Info win_reg_info[] = {
 
 // Unix System V ABI register usage
 static Reg_Info nix_reg_info[] = {
-    { REG_NONE,    -1,  RF_None },
+    { REG_NONE,    -1,  RF_None | RF_NonAllocable },
     { REG_rax,      0,  RF_CallerSave | RF_Return },
     { REG_rbx,     -1,  RF_None },
     { REG_rcx,      0,  RF_CallerSave | RF_Arg },
@@ -1722,7 +1723,10 @@ static void GenerateCode(Codegen_Context *ctx,
         case IR_Addr:
             {
                 Operand addr_oper = GetAddress(ctx, &ir_instr->oper1);
-                PushLoad(ctx, W_(addr_oper), IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                Operand oper = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                //PushLoad(ctx, W_(addr_oper), IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_SPILL, oper);
+                //PushSpill(ctx, oper);
                 PushLoadAddr(ctx,
                         IrOperand(ctx, &ir_instr->target, AF_Write),
                         R_(addr_oper));
@@ -1775,6 +1779,22 @@ static void GenerateCode(Codegen_Context *ctx,
                     PushInstruction(ctx, OP_movsx, target, oper1);
                 }
             } break;
+        case IR_Load:
+            {
+                //Operand oper = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                //PushInstruction(ctx, OP_SPILL, oper);
+
+                Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                //Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                PushLoad(ctx, target, R_(GetAddress(ctx, &ir_instr->oper1)));
+            } break;
+        case IR_Store:
+            {
+                Operand target = BaseOffsetOperand(ctx, &ir_instr->target, 0,
+                        DataTypeFromType(ir_instr->target.type), AF_Write);
+                Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                PushLoad(ctx, target, oper1);
+            } break;
         //case IR_Store:
         //    {
         //        Operand target = BaseOffsetOperand(ctx, &ir_instr->target, 0, DataTypeFromType(ir_instr->target.type), AF_Write);
@@ -1791,25 +1811,60 @@ static void GenerateCode(Codegen_Context *ctx,
                 if (TypeIsPointer(oper_type))
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type->base_type, member_index);
-                    PushLoadAddr(ctx,
+                    PushLoad(ctx,
                             target,
                             BaseOffsetOperand(ctx, &ir_instr->oper1, member_offset, target.data_type, AF_Read));
                 }
                 else
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
+#if 0
                     Operand temp = TempOperand(ctx, target.data_type, AF_Write);
                     PushLoadAddr(ctx,
                             temp,
                             BaseOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read));
                     PushLoad(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+#endif
+                    Operand source = GetAddress(ctx, &ir_instr->oper1);
+                    source.scale_offset += member_offset;
+                    source.data_type = target.data_type;
+                    PushLoad(ctx, target, R_(source));
+                }
+            } break;
+        case IR_LoadMemberAddr:
+            {
+                Type *oper_type = ir_instr->oper1.type;
+                s64 member_index = ir_instr->oper2.imm_s64;
+                Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                ASSERT(target.data_type == Oper_Data_Type::PTR);
+                if (TypeIsPointer(oper_type))
+                {
+                    s64 member_offset = GetStructMemberOffset(oper_type->base_type, member_index);
+                    PushLoadAddr(ctx, target, BaseOffsetOperand(ctx, &ir_instr->oper1, member_offset, target.data_type, AF_Read));
+                }
+                else
+                {
+                    s64 member_offset = GetStructMemberOffset(oper_type, member_index);
+                    Operand temp = TempOperand(ctx, target.data_type, AF_Write);
+                    PushLoadAddr(ctx, temp, R_(GetAddress(ctx, &ir_instr->oper1)));
+                    PushLoadAddr(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
                 }
             } break;
         case IR_MovElement:
             {
-                // target <- base + index*size
+                // target <- [base + index*size]
                 s64 size = GetAlignedElementSize(ir_instr->oper1.type);
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                PushLoad(ctx,
+                        target,
+                        BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
+                        IndexScaleOperand(ctx, &ir_instr->oper2, size, AF_Read));
+            } break;
+        case IR_LoadElementAddr:
+            {
+                s64 size = GetAlignedElementSize(ir_instr->oper1.type);
+                Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                ASSERT(target.data_type == Oper_Data_Type::PTR);
                 PushLoadAddr(ctx,
                         target,
                         BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
@@ -2668,8 +2723,7 @@ static void UnspillActives(Array<Live_Interval> active, s64 instr_index)
 #endif
 
 static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
-        Array<Live_Interval> active,
-        s64 instr_i)
+        Array<Live_Interval> &active, s64 instr_i)
 {
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
     Instruction *instr = routine->instructions[instr_i];
@@ -2678,6 +2732,24 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
         SpillCallerSaves(reg_alloc, active, instr_i - 1);
         UnspillCallerSaves(reg_alloc, active, instr_i + 1);
     }
+    else if ((Amd64_Opcode)instr->opcode == OP_SPILL)
+    {
+        for (s64 i = 0; i < active.count; i++)
+        {
+            Live_Interval interval = active[i];
+            Name oper_name = GetOperName(instr->oper1);
+            if (interval.name == oper_name)
+            {
+                Spill(ctx->reg_alloc, interval, instr_i);
+                array::Erase(active, i);
+                ReleaseRegister(reg_alloc, interval.reg, interval.data_type);
+                break;
+            }
+        }
+        instr->opcode = (Opcode)OP_nop;
+        instr->oper1 = NoneOperand();
+    }
+#if 0
     else if ((instr->flags & IF_Branch) != 0)
     {
         //SpillActives(active, instr_i);
@@ -2695,27 +2767,29 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
         //UnspillActives(active, instr_i);
         //UnspillActives(active_f, instr_i);
     }
+#endif
     SetOperand(ctx, active, &instr->oper1, instr_i);
     SetOperand(ctx, active, &instr->oper2, instr_i);
     SetOperand(ctx, active, &instr->oper3, instr_i);
 }
 
 static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
-        Array<Live_Interval> active,
+        Array<Live_Interval> &active,
         s64 interval_start, s64 next_interval_start)
 {
-    Reg_Alloc *reg_alloc = ctx->reg_alloc;
+    //Reg_Alloc *reg_alloc = ctx->reg_alloc;
     for (s64 instr_i = interval_start; instr_i <= next_interval_start; instr_i++)
     {
-        Instruction *instr = routine->instructions[instr_i];
-        if ((Amd64_Opcode)instr->opcode == OP_call)
-        {
-            SpillCallerSaves(reg_alloc, active, instr_i - 1);
-            UnspillCallerSaves(reg_alloc, active, instr_i + 1);
-        }
-        SetOperand(ctx, active, &instr->oper1, instr_i);
-        SetOperand(ctx, active, &instr->oper2, instr_i);
-        SetOperand(ctx, active, &instr->oper3, instr_i);
+        ScanInstruction(ctx, routine, active, instr_i);
+        //Instruction *instr = routine->instructions[instr_i];
+        //if ((Amd64_Opcode)instr->opcode == OP_call)
+        //{
+        //    SpillCallerSaves(reg_alloc, active, instr_i - 1);
+        //    UnspillCallerSaves(reg_alloc, active, instr_i + 1);
+        //}
+        //SetOperand(ctx, active, &instr->oper1, instr_i);
+        //SetOperand(ctx, active, &instr->oper2, instr_i);
+        //SetOperand(ctx, active, &instr->oper3, instr_i);
     }
 }
 

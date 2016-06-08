@@ -36,4 +36,5 @@ beer :: (n : s64)
 main :: ()
 {
     beer(99);
+    return 0;
 }

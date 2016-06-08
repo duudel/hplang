@@ -1,9 +1,16 @@
 // Some pointer arithmetic
 // 2016-04-28
 
+//foreign {
+//    printf :: (fmt : char*, x : s64, y : s64) : s64;
+//}
+
 main :: ()
 {
     x := 5;
     y := &x;
     @y = 10;
+
+    //printf("x = %d; @y = %d\n".data, x, @y);
+    return 0;
 }
