@@ -12,3 +12,8 @@ test :: (x : u32)
     result : char *;
     return result;
 }
+
+main :: ()
+{
+    return 0;
+}

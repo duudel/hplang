@@ -130,10 +130,10 @@ Test tests[] = {
     (Test){ CP_CodeGen, "tests/member_access.hp",       {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/module_test.hp",         {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/modules_test.hp",        {}, {}, {}, nullptr },
-    //(Test){ CP_CodeGen, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
-    //(Test){ CP_CodeGen, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
+    (Test){ CP_CodeGen, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/function_var.hp",        {}, {}, {}, nullptr },
-    //(Test){ CP_CodeGen, "tests/struct_as_arg.hp",       {}, {}, {}, nullptr },
+    (Test){ CP_CodeGen, "tests/struct_as_arg.hp",       {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/arg_passing.hp",         {}, {}, {}, nullptr },
 };
 
@@ -229,14 +229,13 @@ s64 RunTest(Test_Context *test_ctx, const Test &test)
             failed = 1;
         else if (!CheckSemCheckResult(&compiler_ctx, test))
             failed = 1;
-
-        if (test.test_func)
+        else if (test.test_func)
         {
             test.test_func(test_ctx, compiler_ctx);
         }
         if (test.stop_after == CP_CodeGen)
         {
-            if (system("compile_out.sh") == 0)
+            //if (system("compile_out.sh") == 0)
             {
                 int result = system("out.exe");
                 if (result != 0)
@@ -245,11 +244,11 @@ s64 RunTest(Test_Context *test_ctx, const Test &test)
                     failed = 1;
                 }
             }
-            else
-            {
-                fprintf(stderr, "Error assembling and linking '%s'\n", test.filename);
-                failed = 1;
-            }
+            //else
+            //{
+            //    fprintf(stderr, "Error assembling and linking '%s'\n", test.filename);
+            //    failed = 1;
+            //}
         }
     }
     else

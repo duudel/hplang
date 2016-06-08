@@ -15,8 +15,9 @@ func :: (a : Test)
     return a.x;
 }
 
-test :: ()
+main :: ()
 {
     a : Test;
     func(a);
+    return 0;
 }

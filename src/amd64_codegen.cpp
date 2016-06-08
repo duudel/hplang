@@ -1785,7 +1785,6 @@ static void GenerateCode(Codegen_Context *ctx,
                 //PushInstruction(ctx, OP_SPILL, oper);
 
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                //Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                 PushLoad(ctx, target, R_(GetAddress(ctx, &ir_instr->oper1)));
             } break;
         case IR_Store:
@@ -1795,14 +1794,6 @@ static void GenerateCode(Codegen_Context *ctx,
                 Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                 PushLoad(ctx, target, oper1);
             } break;
-        //case IR_Store:
-        //    {
-        //        Operand target = BaseOffsetOperand(ctx, &ir_instr->target, 0, DataTypeFromType(ir_instr->target.type), AF_Write);
-        //        Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-        //        oper1.data_type = target.data_type;
-        //        PushLoad(ctx, target, oper1);
-        //        //PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
-        //    } break;
         case IR_MovMember:
             {
                 Type *oper_type = ir_instr->oper1.type;
@@ -1818,13 +1809,6 @@ static void GenerateCode(Codegen_Context *ctx,
                 else
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-#if 0
-                    Operand temp = TempOperand(ctx, target.data_type, AF_Write);
-                    PushLoadAddr(ctx,
-                            temp,
-                            BaseOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read));
-                    PushLoad(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
-#endif
                     Operand source = GetAddress(ctx, &ir_instr->oper1);
                     source.scale_offset += member_offset;
                     source.data_type = target.data_type;
@@ -2845,6 +2829,11 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
         //        interval.start, next_interval_start - 1);
 
         last_interval_start = interval.start;
+    }
+
+    for (s64 i = 0; i < active.count; i++)
+    {
+        Live_Interval interval = active[i];
         if (interval.end > last_interval_end)
             last_interval_end = interval.end;
     }
@@ -2980,16 +2969,17 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
         GenerateCode(ctx, ir_routines[i]);
     }
 
-    IoFile *f = ctx->code_out;
+    if (ctx->comp_ctx->options.debug_reg_alloc)
+    {
+        IoFile *f = ctx->code_out;
+        FILE *tfile = fopen("out_.s", "w");
 
-    FILE *tfile = fopen("out_.s", "w");
+        ctx->code_out = (IoFile*)tfile;
+        OutputCode(ctx);
 
-    ctx->code_out = (IoFile*)tfile;
-    OutputCode(ctx);
-
-    fclose(tfile);
-
-    ctx->code_out = f;
+        fclose(tfile);
+        ctx->code_out = f;
+    }
 
     for (s64 i = 0; i < ir_routines.count; i++)
     {
@@ -3171,7 +3161,6 @@ static void PrintInstruction(IoFile *file, const Instruction *instr)
     }
     else
     {
-        //len += fprintf((FILE*)file, "\t");
         len += PrintPadding((FILE*)file, len, 4);
         len += PrintOpcode(file, (Amd64_Opcode)instr->opcode);
 
@@ -3179,7 +3168,6 @@ static void PrintInstruction(IoFile *file, const Instruction *instr)
         {
             b32 lea = ((Amd64_Opcode)instr->opcode == OP_lea);
             len += PrintPadding((FILE*)file, len, 16);
-            //len += fprintf((FILE*)file, "\t");
             len += PrintOperand(file, instr->oper1, &instr->oper2, true, lea);
             len += PrintOperand(file, instr->oper2, &instr->oper3, false, lea);
             len += PrintOperand(file, instr->oper3, nullptr, false, lea);

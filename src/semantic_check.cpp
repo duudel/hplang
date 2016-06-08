@@ -1170,10 +1170,25 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
     Type *ltype = CheckExpr(ctx, left, &lvt);
     Type *rtype = CheckExpr(ctx, right, &rvt);
 
+    *vt = VT_NonAssignable;
     if (TypeIsNone(ltype) || TypeIsNone(rtype))
         return GetBuiltinType(TYP_none);
 
-    *vt = VT_NonAssignable;
+    if (TypeIsPending(ltype))
+    {
+        if (!ltype->base_type)
+        {
+            return ltype;
+        }
+    }
+    else if (TypeIsPending(rtype))
+    {
+        if (!rtype->base_type)
+        {
+            return rtype;
+        }
+    }
+
     ASSERT(ltype && rtype);
 
     Type *type = nullptr;
@@ -2162,13 +2177,15 @@ b32 Check(Sem_Check_Context *ctx)
         CheckTopLevelStmt(ctx, node);
     }
 
+    s32 round = 0;
     do {
         Array<Pending_Expr> pending_exprs = ctx->pending_exprs;
         ctx->pending_exprs = { };
         if (pending_exprs.count > 0)
         {
-            fprintf(stderr, "DEBUG: pending exprs %" PRId64 "\n",
-                    pending_exprs.count);
+            round++;
+            fprintf(stdout, "DEBUG: round %d; pending exprs %" PRId64 "\n",
+                    round, pending_exprs.count);
             for (s64 i = 0; i < pending_exprs.count; i++)
             {
                 Pending_Expr pe = array::At(pending_exprs, i);
@@ -2176,8 +2193,9 @@ b32 Check(Sem_Check_Context *ctx)
                 Value_Type vt;
                 CheckExpression(ctx, pe.expr, &vt);
             }
+            array::Free(pending_exprs);
         }
-    } while (false);
+    } while (ctx->pending_exprs.count > 0 && round < 10);
 
     //s64 index = 0;
     //while (ContinueChecking(ctx) &&
