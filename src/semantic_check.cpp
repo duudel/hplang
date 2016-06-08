@@ -632,6 +632,9 @@ static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Typ
 
     *vt = VT_NonAssignable;
 
+    if (TypeIsNone(oper_type) || TypeIsNone(to_type))
+        return GetBuiltinType(TYP_none);
+
     if (TypeIsPointer(oper_type) && TypeIsPointer(to_type))
         return to_type;
     if (TypeIsNumeric(oper_type) && TypeIsNumeric(to_type))
@@ -2184,6 +2187,7 @@ b32 Check(Sem_Check_Context *ctx)
         if (pending_exprs.count > 0)
         {
             round++;
+            // TODO(henrik): Remove this debug message
             fprintf(stdout, "DEBUG: round %d; pending exprs %" PRId64 "\n",
                     round, pending_exprs.count);
             for (s64 i = 0; i < pending_exprs.count; i++)

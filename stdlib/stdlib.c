@@ -1,4 +1,5 @@
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -15,6 +16,11 @@ typedef int64_t s64;
 
 typedef float   f32;
 typedef double  f64;
+
+
+void* hp_alloc(s64 size) { return malloc(size); }
+void hp_free(void *ptr) { free(ptr); }
+
 
 FILE* hp_get_stdout() { return stdout; }
 FILE* hp_get_stderr() { return stderr; }

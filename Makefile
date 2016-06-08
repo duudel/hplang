@@ -42,7 +42,7 @@ run:
 	@#-./$(EXENAME) -di tests/member_access.hp 2> stderr.out
 	@#-./$(EXENAME) -diR tests/pointer_arith.hp 2> stderr.out
 	@#-./$(EXENAME) -dR tests/difficult_rt_infer.hp 2> stderr.out
-	@#-./compile_out.sh
+	@#-./$(EXENAME) -dRi samples/simple.hp 2> stderr.out
 
 
 GDB := /usr/bin/gdb

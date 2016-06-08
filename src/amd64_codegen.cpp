@@ -208,6 +208,19 @@ Name reg_names[] = {
 };
 #undef PASTE_REG
 
+
+#define PASTE_REG(r8, r4, r2, r1) #r8 "@@save",
+const char *reg_save_name_strings[] = {
+    REGS
+};
+#undef PASTE_REG
+
+#define PASTE_REG(r8, r4, r2, r1) {},
+Name reg_save_names[] = {
+    REGS
+};
+#undef PASTE_REG
+
 static const char* GetRegNameStr(Reg reg)
 {
     return reg_name_strings_8b[reg.reg_index];
@@ -335,6 +348,7 @@ void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
     for (s64 i = 0; i < array_length(reg_names); i++)
     {
         reg_names[i] = PushName(&ctx->arena, reg_name_strings_8b[i]);
+        reg_save_names[i] = PushName(&ctx->arena, reg_save_name_strings[i]);
     }
     switch (cg_target)
     {
@@ -1802,17 +1816,26 @@ static void GenerateCode(Codegen_Context *ctx,
                 if (TypeIsPointer(oper_type))
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type->base_type, member_index);
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                    oper1.data_type = target.data_type;
                     PushLoad(ctx,
                             target,
-                            BaseOffsetOperand(ctx, &ir_instr->oper1, member_offset, target.data_type, AF_Read));
+                            BaseOffsetOperand(oper1, member_offset, AF_Read));
+                            //BaseOffsetOperand(ctx, &ir_instr->oper1, member_offset, target.data_type, AF_Read));
                 }
                 else
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                    Operand source = GetAddress(ctx, &ir_instr->oper1);
-                    source.scale_offset += member_offset;
-                    source.data_type = target.data_type;
-                    PushLoad(ctx, target, R_(source));
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                    oper1.data_type = target.data_type;
+                    PushLoad(ctx,
+                            target,
+                            BaseOffsetOperand(oper1, member_offset, AF_Read));
+                    //s64 member_offset = GetStructMemberOffset(oper_type, member_index);
+                    //Operand source = GetAddress(ctx, &ir_instr->oper1);
+                    //source.scale_offset += member_offset;
+                    //source.data_type = target.data_type;
+                    //PushLoad(ctx, target, R_(source));
                 }
             } break;
         case IR_LoadMemberAddr:
@@ -2468,10 +2491,8 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
         Array<Live_Interval> &active,
         Array<Live_Interval> &inactive,
         Array<Live_Interval> &unhandled,
-        Live_Interval interval,
         s64 instr_index)
 {
-    (void)interval;
     (void)unhandled;
     for (s64 i = 0; i < active.count; ) //i++)
     {
@@ -2706,7 +2727,9 @@ static void SpillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active, 
     {
         if (!active[i].is_fixed && IsCallerSave(reg_alloc, active[i].reg))
         {
-            Spill(reg_alloc, active[i], instr_index);
+            Live_Interval interval = active[i];
+            interval.name = reg_save_names[interval.reg.reg_index];
+            Spill(reg_alloc, interval, instr_index);
         }
     }
 }
@@ -2717,24 +2740,12 @@ static void UnspillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active
     {
         if (!active[i].is_fixed && IsCallerSave(reg_alloc, active[i].reg))
         {
-            Unspill(reg_alloc, active[i], instr_index);
+            Live_Interval interval = active[i];
+            interval.name = reg_save_names[interval.reg.reg_index];
+            Unspill(reg_alloc, interval, instr_index);
         }
     }
 }
-
-#if 0
-static void SpillActives(Array<Live_Interval> active, s64 instr_index)
-{
-    for (s64 i = 0; i < active.count; i++)
-        Spill(active[i], instr_index);
-}
-
-static void UnspillActives(Array<Live_Interval> active, s64 instr_index)
-{
-    for (s64 i = 0; i < active.count; i++)
-        Unspill(active[i], instr_index + 1);
-}
-#endif
 
 static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
         Array<Live_Interval> &active, s64 instr_i)
@@ -2787,6 +2798,7 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
     SetOperand(ctx, active, &instr->oper3, instr_i);
 }
 
+/*
 static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
         Array<Live_Interval> &active,
         s64 interval_start, s64 next_interval_start)
@@ -2805,7 +2817,7 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
         //SetOperand(ctx, active, &instr->oper2, instr_i);
         //SetOperand(ctx, active, &instr->oper3, instr_i);
     }
-}
+}*/
 
 static void LinearScanRegAllocation(Codegen_Context *ctx,
         Array<Live_Interval> &live_intervals)
@@ -2828,7 +2840,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             next_interval_start = live_intervals[i + 1].start;
 
         ExpireOldIntervals(ctx, active, inactive,
-                live_intervals, interval, interval.start);
+                live_intervals, interval.start);
         CheckInactiveIntervals(ctx, active, inactive, interval.start);
 
         if (interval.reg.reg_index != REG_NONE)
@@ -2851,7 +2863,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             instr_i++)
         {
             ExpireOldIntervals(ctx, active, inactive,
-                    live_intervals, interval, instr_i);
+                    live_intervals, instr_i);
             CheckInactiveIntervals(ctx, active, inactive, instr_i);
             ScanInstruction(ctx, routine, active, instr_i);
         }
@@ -2859,6 +2871,8 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
         //        interval.start, next_interval_start - 1);
 
         last_interval_start = interval.start;
+        if (interval.end > last_interval_end)
+            last_interval_end = interval.end;
     }
 
     for (s64 i = 0; i < active.count; i++)
@@ -2868,8 +2882,30 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             last_interval_end = interval.end;
     }
 
-    ScanInstructions(ctx, routine, active,
+    for (s64 i = 0; i < inactive.count; i++)
+    {
+        Live_Interval interval = inactive[i];
+        if (interval.end > last_interval_end)
+            last_interval_end = interval.end;
+    }
+
+    //last_interval_end = routine->instructions.count - 1;
+
+    fprintf(stderr, "Scanning last live interval [%d,%d]\n",
             last_interval_start, last_interval_end);
+
+    //ScanInstructions(ctx, routine, active,
+    //        last_interval_start, last_interval_end);
+
+        for (s64 instr_i = last_interval_start;
+            instr_i <= last_interval_end;
+            instr_i++)
+        {
+            ExpireOldIntervals(ctx, active, inactive,
+                    live_intervals, instr_i);
+            CheckInactiveIntervals(ctx, active, inactive, instr_i);
+            ScanInstruction(ctx, routine, active, instr_i);
+        }
 
     InsertSpills(ctx);
 

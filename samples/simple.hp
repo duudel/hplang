@@ -6,31 +6,36 @@ import "io";
 //    printf :: (fmt : char*, a1 : char*) : s64;
 //}
 
-func :: (x : s64, y : f64) : f64
-{
-    return (x > 0) ? y : 0.0;
-    //return y + 0.2;
-}
+//func :: (x : s64, y : f64) : f64
+//{
+//    return (x > 0) ? y : 0.0;
+//    //return y + 0.2;
+//}
 
 main :: ()
 {
-    x := 12;
-    z := func(x, 0.5);
-    if (z > 0.0)
-        x = x + 5;
+    //x := 12;
+    //z := func(x, 0.5);
+    //if (z > 0.0)
+    //    x = x + 5;
 
-    y := 2.0;
+    //y := 2.0;
 
-    x + y;
+    //x + y;
 
     //printf("hello %s!\n".data, "world".data);
 
-    //s := "A string whose length is ...";
-    //println(s.size);
-    //println(s);
-    //s.size = 10;
-    //println(s.size);
-    //println(s);
+    s := "A string whose length is ...";
+    println(s.size);
+    println(s);
+    s.size = 10;
+    println(s.size);
+    println(s);
+
+    data := hp_alloc(16) -> char*;
+    data[0] = 'a';
+    data[1] = '\0';
+    hp_fwrite(stdout, 1, data -> u8*);
 
     return 0;
 }

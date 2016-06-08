@@ -116,6 +116,11 @@ init_bodies :: ()
     // or
     //bodies = alloc(Body, BODY_COUNT);
 
+    size_of_Body := 8 * 7;
+    bodies = hp_alloc(BODY_COUNT * size_of_Body) -> Body*;
+    //bodies = hp_alloc(BODY_COUNT * size_of(Body)) -> Body*;
+    //bodies = hp_alloc(BODY_COUNT * Body.size) -> Body*;
+
     i := 0;
     // Sun
     bodies[i].x = 0.0d;

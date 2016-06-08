@@ -431,12 +431,21 @@ static void AddBuiltinTypes(Environment *env)
     members[1].type = GetPointerType(env, GetBuiltinType(TYP_char));
 }
 
+static void AddBuiltinFunctions(Environment *env)
+{
+    Type *hp_alloc_type = PushFunctionType(env, TYP_Function, 1);
+    hp_alloc_type->function_type.return_type = GetPointerType(env, GetBuiltinType(TYP_void));
+    hp_alloc_type->function_type.parameter_types[0] = GetBuiltinType(TYP_s64);
+    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "hp_alloc"), hp_alloc_type);
+}
 
 Environment NewEnvironment(const char *main_func_name)
 {
     Environment result = { };
     OpenScope(&result);
+    result.root = result.current;
     AddBuiltinTypes(&result);
+    AddBuiltinFunctions(&result);
     result.main_func_name = PushName(&result.arena, main_func_name);
     return result;
 }

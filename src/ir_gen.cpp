@@ -1283,6 +1283,7 @@ static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine
 
 static void GenForeignBlock(Ir_Gen_Context *ctx, Ast_Node *node)
 {
+    return;
     for (s64 i = 0; i < node->foreign.statements.count; i++)
     {
         Ast_Node *stmt = node->foreign.statements[i];
@@ -1387,6 +1388,15 @@ b32 GenIr(Ir_Gen_Context *ctx)
     {
         Module *module = array::At(modules, index);
         GenIrAst(ctx, &module->ast, top_level_routine);
+    }
+    Environment *env = &ctx->comp_ctx->env;
+    for (s64 i = 0; i < env->root->table.count; i++)
+    {
+        Symbol *symbol = env->root->table[i];
+        if (symbol && symbol->sym_type == SYM_ForeignFunction)
+        {
+            array::Push(ctx->foreign_routines, symbol->name);
+        }
     }
     return HasError(ctx->comp_ctx);
 }
