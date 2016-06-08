@@ -988,7 +988,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
 // T and U are types
 // <*> is the binary operator
 // the types are commutative, so the first types can be switched
-static Type* DetermineBinaryExprType(Sem_Check_Context *ctx,
+static Type* CoerceBinaryExprType(Sem_Check_Context *ctx,
         Ast_Expr *expr, Ast_Expr *left, Ast_Expr *right,
         Type *ltype, Type *rtype)
 {
@@ -1191,7 +1191,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 }
                 return ltype;
             }
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "+", ltype, rtype);
@@ -1212,7 +1212,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 }
                 return ltype;
             }
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "-", ltype, rtype);
@@ -1224,7 +1224,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_Multiply:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "*", ltype, rtype);
@@ -1236,7 +1236,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_Divide:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "/", ltype, rtype);
@@ -1249,7 +1249,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
     case BIN_OP_Modulo:
         {
             // TODO(henrik): Should modulo work for floats too?
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "\%", ltype, rtype);
@@ -1265,7 +1265,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
 
     case BIN_OP_BitAnd:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "&", ltype, rtype);
@@ -1280,7 +1280,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_BitOr:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "|", ltype, rtype);
@@ -1295,7 +1295,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_BitXor:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "^", ltype, rtype);
@@ -1324,37 +1324,79 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
 
     case BIN_OP_Equal:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
+            {
+                if (TypesEqual(ltype, rtype))
+                    return GetBuiltinType(TYP_bool);
+                if (TypeIsNull(ltype) || TypeIsNull(rtype))
+                    return GetBuiltinType(TYP_bool);
+            }
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "==", ltype, rtype);
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_NotEqual:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
+            {
+                if (TypesEqual(ltype, rtype))
+                    return GetBuiltinType(TYP_bool);
+                if (TypeIsNull(ltype) || TypeIsNull(rtype))
+                    return GetBuiltinType(TYP_bool);
+            }
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "!=", ltype, rtype);
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_Less:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
+            {
+                if (TypesEqual(ltype, rtype))
+                    return GetBuiltinType(TYP_bool);
+                if (TypeIsNull(ltype) || TypeIsNull(rtype))
+                    return GetBuiltinType(TYP_bool);
+            }
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "<", ltype, rtype);
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_LessEq:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
+            {
+                if (TypesEqual(ltype, rtype))
+                    return GetBuiltinType(TYP_bool);
+                if (TypeIsNull(ltype) || TypeIsNull(rtype))
+                    return GetBuiltinType(TYP_bool);
+            }
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "<=", ltype, rtype);
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_Greater:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
+            {
+                if (TypesEqual(ltype, rtype))
+                    return GetBuiltinType(TYP_bool);
+                if (TypeIsNull(ltype) || TypeIsNull(rtype))
+                    return GetBuiltinType(TYP_bool);
+            }
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, ">", ltype, rtype);
             return GetBuiltinType(TYP_bool);
         } break;
     case BIN_OP_GreaterEq:
         {
-            type = DetermineBinaryExprType(ctx, expr, left, right, ltype, rtype);
+            if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
+            {
+                if (TypesEqual(ltype, rtype))
+                    return GetBuiltinType(TYP_bool);
+                if (TypeIsNull(ltype) || TypeIsNull(rtype))
+                    return GetBuiltinType(TYP_bool);
+            }
+            type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, ">=", ltype, rtype);
             return GetBuiltinType(TYP_bool);
         } break;

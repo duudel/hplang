@@ -16,3 +16,9 @@ test :: (s : My_Struct*)
     u.my_member == -127;
     u.other_member == null;
 }
+
+main :: ()
+{
+    s : My_Struct;
+    test(&s);
+}

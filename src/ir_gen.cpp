@@ -1022,7 +1022,7 @@ static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine
     Symbol *symbol = node->variable_decl.symbol;
     Ast_Expr *init_expr = node->variable_decl.init_expr;
 
-    Ir_Operand var_oper = NewVariableRef(routine, init_expr->expr_type, symbol->unique_name);
+    Ir_Operand var_oper = NewVariableRef(routine, symbol->type, symbol->unique_name);
     PushInstruction(ctx, routine, IR_VarDecl, var_oper);
 
     if (init_expr)

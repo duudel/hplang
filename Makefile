@@ -41,6 +41,7 @@ run:
 	@#-./$(EXENAME) -di samples/simple.hp 2> stderr.out
 	@#-./$(EXENAME) samples/hello.hp 2> stderr.out
 	@#-./$(EXENAME) -o samples/hello samples/hello.hp
+	@#-./$(EXENAME) tests/pointer_arith.hp
 	@#-./compile_out.sh
 
 

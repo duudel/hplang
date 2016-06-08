@@ -64,7 +64,7 @@ main :: () : s64
     // assert(fibo(10) == 55);
     print("fibo(10) = ");
     print(fibo(10));
-    print("\n");
+    println();
     print("fibo2(10) = ");
     print(fibo2(10));
     println();

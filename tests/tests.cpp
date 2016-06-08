@@ -127,12 +127,12 @@ Test tests[] = {
     (Test){ CP_CodeGen, "tests/beer_test.hp",           {}, {}, {}, Beer_Test },
     (Test){ CP_CodeGen, "tests/pointer_arith.hp",       {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/member_access.hp",       {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/module_test.hp",         {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/modules_test.hp",        {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
-    (Test){ CP_CodeGen, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/function_var.hp",        {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/struct_as_arg.hp",       {}, {}, {}, nullptr },
+    //(Test){ CP_CodeGen, "tests/module_test.hp",         {}, {}, {}, nullptr },
+    //(Test){ CP_CodeGen, "tests/modules_test.hp",        {}, {}, {}, nullptr },
+    //(Test){ CP_CodeGen, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
+    //(Test){ CP_CodeGen, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
+    //(Test){ CP_CodeGen, "tests/function_var.hp",        {}, {}, {}, nullptr },
+    //(Test){ CP_CodeGen, "tests/struct_as_arg.hp",       {}, {}, {}, nullptr },
     (Test){ CP_CodeGen, "tests/arg_passing.hp",         {}, {}, {}, nullptr },
 };
 

@@ -1604,8 +1604,12 @@ static s64 PushArgs(Codegen_Context *ctx,
             }
             else
             {
-                NOT_IMPLEMENTED("stack arguments");
-                INVALID_CODE_PATH;
+                Operand target = IrOperand(ctx, &arg_instr->target, AF_Read);
+                PushLoad(ctx,
+                        BaseOffsetOperand(REG_rsp, arg_index * 8, target.data_type, AF_Write),
+                        target);
+                //NOT_IMPLEMENTED("stack arguments");
+                //INVALID_CODE_PATH;
             }
         }
 
@@ -1652,12 +1656,12 @@ static void Copy(Codegen_Context *ctx,
             else
             {
                 Operand temp = TempOperand(ctx, DataTypeFromType(member->type), AF_Write);
-                PushLoad(ctx,
-                        W_(temp),
-                        BaseOffsetOperand(source, member->offset + offset, AF_Read));
-                PushLoad(ctx,
-                        BaseOffsetOperand(target, member->offset + offset, AF_Write),
-                        R_(temp));
+                Operand src = BaseOffsetOperand(source, member->offset + offset, AF_Read);
+                Operand dst = BaseOffsetOperand(target, member->offset + offset, AF_Write);
+                src.data_type = temp.data_type;
+                dst.data_type = temp.data_type;
+                PushLoad(ctx, W_(temp), R_(src));
+                PushLoad(ctx, W_(dst), R_(temp));
             }
         }
     }
@@ -2195,6 +2199,8 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
     }
 
 #if defined(DEBUG_LIVENESS) || defined(RA_DEBUG_INFO)
+if (ctx->comp_ctx->options.debug_reg_alloc)
+{
     fprintf(stderr, "\n--Live in/out-- ");
     PrintName((IoFile*)stderr, routine->name);
     fprintf(stderr, "\n");
@@ -2231,11 +2237,18 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
         Live_Interval *interval = live_intervals[i];
         if (!interval) continue;
 
+        const char *indent = "";
         PrintName((IoFile*)stderr, interval->name);
-        fprintf(stderr, ": \t[%d,%d] %d\n",
-                interval->start, interval->end, (s32)interval->data_type);
+        do
+        {
+            fprintf(stderr, "%s: \t[%d,%d] %d\n", indent,
+                    interval->start, interval->end, (s32)interval->data_type);
+            indent = "\t";
+            interval = interval->next;
+        } while (interval);
     }
     fprintf(stderr, "--Live intervals end--\n");
+}
 #endif
 
     for (s64 i = 0; i < live_sets.count; i++)
@@ -2246,60 +2259,8 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
     array::Free(live_sets);
 }
 
-static void ExpireOldIntervals(Codegen_Context *ctx,
-        Array<Live_Interval> &active,
-        Array<Live_Interval> &unhandled,
-        Live_Interval interval,
-        s64 instr_index)
-{
-    (void)interval;
-    for (s64 i = 0; i < active.count; ) //i++)
-    {
-        Live_Interval active_interval = active[i];
-        if (active_interval.end >= instr_index)
-        //if (active_interval.end >= interval.start)
-            return;
-        array::Erase(active, i);
 
-        if (active_interval.next)
-            array::Push(unhandled, *active_interval.next);
-
-        ReleaseRegister(ctx->reg_alloc, active_interval.reg, active_interval.data_type);
-    }
-}
-
-static void RemoveFromFreeRegs(Array<Reg> &free_regs, Reg reg)
-{
-    for (s64 i = 0; i < free_regs.count; i++)
-    {
-        if (free_regs[i] == reg)
-        {
-            array::EraseBySwap(free_regs, i);
-            return;
-        }
-    }
-    INVALID_CODE_PATH;
-}
-
-static void RemoveFromFreeRegs(Codegen_Context *ctx, Reg reg)
-{
-    if (IsFloatRegister(ctx->reg_alloc, reg))
-        RemoveFromFreeRegs(ctx->reg_alloc->free_float_regs, reg);
-    else
-        RemoveFromFreeRegs(ctx->reg_alloc->free_regs, reg);
-}
-
-static void AddToActive(Array<Live_Interval> &active, Live_Interval interval)
-{
-    s64 index = 0;
-    for (; index < active.count; index++)
-    {
-        ASSERT(active[index].reg != interval.reg);
-        if (interval.end < active[index].end)
-            break;
-    }
-    array::Insert(active, index, interval);
-}
+// Register allocation
 
 static void InsertSpills(Codegen_Context *ctx)
 {
@@ -2328,10 +2289,13 @@ static void InsertSpills(Codegen_Context *ctx)
         s64 count_old = routine->instructions.count;
         if (spill_info.is_spill)
         {
-            fprintf(stderr, "Insert spill of ");
-            PrintName((IoFile*)stderr, spill_info.spill.name);
-            fprintf(stderr, " before instr %" PRId64 "", index);
-            fprintf(stderr, " data_type = %" PRId64 "\n", (s64)spill_info.spill.data_type);
+            if (ctx->comp_ctx->options.debug_reg_alloc)
+            {
+                fprintf(stderr, "Insert spill of ");
+                PrintName((IoFile*)stderr, spill_info.spill.name);
+                fprintf(stderr, " before instr %" PRId64 "", index);
+                fprintf(stderr, " data_type = %" PRId64 "\n", (s64)spill_info.spill.data_type);
+            }
             InsertLoad(ctx, routine->instructions, index,
                     BaseOffsetOperand(REG_rbp, offs, spill_info.spill.data_type, AF_Write),
                     RegOperand(spill_info.spill.reg, spill_info.spill.data_type, AF_Read));
@@ -2364,6 +2328,136 @@ static void Unspill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
     array::Push(reg_alloc->spills, spill_info);
 }
 
+static void RemoveFromFreeRegs(Array<Reg> &free_regs, Reg reg)
+{
+    for (s64 i = 0; i < free_regs.count; i++)
+    {
+        if (free_regs[i] == reg)
+        {
+            array::EraseBySwap(free_regs, i);
+            return;
+        }
+    }
+    INVALID_CODE_PATH;
+}
+
+static void RemoveFromFreeRegs(Codegen_Context *ctx, Reg reg)
+{
+    if (IsFloatRegister(ctx->reg_alloc, reg))
+        RemoveFromFreeRegs(ctx->reg_alloc->free_float_regs, reg);
+    else
+        RemoveFromFreeRegs(ctx->reg_alloc->free_regs, reg);
+}
+
+static bool MaybeRemoveFromFreeRegs(Array<Reg> &free_regs, Reg reg)
+{
+    for (s64 i = 0; i < free_regs.count; i++)
+    {
+        if (free_regs[i] == reg)
+        {
+            array::EraseBySwap(free_regs, i);
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool MaybeRemoveFromFreeRegs(Codegen_Context *ctx, Reg reg)
+{
+    if (IsFloatRegister(ctx->reg_alloc, reg))
+        return MaybeRemoveFromFreeRegs(ctx->reg_alloc->free_float_regs, reg);
+    else
+        return MaybeRemoveFromFreeRegs(ctx->reg_alloc->free_regs, reg);
+}
+
+static void AddToActive(Array<Live_Interval> &active, Live_Interval interval)
+{
+    s64 index = 0;
+    for (; index < active.count; index++)
+    {
+        ASSERT(active[index].reg != interval.reg);
+        if (interval.end < active[index].end)
+            break;
+    }
+    array::Insert(active, index, interval);
+}
+
+static void AddToUnhandled(Array<Live_Interval> &unhandled, Live_Interval interval)
+{
+    for (s64 i = 0; i < unhandled.count; i++)
+    {
+        if (unhandled[i].start >= interval.start)
+        {
+            array::Insert(unhandled, i, interval);
+            return;
+        }
+    }
+    array::Push(unhandled, interval);
+}
+
+static void ExpireOldIntervals(Codegen_Context *ctx,
+        Array<Live_Interval> &active,
+        Array<Live_Interval> &inactive,
+        Array<Live_Interval> &unhandled,
+        Live_Interval interval,
+        s64 instr_index)
+{
+    (void)interval;
+    (void)unhandled;
+    for (s64 i = 0; i < active.count; ) //i++)
+    {
+        Live_Interval active_interval = active[i];
+        if (active_interval.end >= instr_index)
+        //if (active_interval.end >= interval.start)
+            return;
+        array::Erase(active, i);
+
+        if (active_interval.next)
+        {
+            Live_Interval next = *active_interval.next;
+            next.name = active_interval.name;
+            next.reg = active_interval.reg;
+            next.data_type = active_interval.data_type;
+
+            AddToUnhandled(inactive, next);
+            if (next.start > instr_index)
+                Spill(ctx->reg_alloc, next, instr_index-1);
+        }
+
+        ReleaseRegister(ctx->reg_alloc, active_interval.reg, active_interval.data_type);
+    }
+}
+
+static void CheckInactiveIntervals(Codegen_Context *ctx,
+        Array<Live_Interval> &active,
+        Array<Live_Interval> &inactive,
+        s64 instr_index)
+{
+    for (s64 i = 0; i < inactive.count; )
+    {
+        Live_Interval inactive_interval = inactive[i];
+        if (inactive_interval.end < instr_index)
+        {
+            array::Erase(inactive, i);
+            continue;
+        }
+        if (inactive_interval.start <= instr_index)
+        {
+            array::Erase(inactive, i);
+            //RemoveFromFreeRegs(ctx, inactive_interval.reg);
+            if (!MaybeRemoveFromFreeRegs(ctx, inactive_interval.reg))
+            {
+                Reg free_reg = GetFreeRegister(ctx->reg_alloc, inactive_interval.data_type);
+                inactive_interval.reg = free_reg;
+            }
+            AddToActive(active, inactive_interval);
+            if (inactive_interval.start > instr_index)
+                Unspill(ctx->reg_alloc, inactive_interval, instr_index+1);
+        }
+        i++;
+    }
+}
+
 static void SpillAtInterval(Codegen_Context *ctx, Array<Live_Interval> &active, Live_Interval interval)
 {
     s64 spill_i = active.count-1;
@@ -2383,19 +2477,6 @@ static void SpillAtInterval(Codegen_Context *ctx, Array<Live_Interval> &active, 
 
         GetLocalOffset(ctx, interval.name, interval.data_type);
     }
-}
-
-static void AddToUnhandled(Array<Live_Interval> &unhandled, Live_Interval interval)
-{
-    for (s64 i = 0; i < unhandled.count; i++)
-    {
-        if (unhandled[i].start >= interval.start)
-        {
-            array::Insert(unhandled, i, interval);
-            return;
-        }
-    }
-    array::Push(unhandled, interval);
 }
 
 static void SpillFixedRegAtInterval(Codegen_Context *ctx,
@@ -2422,6 +2503,8 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
         Spill(ctx->reg_alloc, spill, interval.start);
 
 #ifdef RA_DEBUG_INFO
+if (ctx->comp_ctx->options.debug_reg_alloc)
+{
         fprintf(stderr, "Spilled ");
         PrintName((IoFile*)stderr, spill.name);
         fprintf(stderr, " in reg ");
@@ -2430,6 +2513,7 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
 
         s64 offs = GetLocalOffset(ctx, spill.name, spill.data_type);
         fprintf(stderr, " at offset %" PRId64 "\n", offs);
+}
 #endif
 
         GetLocalOffset(ctx, spill.name, spill.data_type);
@@ -2524,17 +2608,23 @@ static b32 SetOperand(Codegen_Context *ctx,
 
         *oper = BaseOffsetOperand(REG_rbp, offs, oper->data_type, oper->access_flags);
 #ifdef RA_DEBUG_INFO
+if (ctx->comp_ctx->options.debug_reg_alloc)
+{
         fprintf(stderr, "Local offset %" PRId64 " for ", offs);
         PrintName((IoFile*)stderr, oper_name);
         fprintf(stderr, " at %" PRId64 "\n", instr_index);
+}
 #endif
     }
     else
     {
 #ifdef RA_DEBUG_INFO
+if (ctx->comp_ctx->options.debug_reg_alloc)
+{
         fprintf(stderr, "No local offset for ");
         PrintName((IoFile*)stderr, oper_name);
         fprintf(stderr, " at %" PRId64 "\n", instr_index);
+}
 #endif
         //INVALID_CODE_PATH;
     }
@@ -2640,7 +2730,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
     s32 last_interval_start = 0;
     s32 last_interval_end = 0;
     Array<Live_Interval> active = { };
-    //Array<Live_Interval> inactive = { };
+    Array<Live_Interval> inactive = { };
 
     for (s64 i = 0; i < live_intervals.count; i++)
     {
@@ -2649,7 +2739,9 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
         if (i + 1 < live_intervals.count)
             next_interval_start = live_intervals[i + 1].start;
 
-        ExpireOldIntervals(ctx, active, live_intervals, interval, interval.start);
+        ExpireOldIntervals(ctx, active, inactive,
+                live_intervals, interval, interval.start);
+        CheckInactiveIntervals(ctx, active, inactive, interval.start);
 
         if (interval.reg.reg_index != REG_NONE)
         {
@@ -2670,7 +2762,9 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             instr_i < next_interval_start;
             instr_i++)
         {
-            ExpireOldIntervals(ctx, active, live_intervals, interval, instr_i);
+            ExpireOldIntervals(ctx, active, inactive,
+                    live_intervals, interval, instr_i);
+            CheckInactiveIntervals(ctx, active, inactive, instr_i);
             ScanInstruction(ctx, routine, active, instr_i);
         }
         //ScanInstructions(ctx, routine, active, active_f,
@@ -2687,7 +2781,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
     InsertSpills(ctx);
 
     array::Free(active);
-    //array::Free(inactive);
+    array::Free(inactive);
 }
 
 static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
