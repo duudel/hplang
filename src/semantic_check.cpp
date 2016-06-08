@@ -1324,10 +1324,10 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
 
     case BIN_OP_Equal:
         {
+            if (TypesEqual(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
-                if (TypesEqual(ltype, rtype))
-                    return GetBuiltinType(TYP_bool);
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
                     return GetBuiltinType(TYP_bool);
             }
@@ -1337,10 +1337,10 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_NotEqual:
         {
+            if (TypesEqual(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
-                if (TypesEqual(ltype, rtype))
-                    return GetBuiltinType(TYP_bool);
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
                     return GetBuiltinType(TYP_bool);
             }
@@ -1350,10 +1350,10 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_Less:
         {
+            if (TypesEqual(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
-                if (TypesEqual(ltype, rtype))
-                    return GetBuiltinType(TYP_bool);
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
                     return GetBuiltinType(TYP_bool);
             }
@@ -1363,10 +1363,10 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_LessEq:
         {
+            if (TypesEqual(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
-                if (TypesEqual(ltype, rtype))
-                    return GetBuiltinType(TYP_bool);
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
                     return GetBuiltinType(TYP_bool);
             }
@@ -1376,10 +1376,10 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_Greater:
         {
+            if (TypesEqual(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
-                if (TypesEqual(ltype, rtype))
-                    return GetBuiltinType(TYP_bool);
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
                     return GetBuiltinType(TYP_bool);
             }
@@ -1389,10 +1389,10 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_GreaterEq:
         {
+            if (TypesEqual(ltype, rtype))
+                return GetBuiltinType(TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
-                if (TypesEqual(ltype, rtype))
-                    return GetBuiltinType(TYP_bool);
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
                     return GetBuiltinType(TYP_bool);
             }
