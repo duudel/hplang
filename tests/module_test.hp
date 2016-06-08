@@ -5,4 +5,5 @@ import "module";
 main :: ()
 {
     var_from_module = 0;
+    return 0;
 }

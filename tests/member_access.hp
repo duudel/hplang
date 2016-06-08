@@ -27,4 +27,5 @@ main :: ()
     //pm.y = m.x * pm.x - 2;
 
     //b := pm.y;
+    return 0;
 }

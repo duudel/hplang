@@ -1077,6 +1077,8 @@ static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
             return NewImmediate(routine, (u8)expr->char_literal.value);
         case AST_IntLiteral:
             return NewImmediateInt(routine, expr->int_literal.value, expr->expr_type);
+        case AST_UIntLiteral:
+            return NewImmediateInt(routine, expr->int_literal.value, expr->expr_type);
         case AST_Float32Literal:
             return NewImmediate(routine, expr->float32_literal.value);
         case AST_Float64Literal:

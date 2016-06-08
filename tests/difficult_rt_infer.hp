@@ -6,8 +6,8 @@ test :: (x : u32)
     if (x > 12 -> u32)
         return null;
 
-    //ptr := test(x-1) + 10;
-    ptr := test(x-1 -> u32) + 10;
+    //ptr := test(x-1u) + 10;
+    ptr := test(x-(1 -> u32)) + 10;
 
     result : char *;
     return result;

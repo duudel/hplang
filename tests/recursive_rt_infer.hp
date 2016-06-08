@@ -10,3 +10,9 @@ test :: (x : s64)
     }
     return 0;
 }
+
+main :: ()
+{
+    test(50);
+    return 0;
+}

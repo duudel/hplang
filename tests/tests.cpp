@@ -124,17 +124,17 @@ Test tests[] = {
     (Test){ CP_Checking, "tests/empty.hp",              {}, {}, {}, nullptr },
     (Test){ CP_Checking, "tests/variable_scope.hp",     {}, {}, {}, nullptr },
     (Test){ CP_Checking, "tests/struct_access.hp",      {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/hello_test.hp",          {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/beer_test.hp",           {}, {}, {}, Beer_Test },
-    (Test){ CP_CodeGen, "tests/pointer_arith.hp",       {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/member_access.hp",       {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/module_test.hp",         {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/modules_test.hp",        {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
-    (Test){ CP_CodeGen, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/function_var.hp",        {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/struct_as_arg.hp",       {}, {}, {}, nullptr },
-    (Test){ CP_CodeGen, "tests/arg_passing.hp",         {}, {}, {}, nullptr },
+    (Test){ CP_Linking, "tests/hello_test.hp",          {}, {}, {}, nullptr },
+    (Test){ CP_Linking, "tests/beer_test.hp",           {}, {}, {}, Beer_Test },
+    (Test){ CP_Linking, "tests/pointer_arith.hp",       {}, {}, {}, nullptr },
+    (Test){ CP_Linking, "tests/member_access.hp",       {}, {}, {}, nullptr },
+    (Test){ CP_Linking, "tests/module_test.hp",         {}, {}, {}, nullptr },
+    (Test){ CP_Linking, "tests/modules_test.hp",        {}, {}, {}, nullptr },
+    (Test){ CP_Linking, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
+    (Test){ CP_Linking, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
+    (Test){ CP_Linking, "tests/function_var.hp",        {}, {}, {}, nullptr },
+    (Test){ CP_Linking, "tests/struct_as_arg.hp",       {}, {}, {}, nullptr },
+    (Test){ CP_Linking, "tests/arg_passing.hp",         {}, {}, {}, nullptr },
 };
 
 void PrintError(const char *filename, s64 line, s64 column, const char *message)
@@ -233,7 +233,7 @@ s64 RunTest(Test_Context *test_ctx, const Test &test)
         {
             test.test_func(test_ctx, compiler_ctx);
         }
-        if (test.stop_after == CP_CodeGen)
+        if (test.stop_after == CP_Linking)
         {
             //if (system("compile_out.sh") == 0)
             {

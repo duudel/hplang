@@ -12,6 +12,8 @@ enum Compilation_Phase
     CP_Checking,
     CP_IrGen,
     CP_CodeGen,
+    CP_Assembling,
+    CP_Linking
 };
 
 struct Compiler_Options

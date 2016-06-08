@@ -18,4 +18,6 @@ main :: ()
     s1 : My_Struct;
     s2 : My_Struct;
     func(15, 12.5, s1, false, s2);
+
+    return 0;
 }

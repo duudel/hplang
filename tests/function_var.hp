@@ -44,4 +44,6 @@ main :: ()
 
     result = call_f2(f, 0, 2.5f);
     /*assert(*/ result == true /*)*/;
+
+    return 0;
 }
