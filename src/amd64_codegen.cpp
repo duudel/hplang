@@ -1837,22 +1837,52 @@ static void GenerateCode(Codegen_Context *ctx,
         case IR_MovElement:
             {
                 // target <- [base + index*size]
-                s64 size = GetAlignedElementSize(ir_instr->oper1.type);
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                PushLoad(ctx,
-                        target,
-                        BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
-                        IndexScaleOperand(ctx, &ir_instr->oper2, size, AF_Read));
+                s64 size = GetAlignedElementSize(ir_instr->oper1.type);
+                // NOTE(henrik): If the size is valid as index scale, we will emit
+                // only one instruction.
+                if (size == 1 || size == 2 || size == 4 || size == 8)
+                {
+                    PushLoad(ctx, target,
+                            BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
+                            IndexScaleOperand(ctx, &ir_instr->oper2, size, AF_Read));
+                }
+                else
+                {
+                    Operand index = TempOperand(ctx, Oper_Data_Type::S64, AF_Write);
+                    Operand idx = IrOperand(ctx, &ir_instr->oper2, AF_Read);
+                    idx.data_type = index.data_type;
+                    PushLoad(ctx, index, idx);
+                    PushInstruction(ctx, OP_imul, RW_(index), ImmOperand(size, AF_Read));
+                    PushLoad(ctx, target,
+                            BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
+                            IndexScaleOperand(index, 1, AF_Read));
+                }
             } break;
         case IR_LoadElementAddr:
             {
-                s64 size = GetAlignedElementSize(ir_instr->oper1.type);
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                s64 size = GetAlignedElementSize(ir_instr->oper1.type);
                 ASSERT(target.data_type == Oper_Data_Type::PTR);
-                PushLoadAddr(ctx,
-                        target,
-                        BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
-                        IndexScaleOperand(ctx, &ir_instr->oper2, size, AF_Read));
+                // NOTE(henrik): If the size is valid as index scale, we will emit
+                // only one instruction.
+                if (size == 1 || size == 2 || size == 4 || size == 8)
+                {
+                    PushLoadAddr(ctx, target,
+                            BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
+                            IndexScaleOperand(ctx, &ir_instr->oper2, size, AF_Read));
+                }
+                else
+                {
+                    Operand index = TempOperand(ctx, Oper_Data_Type::S64, AF_Write);
+                    Operand idx = IrOperand(ctx, &ir_instr->oper2, AF_Read);
+                    idx.data_type = index.data_type;
+                    PushLoad(ctx, index, idx);
+                    PushInstruction(ctx, OP_imul, RW_(index), ImmOperand(size, AF_Read));
+                    PushLoadAddr(ctx, target,
+                            BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
+                            IndexScaleOperand(index, 1, AF_Read));
+                }
             } break;
 
         case IR_Arg:
