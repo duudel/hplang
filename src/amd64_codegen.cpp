@@ -182,6 +182,7 @@ static const char *opcode_names[] = {
 enum Amd64_Register
 {
     REGS
+    REG_COUNT
 };
 #undef PASTE_REG
 
@@ -865,6 +866,13 @@ static inline Instruction* NewInstruction(
     instr->oper1 = oper1;
     instr->oper2 = oper2;
     instr->oper3 = oper3;
+    if (opcode == OP_mov)
+    {
+        ASSERT(oper1.type != Oper_Type::None);
+        ASSERT((oper1.access_flags & AF_Shadow) == 0);
+        ASSERT(oper2.type != Oper_Type::None);
+        ASSERT((oper2.access_flags & AF_Shadow) == 0);
+    }
     if (ctx->comment)
     {
         instr->comment = *ctx->comment;
@@ -970,16 +978,20 @@ static Operand LoadImmediates(Codegen_Context *ctx,
         else if ((opflags & (O1_IMM << opshift)) == 0)
         {
             Operand temp = TempOperand(ctx, oper.data_type, AF_Write);
+            Oper_Addr_Mode addr_mode = oper.addr_mode;
+            oper.addr_mode = Oper_Addr_Mode::Direct;
             Instruction *load = NewInstruction(ctx, MoveOp(oper.data_type), temp, oper);
             array::Insert(instructions, instr_index, load);
 
             temp.access_flags = oper.access_flags;
-            temp.addr_mode = oper.addr_mode;
+            temp.addr_mode = addr_mode;
             temp.scale_offset = oper.scale_offset;
             return temp;
         }
     }
-    else if (oper.addr_mode == Oper_Addr_Mode::BaseOffset) // ||
+    else if (oper.addr_mode == Oper_Addr_Mode::BaseOffset
+            //|| oper.addr_mode == Oper_Addr_Mode::BaseIndexOffset
+            )
             //oper.addr_mode == Oper_Addr_Mode::BaseIndexOffset)//(oper.type == Oper_Type::Label)
     {
         if ((opflags & (O1_MEM << opshift)) == 0 ||
@@ -995,6 +1007,21 @@ static Operand LoadImmediates(Codegen_Context *ctx,
             return temp;
         }
     }
+    /*else if (oper.addr_mode == Oper_Addr_Mode::IndexScale)
+    {
+        if ((opflags & (O1_MEM << opshift)) == 0 ||
+            (oper_idx > 1 && o1_mem))
+        {
+            Operand temp = TempOperand(ctx, oper.data_type, AF_Write);
+            Instruction *load = NewInstruction(ctx, MoveOp(oper.data_type), temp, oper);
+            array::Insert(instructions, instr_index, load);
+
+            temp.access_flags = oper.access_flags;
+            temp.addr_mode = oper.addr_mode;
+            temp.scale_offset = oper.scale_offset;
+            return temp;
+        }
+    }*/
     //else if (oper.type == Oper_Type::StringConst)
     //{
     //    Operand dest = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
@@ -1109,33 +1136,6 @@ static void PushLoad(Codegen_Context *ctx,
         break;
     }
 }
-
-/*
-static void PushLoad(Codegen_Context *ctx,
-        Instruction_List &instructions,
-        Operand oper1, Operand oper2, Operand oper3)
-{
-    bool load_f32 = (oper1.data_type == Oper_Data_Type::F32);
-    bool load_f64 = (oper1.data_type == Oper_Data_Type::F64);
-    if (!load_f32 && !load_f64)
-    {
-        load_f32 = (oper2.data_type == Oper_Data_Type::F32);
-        load_f64 = (oper2.data_type == Oper_Data_Type::F64);
-        if (!load_f32 && !load_f64)
-        {
-            load_f32 = (oper3.data_type == Oper_Data_Type::F32);
-            load_f64 = (oper3.data_type == Oper_Data_Type::F64);
-        }
-    }
-
-    if (load_f32)
-        PushInstruction(ctx, instructions, OP_movss, oper1, oper2, oper3);
-    else if (load_f64)
-        PushInstruction(ctx, instructions, OP_movsd, oper1, oper2, oper3);
-    else
-        PushInstruction(ctx, instructions, OP_mov, oper1, oper2, oper3);
-}
-*/
 
 static void PushLoad(Codegen_Context *ctx, Operand oper1, Operand oper2, Operand oper3 = NoneOperand())
 {
@@ -1861,13 +1861,16 @@ static void GenerateCode(Codegen_Context *ctx,
                 //PushInstruction(ctx, OP_SPILL, oper);
 
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                PushLoad(ctx, target, R_(GetAddress(ctx, &ir_instr->oper1)));
+                Operand source = R_(GetAddress(ctx, &ir_instr->oper1));
+                source.data_type = target.data_type;
+                PushLoad(ctx, target, source);
             } break;
         case IR_Store:
             {
                 Operand target = BaseOffsetOperand(ctx, &ir_instr->target, 0,
                         DataTypeFromType(ir_instr->target.type), AF_Write);
                 Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                target.data_type = oper1.data_type;
                 PushLoad(ctx, target, oper1);
             } break;
         case IR_MovMember:
@@ -1914,9 +1917,11 @@ static void GenerateCode(Codegen_Context *ctx,
                 else
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                    Operand temp = TempOperand(ctx, target.data_type, AF_Write);
-                    PushLoadAddr(ctx, temp, R_(GetAddress(ctx, &ir_instr->oper1)));
-                    PushLoadAddr(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                    //Operand temp = TempOperand(ctx, target.data_type, AF_Write);
+                    //PushLoadAddr(ctx, temp, R_(GetAddress(ctx, &ir_instr->oper1)));
+                    //PushLoadAddr(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                    PushLoadAddr(ctx, target, BaseOffsetOperand(oper1, member_offset, AF_Read));
                 }
             } break;
         case IR_MovElement:
@@ -2466,6 +2471,7 @@ static void InsertSpills(Codegen_Context *ctx)
 
 static void Spill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
 {
+    ASSERT(instr_index >= 0);
     Spill_Info spill_info = { };
     spill_info.spill = spill;
     spill_info.instr_index = instr_index;
@@ -2475,6 +2481,8 @@ static void Spill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
 
 static void Unspill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
 {
+    if (instr_index < 0) return;
+    ASSERT(instr_index >= 0);
     Spill_Info spill_info = { };
     spill_info.spill = spill;
     spill_info.instr_index = instr_index;
@@ -2673,8 +2681,8 @@ if (ctx->comp_ctx->options.debug_reg_alloc)
         AddToActive(active, interval);
 
         spill.start = interval.end + 1;
-        //if (spill.end > spill.start)
-        if (spill.end >= spill.start)
+        if (spill.end > spill.start)
+        //if (spill.end >= spill.start)
         {
             Unspill(ctx->reg_alloc, spill, spill.start);
             AddToUnhandled(unhandled, spill);
@@ -2682,7 +2690,7 @@ if (ctx->comp_ctx->options.debug_reg_alloc)
     }
 }
 
-static b32 SetRegOperand(Array<Live_Interval> active, Operand *oper, Name oper_name)
+static b32 SetRegOperand(Reg_Alloc *reg_alloc, Array<Live_Interval> active, Operand *oper, Name oper_name)
 {
     if (oper_name.str.size == 0)
         return true;
@@ -2695,6 +2703,8 @@ static b32 SetRegOperand(Array<Live_Interval> active, Operand *oper, Name oper_n
             reg_oper.addr_mode = oper->addr_mode;
             reg_oper.scale_offset = oper->scale_offset;
             *oper = reg_oper;
+
+            DirtyRegister(reg_alloc, active[i].reg);
             return true;
         }
     }
@@ -2708,7 +2718,7 @@ static b32 SetOperand(Codegen_Context *ctx,
     if (oper->type == Oper_Type::FixedRegister)
         return true;
     Name oper_name = GetOperName(*oper);
-    if (SetRegOperand(active, oper, oper_name)) return true;
+    if (SetRegOperand(ctx->reg_alloc, active, oper, oper_name)) return true;
 
     (void)instr_index;
     s64 offs;
@@ -2809,6 +2819,19 @@ static void UnspillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active
     }
 }
 
+#if 0
+static void SpillActives(Reg_Alloc *reg_alloc, Array<Live_Interval> active, s64 instr_index)
+{
+    for (s64 i = 0; i < active.count; i++)
+        Spill(reg_alloc, active[i], instr_index);
+}
+static void UnspillActives(Reg_Alloc *reg_alloc, Array<Live_Interval> active, s64 instr_index)
+{
+    for (s64 i = 0; i < active.count; i++)
+        Unspill(reg_alloc, active[i], instr_index);
+}
+#endif
+
 static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
         Array<Live_Interval> &active, s64 instr_i)
 {
@@ -2839,20 +2862,16 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
 #if 0
     else if ((instr->flags & IF_Branch) != 0)
     {
-        //SpillActives(active, instr_i);
-        //SpillActives(active_f, instr_i);
-        //Name label_name = instr->oper1.label.name;
-        //Label_Instr *label_i = hashtable::Lookup(routine->labels, label_name);
-        //ASSERT(label_i);
-        //UnspillActives(active, label_i->instr_index);
-        //UnspillActives(active_f, label_i->instr_index);
+        SpillActives(reg_alloc, active, instr_i);
+        Name label_name = instr->oper1.label.name;
+        Label_Instr *label_i = hashtable::Lookup(routine->labels, label_name);
+        ASSERT(label_i);
+        UnspillActives(reg_alloc, active, label_i->instr_index);
     }
     else if ((Amd64_Opcode)instr->opcode == OP_LABEL)
     {
         //SpillActives(active, instr_i);
-        //SpillActives(active_f, instr_i);
         //UnspillActives(active, instr_i);
-        //UnspillActives(active_f, instr_i);
     }
 #endif
     SetOperand(ctx, active, &instr->oper1, instr_i);
@@ -2953,8 +2972,11 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
 
     //last_interval_end = routine->instructions.count - 1;
 
-    fprintf(stderr, "Scanning last live interval [%d,%d]\n",
+    if (ctx->comp_ctx->options.debug_reg_alloc)
+    {
+        fprintf(stderr, "Scanning last live interval [%d,%d]\n",
             last_interval_start, last_interval_end);
+    }
 
     //ScanInstructions(ctx, routine, active,
     //        last_interval_start, last_interval_end);
@@ -2973,6 +2995,27 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
 
     array::Free(active);
     array::Free(inactive);
+
+    // TODO(henrik): Implement this more cleanly.
+    for (s64 i = 1; i < REG_COUNT; i++)
+    {
+        Reg reg = { (u8)i };
+        if (IsCalleeSave(reg_alloc, reg) && IsRegisterDirty(reg_alloc, reg))
+        {
+            Oper_Data_Type data_type = (IsFloatRegister(reg_alloc, reg)) ?
+                Oper_Data_Type::F64 : Oper_Data_Type::U64;
+            s64 offs = GetLocalOffset(ctx, reg_save_names[i], data_type);
+            Amd64_Opcode mov_op = MoveOp(data_type);
+
+            Operand stack_slot = BaseOffsetOperand(REG_rbp, offs, data_type, AF_Write);
+            Operand reg_oper = RegOperand(reg, data_type, AF_Read);
+
+            PushInstruction(ctx, routine->callee_save_spills,
+                    mov_op, stack_slot, reg_oper);
+            PushInstruction(ctx, routine->epilogue,
+                    mov_op, W_(reg_oper), R_(stack_slot));
+        }
+    }
 }
 
 static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
@@ -2992,8 +3035,8 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
 
     PushPrologue(ctx, OP_push, RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Read));
     PushPrologue(ctx, OP_mov,
-            RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Write),
-            RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Read));
+            RegOperand(REG_rbp, Oper_Data_Type::PTR, AF_Write),
+            RegOperand(REG_rsp, Oper_Data_Type::PTR, AF_Read));
 
     routine->return_label.name = PushName(&ctx->arena, ".ret_label");
 
@@ -3080,8 +3123,8 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
         PushPrologue(ctx, OP_sub, RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write), locals_size_oper);
         //PushEpilogue(ctx, OP_add, RegOperand(REG_rsp, AF_Write), locals_size_oper);
         PushEpilogue(ctx, OP_mov,
-                RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write),
-                RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Read));
+                RegOperand(REG_rsp, Oper_Data_Type::PTR, AF_Write),
+                RegOperand(REG_rbp, Oper_Data_Type::PTR, AF_Read));
     }
     PushEpilogue(ctx, OP_pop, RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Write));
     PushEpilogue(ctx, OP_ret);
@@ -3368,8 +3411,11 @@ void OutputCode_Amd64(Codegen_Context *ctx)
 
         fprintf(f, "; prologue\n");
         PrintInstructions(file, routine->prologue);
-        fprintf(f, "; callee save spills\n");
-        PrintInstructions(file, routine->callee_save_spills);
+        if (routine->callee_save_spills.count > 0)
+        {
+            fprintf(f, "; callee save spills\n");
+            PrintInstructions(file, routine->callee_save_spills);
+        }
         fprintf(f, "; routine body\n");
         PrintInstructions(file, routine->instructions);
         fprintf(f, "; epilogue\n");

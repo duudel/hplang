@@ -12,6 +12,10 @@ import "io";
 //    //return y + 0.2;
 //}
 
+foreign {
+    sqrt :: (x : f64) : f64;
+}
+
 main :: ()
 {
     //x := 12;
@@ -36,6 +40,12 @@ main :: ()
     data[0] = 'a';
     data[1] = '\0';
     hp_fwrite(stdout, 1, data -> u8*);
+
+    println();
+
+    y := sqrt(4.0);
+    print(y);
+    println();
 
     return 0;
 }

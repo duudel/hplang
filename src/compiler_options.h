@@ -26,6 +26,7 @@ struct Compiler_Options
     Compilation_Phase stop_after;
 
     b32 diagnose_memory;
+    b32 debug_ast;
     b32 debug_ir;
     b32 debug_reg_alloc;
 };

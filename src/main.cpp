@@ -36,6 +36,7 @@ void PrintVersion()
 
 static const char *diag_args[] = {
     "memory",
+    "ast",
     "ir",
     "regalloc",
     nullptr
@@ -43,7 +44,7 @@ static const char *diag_args[] = {
 
 static const Arg_Option options[] = {
     {"output", 'o', nullptr, nullptr, "Sets the output filename", "filename"},
-    {"diagnostic", 'd', diag_args, "MiR", "Selects the diagnostic options", nullptr},
+    {"diagnostic", 'd', diag_args, "MAiR", "Selects the diagnostic options", nullptr},
     {"help", 'h', nullptr, nullptr, "Shows this help and exits", nullptr},
     {"version", 'v', nullptr, nullptr, "Prints the version information", nullptr},
     { }
@@ -100,6 +101,9 @@ int main(int argc, char **argv)
                                 case 'M':
                                     options.diagnose_memory = true;
                                     break;
+                                case 'A':
+                                    options.debug_ast = true;
+                                    break;
                                 case 'i':
                                     options.debug_ir = true;
                                     break;
@@ -119,6 +123,8 @@ int main(int argc, char **argv)
                         const char *arg = option_result.arg;
                         if (strcmp(arg, "memory") == 0)
                             options.diagnose_memory = true;
+                        else if (strcmp(arg, "ast") == 0)
+                            options.debug_ast = true;
                         else if (strcmp(arg, "ir") == 0)
                             options.debug_ir = true;
                         else if (strcmp(arg, "regalloc") == 0)

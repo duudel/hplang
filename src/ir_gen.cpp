@@ -564,7 +564,8 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         }
     }
 
-    Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
+    Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
+    base_res.type = base_res.type->base_type;
     Ir_Operand member_res = NewTemp(ctx, routine, member_type);
     Ir_Operand member_offs = NewImmediateOffset(routine, member_index);
     PushInstruction(ctx, routine, IR_MovMember, member_res, base_res, member_offs);
@@ -589,7 +590,8 @@ static Ir_Operand GenRefAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
         }
     }
 
-    Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
+    Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
+    base_res.type = base_res.type->base_type;
     Ir_Operand member_res = NewTemp(ctx, routine, GetPointerType(&ctx->comp_ctx->env, member_type));
     Ir_Operand member_offs = NewImmediateOffset(routine, member_index);
     PushInstruction(ctx, routine, IR_LoadMemberAddr, member_res, base_res, member_offs);
@@ -1250,17 +1252,17 @@ static void GenBlockStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *r
 
 static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
 {
-    Symbol *symbol = node->function.symbol;
+    Symbol *symbol = node->function_def.symbol;
     s64 arg_count = symbol->type->function_type.parameter_count;
     Ir_Routine *func_routine = PushRoutine(ctx, symbol->unique_name, arg_count);
     for (s64 i = 0; i < arg_count; i++)
     {
-        Ast_Node *param_node = array::At(node->function.parameters, i);
+        Ast_Node *param_node = array::At(node->function_def.parameters, i);
         Type *type = symbol->type->function_type.parameter_types[i];
         Name name = param_node->parameter.symbol->unique_name;
         func_routine->args[i] = NewVariableRef(func_routine, type, name);
     }
-    GenIr(ctx, node->function.body, func_routine);
+    GenIr(ctx, node->function_def.body, func_routine);
 }
 
 static void AddGlobalVariable(Ir_Gen_Context *ctx, Symbol *symbol)
@@ -1295,9 +1297,12 @@ static void GenForeignBlock(Ir_Gen_Context *ctx, Ast_Node *node)
     for (s64 i = 0; i < node->foreign.statements.count; i++)
     {
         Ast_Node *stmt = node->foreign.statements[i];
-        if (stmt->type == AST_FunctionDef)
+        if (stmt->type == AST_FunctionDecl)
         {
-            array::Push(ctx->foreign_routines, stmt->function.name);
+            // TODO(henrik): Remove this!? At the moment foreign_routines is
+            // filled by a loop through all global symbols (i.e. symbols in the
+            // symbol env root scope).
+            array::Push(ctx->foreign_routines, stmt->function_decl.name);
         }
     }
 }
@@ -1318,6 +1323,12 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool
             break;
         case AST_FunctionDef:
             GenFunction(ctx, node);
+            break;
+        case AST_FunctionDecl:
+            // TODO(henrik): GenIr for FunctionDecl
+            // Maybe allow declaring foreign functions that are not in foreign block?
+            // Maybe allow declaring functions before defining them?
+            NOT_IMPLEMENTED("GenIr for FunctionDecl");
             break;
 
         case AST_StructDef: break;

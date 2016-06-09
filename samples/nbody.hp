@@ -30,11 +30,11 @@ advance :: (body_count : s64, bodies : Body*, dt : f64) : void
     j : s64 = 0;
     while (i < body_count)
     {
-        b1 := bodies + i;
+        b1 := bodies[i];
         j = i + 1;
         while (j < body_count)
         {
-            b2 := bodies + j;
+            b2 := bodies[j];
             dx := b1.x - b2.x;
             dy := b1.y - b2.y;
             dz := b1.z - b2.z;
@@ -55,7 +55,7 @@ advance :: (body_count : s64, bodies : Body*, dt : f64) : void
     i = 0;
     while (i < body_count)
     {
-        b := bodies + 1;
+        b := bodies + i;
         b.x += dt * b.vx;
         b.y += dt * b.vy;
         b.z += dt * b.vz;
@@ -71,18 +71,34 @@ energy :: (body_count : s64, bodies : Body*) : f64
     j : s64 = 0;
     while (i < body_count)
     {
-        b1 := bodies + i;
+        //b1 := bodies + i;
+        b1 := bodies[i];
         result += 0.5d * b1.mass * (b1.vx*b1.vx + b1.vy*b1.vy + b1.vz*b1.vz);
+            //print("(outer)Body ");
+            //print(i);
+            //print(": ");
+            //print(result);
+            //println();
         while (j < body_count)
         {
-            b2 := bodies + j;
+            b2 := bodies[j];
             dx := b1.x - b2.x;
             dy := b1.y - b2.y;
             dz := b1.z - b2.z;
             distance := sqrt(dx*dx + dy*dy + dz*dz);
             result -= (b1.mass * b2.mass) / distance;
+            //print("(inner)Body ");
+            //print(j);
+            //print(": ");
+            //print(result);
+            //println();
             j += 1;
         }
+        //print("Body ");
+        //print(i);
+        //print(": ");
+        //print(result);
+        //println();
         i += 1;
     }
     return result;
@@ -173,11 +189,58 @@ init_bodies :: ()
     bodies[i].mass = 5.15138902046611451e-5d * solar_mass;
 }
 
+print :: (x : f64, y : f64, z : f64)
+{
+    print(x); print(", "); print(y); print(", "); print(z);
+}
+
+print_bodies :: (body_count : s64, bodies : Body*)
+{
+    i := 0;
+    while (i < body_count)
+    {
+        //b := bodies[i];
+        //print("Body "); println(i);
+        //print(" p: "); print(b.x, b.y, b.z);
+        //println();
+        //print(" v: "); print(b.vx, b.vy, b.vz);
+        //println();
+        //print(" m: "); print(b.mass);
+        //println();
+        print("Body "); println(i);
+        print(" p: "); print(bodies[i].x); //, bodies[i].y, bodies[i].z);
+        println();
+        //print(" v: "); print(bodies[i].vx, bodies[i].vy, bodies[i].vz);
+        //println();
+        //print(" m: "); print(bodies[i].mass);
+        //println();
+        i += 1;
+    }
+}
+
 main :: (N : s64)
 {
+    N = 5;
     init_bodies();
-    offset_momentum(BODY_COUNT, bodies);
+
+    print("Body count: ");
+    println(BODY_COUNT);
+    idx := 0;
+    bodies[0].x = 2.0;
+    bodies[0].y = 2.8;
+    print(bodies[idx].x, bodies[idx].y, bodies[idx].z);
+    println();
+    idx += 1;
+    print(bodies[idx].x, bodies[idx].y, bodies[idx].z);
+    println();
+    //print_bodies(BODY_COUNT, bodies);
     return 0;
+
+    offset_momentum(BODY_COUNT, bodies);
+    //return 0;
+
+    print("Body count: ");
+    println(BODY_COUNT);
 
     e := energy(BODY_COUNT, bodies);
     print(e); println();

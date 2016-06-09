@@ -1317,10 +1317,10 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
     return stmt;
 }
 
-static void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
+static void ParseParameters(Parser_Context *ctx, Ast_Node_List *parameters)
 {
+    // TODO(henrik): Fix the bug where the parsers allows an extra comma after parameters.
     TRACE(ParseParameters);
-    ASSERT(func_def->type == AST_FunctionDef);
     do
     {
         const Token *token = GetCurrentToken(ctx);
@@ -1336,7 +1336,7 @@ static void ParseParameters(Parser_Context *ctx, Ast_Node *func_def)
             Ast_Node *type_node = ParseType(ctx);
             param_node->parameter.type = type_node;
 
-            PushNodeList(&func_def->function.parameters, param_node);
+            PushNodeList(parameters, param_node);
         }
         else if (token->type == TOK_CloseParent)
         {
@@ -1355,11 +1355,10 @@ static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
     if (!Accept(ctx, TOK_OpenParent)) return nullptr;
 
     Ast_Node *func_def = PushNode<Ast_Function_Def>(ctx, AST_FunctionDef, ident_tok);
-    Name name = PushName(&ctx->ast->arena,
-            ident_tok->value, ident_tok->value_end);
-    func_def->function.name = name;
+    Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
+    func_def->function_def.name = name;
 
-    ParseParameters(ctx, func_def);
+    ParseParameters(ctx, &func_def->function_def.parameters);
     ExpectAfterLast(ctx, TOK_CloseParent);
     if (Accept(ctx, TOK_Colon))
     {
@@ -1370,7 +1369,7 @@ static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
         //   func_name :: (...) : *
         // will have inferred return type.
         Ast_Node *return_type = ParseType(ctx);
-        func_def->function.return_type = return_type;
+        func_def->function_def.return_type = return_type;
         if (!return_type)
         {
             Error(ctx, "Expecting function return type");
@@ -1383,7 +1382,7 @@ static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
     {
         Error(ctx, "Expecting function body");
     }
-    func_def->function.body = body;
+    func_def->function_def.body = body;
     return func_def;
 }
 
@@ -1495,15 +1494,12 @@ static Ast_Node* ParseForeignFunction(Parser_Context *ctx, const Token *ident_to
     TRACE(ParseForeignFunction);
     if (!Accept(ctx, TOK_OpenParent)) return nullptr;
 
-    Ast_Node *func_def = PushNode<Ast_Function_Def>(ctx, AST_FunctionDef, ident_tok);
-    Name name = PushName(&ctx->ast->arena,
-            ident_tok->value, ident_tok->value_end);
-    func_def->function.name = name;
+    Ast_Node *func_decl = PushNode<Ast_Function_Decl>(ctx, AST_FunctionDecl, ident_tok);
+    Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
+    func_decl->function_decl.name = name;
 
-    ParseParameters(ctx, func_def);
+    ParseParameters(ctx, &func_decl->function_decl.parameters);
     ExpectAfterLast(ctx, TOK_CloseParent);
-    // TODO(henrik): Should we make the return type of a foreign function
-    // mandatory?
     if (Accept(ctx, TOK_Colon))
     {
         // NOTE(henrik): The return type node can be nullptr. This means
@@ -1513,14 +1509,18 @@ static Ast_Node* ParseForeignFunction(Parser_Context *ctx, const Token *ident_to
         //   func_name :: (...) : *
         // will have inferred return type.
         Ast_Node *return_type = ParseType(ctx);
-        func_def->function.return_type = return_type;
+        func_decl->function_decl.return_type = return_type;
         if (!return_type)
         {
             Error(ctx, "Expecting function return type");
         }
     }
+    else
+    {
+        Error(ctx, "Return type must be specified for foreign functions");
+    }
     Expect(ctx, TOK_Semicolon);
-    return func_def;
+    return func_decl;
 }
 
 static Ast_Node* ParseForeignStmt(Parser_Context *ctx)

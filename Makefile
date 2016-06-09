@@ -33,15 +33,13 @@ build:
 
 run:
 	@#-./$(EXENAME) -di -o samples/fibo samples/fibo.hp 2> stderr.out
-	@#-./$(EXENAME) -o samples/beer samples/beer.hp 2> stderr.out
+	@#-./$(EXENAME) -diR -o samples/beer samples/beer.hp 2> stderr.out
 	@#-./$(EXENAME) -o samples/factorial samples/factorial.hp
-	-./$(EXENAME) -dRi samples/nbody.hp 2> stderr.out
-	@#-./$(EXENAME) -di samples/simple.hp 2> stderr.out
-	@#-./$(EXENAME) samples/hello.hp 2> stderr.out
 	@#-./$(EXENAME) -o samples/hello samples/hello.hp
 	@#-./$(EXENAME) -di tests/member_access.hp 2> stderr.out
 	@#-./$(EXENAME) -diR tests/pointer_arith.hp 2> stderr.out
 	@#-./$(EXENAME) -dR tests/difficult_rt_infer.hp 2> stderr.out
+	-./$(EXENAME) -diR samples/nbody.hp 2> stderr.out
 	@#-./$(EXENAME) -dRi samples/simple.hp 2> stderr.out
 
 

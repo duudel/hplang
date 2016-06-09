@@ -275,6 +275,9 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         return false;
     }
 
+    if (ctx->options.debug_ast)
+        PrintAst(ctx->debug_file, ast);
+
     FreeTokenList(&tokens);
     FreeParserContext(&parser_ctx);
 
@@ -346,9 +349,15 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     fflush((FILE*)ctx->error_ctx.file);
     fflush((FILE*)ctx->debug_file);
 
+    if (ctx->options.stop_after == CP_CodeGen)
+    {
+        ctx->result = RES_OK;
+        return true;
+    }
+
 #if 1
     //Invoke("compile_out.sh", nullptr, 0);
-    
+
     // TODO(henrik): Specify the options for nasm and gcc somewhere else.
     // Mayby also move the assembling and linking to their own place.
 
@@ -375,6 +384,12 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         fprintf((FILE*)ctx->error_ctx.file, "Could not assemble the file '%s'\n",
                 asm_filename);
         return false;
+    }
+
+    if (ctx->options.stop_after == CP_Assembling)
+    {
+        ctx->result = RES_OK;
+        return true;
     }
 
     // TODO(henrik): derive the default output filenames from the source filename:
@@ -412,6 +427,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     }
 #endif
 
+    ASSERT(ctx->options.stop_after == CP_Linking);
     ctx->result = RES_OK;
     return true;
 }
@@ -457,6 +473,9 @@ b32 CompileModule(Compiler_Context *ctx, Open_File *open_file)
         ctx->result = RES_FAIL_Parsing;
         return false;
     }
+
+    if (ctx->options.debug_ast)
+        PrintAst(ctx->debug_file, ast);
 
     FreeTokenList(&tokens);
     FreeParserContext(&parser_ctx);

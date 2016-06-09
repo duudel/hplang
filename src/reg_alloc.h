@@ -61,6 +61,8 @@ struct Reg_Alloc
 
     Special_Regs general_regs;
     Special_Regs float_regs;
+
+    u64 dirty_regs; // assumes that total register count < 64
 };
 
 void InitRegAlloc(Reg_Alloc *reg_alloc,
@@ -69,6 +71,8 @@ void InitRegAlloc(Reg_Alloc *reg_alloc,
 void FreeRegAlloc(Reg_Alloc *reg_alloc);
 
 void ResetRegAlloc(Reg_Alloc *reg_alloc);
+void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
+b32 IsRegisterDirty(Reg_Alloc *reg_alloc, Reg reg);
 
 b32 IsCallerSave(Reg_Alloc *reg_alloc, Reg reg);
 b32 IsCalleeSave(Reg_Alloc *reg_alloc, Reg reg);

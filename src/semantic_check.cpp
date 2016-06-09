@@ -1865,6 +1865,7 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
         case AST_Import:
         case AST_ForeignBlock:
         case AST_FunctionDef:
+        case AST_FunctionDecl:
         case AST_Parameter:
         case AST_StructDef:
         case AST_StructMember:
@@ -1891,10 +1892,10 @@ static void CheckBlockStatement(Sem_Check_Context *ctx, Ast_Node *node)
 
 static void CheckForeignFunctionParameters(Sem_Check_Context *ctx, Ast_Node *node, Type *ftype)
 {
-    s64 count = node->function.parameters.count;
+    s64 count = node->function_decl.parameters.count;
     for (s64 i = 0; i < count && ContinueChecking(ctx); i++)
     {
-        Ast_Node *param = array::At(node->function.parameters, i);
+        Ast_Node *param = array::At(node->function_decl.parameters, i);
         Symbol *old_sym = LookupSymbolInCurrentScope(
                             ctx->env,
                             param->parameter.name);
@@ -1911,10 +1912,10 @@ static void CheckForeignFunctionParameters(Sem_Check_Context *ctx, Ast_Node *nod
 
 static void CheckParameters(Sem_Check_Context *ctx, Ast_Node *node, Type *ftype)
 {
-    s64 count = node->function.parameters.count;
+    s64 count = node->function_def.parameters.count;
     for (s64 i = 0; i < count && ContinueChecking(ctx); i++)
     {
-        Ast_Node *param = array::At(node->function.parameters, i);
+        Ast_Node *param = array::At(node->function_def.parameters, i);
         Symbol *old_sym = LookupSymbolInCurrentScope(
                             ctx->env,
                             param->parameter.name);
@@ -1956,14 +1957,14 @@ static b32 FunctionTypesAmbiguous(Type *a, Type *b)
 
 static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 {
-    ASSERT(node->function.name.str.data);
+    ASSERT(node->function_def.name.str.data);
 
-    s64 param_count = node->function.parameters.count;
+    s64 param_count = node->function_def.parameters.count;
     Type *ftype = PushFunctionType(ctx->env, TYP_Function, param_count);
     Type *return_type = nullptr;
-    if (node->function.return_type)
+    if (node->function_def.return_type)
     {
-        return_type = CheckType(ctx, node->function.return_type);
+        return_type = CheckType(ctx, node->function_def.return_type);
     }
     else
     {
@@ -1972,14 +1973,14 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     ftype->function_type.return_type = return_type;
 
     // TODO(henrik): Should the names be copied to env->arena?
-    Name name = node->function.name;
+    Name name = node->function_def.name;
     Symbol *symbol = AddFunction(ctx->env, name, ftype);
     if (symbol->sym_type != SYM_Function)
     {
         ErrorDeclaredEarlierAs(ctx, node, name, symbol);
     }
 
-    node->function.symbol = symbol;
+    node->function_def.symbol = symbol;
 
     // NOTE(henrik): Lookup only in current scope, before opening the
     // function scope.
@@ -2000,7 +2001,7 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
         overload = overload->next_overload;
     }
 
-    CheckBlockStatement(ctx, node->function.body);
+    CheckBlockStatement(ctx, node->function_def.body);
 
     // NOTE(henrik): Must be called before closing the scope
     Ast_Node *infer_loc = GetCurrentReturnTypeInferLoc(ctx->env);
@@ -2092,16 +2093,16 @@ static void CheckStruct(Sem_Check_Context *ctx, Ast_Node *node)
 
 static void CheckForeignFunction(Sem_Check_Context *ctx, Ast_Node *node)
 {
-    ASSERT(node->function.name.str.data);
+    ASSERT(node->function_decl.name.str.data);
 
-    s64 param_count = node->function.parameters.count;
+    s64 param_count = node->function_decl.parameters.count;
     Type *ftype = PushType(ctx->env, TYP_Function);
     ftype->function_type.parameter_count = param_count;
     ftype->function_type.parameter_types = PushArray<Type*>(&ctx->env->arena, param_count);
 
-    ftype->function_type.return_type = CheckType(ctx, node->function.return_type);
+    ftype->function_type.return_type = CheckType(ctx, node->function_decl.return_type);
 
-    Name name = node->function.name;
+    Name name = node->function_decl.name;
     Symbol *old_symbol = LookupSymbolInCurrentScope(ctx->env, name);
     if (old_symbol)
     {
@@ -2124,7 +2125,7 @@ static void CheckForeignBlockStmt(Sem_Check_Context *ctx, Ast_Node *node)
 {
     switch (node->type)
     {
-        case AST_FunctionDef:   CheckForeignFunction(ctx, node); break;
+        case AST_FunctionDecl:  CheckForeignFunction(ctx, node); break;
         case AST_StructDef:     CheckStruct(ctx, node); break;
         default:
             INVALID_CODE_PATH;

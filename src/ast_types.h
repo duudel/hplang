@@ -3,6 +3,7 @@
 #include "types.h"
 #include "memory.h"
 #include "array.h"
+#include "io.h"
 
 namespace hplang
 {
@@ -18,6 +19,7 @@ enum Ast_Node_Type
     AST_ForeignBlock,   // foreign { ... }
     AST_VariableDecl,
     AST_FunctionDef,    // <ident> :: (<param_list>) : <type> {<stmt_block>}
+    AST_FunctionDecl,   // <ident> :: (<param_list>) : <type>;
     AST_Parameter,
     AST_StructDef,      // <ident> :: struct {<struct_body>}
     AST_StructMember,
@@ -293,6 +295,16 @@ struct Ast_Function_Def
     Symbol *symbol;
 };
 
+// Foreign function declaration
+struct Ast_Function_Decl
+{
+    Name name;
+    Ast_Node_List parameters;
+    Ast_Node *return_type; // NOTE(henrik): This may not be null.
+
+    Symbol *symbol;
+};
+
 struct Ast_Parameter
 {
     Name name;
@@ -382,7 +394,8 @@ struct Ast_Node
         Ast_Top_Level       top_level;
         Ast_Foreign_Block   foreign;
         Ast_Import          import;
-        Ast_Function_Def    function;
+        Ast_Function_Def    function_def;
+        Ast_Function_Decl   function_decl;
         Ast_Parameter       parameter;
         Ast_Typealias       typealias;
         Ast_Struct_Def      struct_def;
@@ -415,6 +428,7 @@ struct Ast
 struct Token;
 
 void FreeAst(Ast *ast);
+void PrintAst(IoFile *file, Ast *ast);
 
 struct Ast_NT_FL
 {
