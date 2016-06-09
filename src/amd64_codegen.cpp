@@ -16,6 +16,8 @@ namespace hplang
 // debug info to stderr.
 #define RA_DEBUG_INFO
 
+enum { Opcode_Mod_Shift = 3 };
+
 enum Opcode_Mod
 {
     NO_MOD = 0,
@@ -124,9 +126,15 @@ enum Amd64_Opcode
 };
 #undef PASTE_OP
 
+#define PASTE_OP(x, mods) mods,
+static u8 opcode_flags[] = {
+    OPCODES
+};
+#undef PASTE_OP
+
 
 #define PASTE_OP(x, mods) #x,
-const char *opcode_names[] = {
+static const char *opcode_names[] = {
     OPCODES
 };
 #undef PASTE_OP
@@ -178,45 +186,45 @@ enum Amd64_Register
 #undef PASTE_REG
 
 #define PASTE_REG(r8, r4, r2, r1) #r8,
-const char *reg_name_strings_8b[] = {
+static const char *reg_name_strings_8b[] = {
     REGS
 };
 #undef PASTE_REG
 
 #define PASTE_REG(r8, r4, r2, r1) #r4,
-const char *reg_name_strings_4b[] = {
+static const char *reg_name_strings_4b[] = {
     REGS
 };
 #undef PASTE_REG
 
 #define PASTE_REG(r8, r4, r2, r1) #r2,
-const char *reg_name_strings_2b[] = {
+static const char *reg_name_strings_2b[] = {
     REGS
 };
 #undef PASTE_REG
 
 #define PASTE_REG(r8, r4, r2, r1) #r1,
-const char *reg_name_strings_1b[] = {
+static const char *reg_name_strings_1b[] = {
     REGS
 };
 #undef PASTE_REG
 
 
 #define PASTE_REG(r8, r4, r2, r1) {},
-Name reg_names[] = {
+static Name reg_names[] = {
     REGS
 };
 #undef PASTE_REG
 
 
 #define PASTE_REG(r8, r4, r2, r1) #r8 "@@save",
-const char *reg_save_name_strings[] = {
+static const char *reg_save_name_strings[] = {
     REGS
 };
 #undef PASTE_REG
 
 #define PASTE_REG(r8, r4, r2, r1) {},
-Name reg_save_names[] = {
+static Name reg_save_names[] = {
     REGS
 };
 #undef PASTE_REG
@@ -712,6 +720,13 @@ static Operand IrOperand(Codegen_Context *ctx,
             return VirtualRegOperand(ir_oper->var.name, data_type, access_flags);
         case IR_OPER_Temp:
             return VirtualRegOperand(ir_oper->temp.name, data_type, access_flags);
+        case IR_OPER_GlobalVariable:
+            {
+                Operand var = LabelOperand(ir_oper->var.name, access_flags);
+                var.data_type = DataTypeFromType(ir_oper->type);
+                var.addr_mode = Oper_Addr_Mode::BaseOffset;
+                return var;
+            }
         case IR_OPER_Immediate:
         {
             switch (ir_oper->type->tag)
@@ -909,11 +924,25 @@ static Instruction* LoadFloat64Imm(Codegen_Context *ctx, Operand dest, f64 value
     return NewInstruction(ctx, OP_movsd, dest, float_label);
 }
 
+static Amd64_Opcode MoveOp(Oper_Data_Type data_type)
+{
+    if (data_type == Oper_Data_Type::F32) return OP_movss;
+    if (data_type == Oper_Data_Type::F64) return OP_movsd;
+    return OP_mov;
+}
+
 static Operand LoadImmediates(Codegen_Context *ctx,
+        Amd64_Opcode opcode,
+        s64 oper_idx,
         Instruction_List &instructions,
         s64 instr_index,
-        Operand oper)
+        Operand oper,
+        bool o1_mem = false)
 {
+    if ((oper.access_flags & AF_Shadow) != 0) return oper;
+
+    u8 opflags = opcode_flags[opcode];
+    u8 opshift = oper_idx * Opcode_Mod_Shift;
     if (oper.type == Oper_Type::Immediate)
     {
         if (oper.data_type == Oper_Data_Type::F32)
@@ -938,6 +967,33 @@ static Operand LoadImmediates(Codegen_Context *ctx,
             dest.scale_offset = oper.scale_offset;
             return dest;
         }
+        else if ((opflags & (O1_IMM << opshift)) == 0)
+        {
+            Operand temp = TempOperand(ctx, oper.data_type, AF_Write);
+            Instruction *load = NewInstruction(ctx, MoveOp(oper.data_type), temp, oper);
+            array::Insert(instructions, instr_index, load);
+
+            temp.access_flags = oper.access_flags;
+            temp.addr_mode = oper.addr_mode;
+            temp.scale_offset = oper.scale_offset;
+            return temp;
+        }
+    }
+    else if (oper.addr_mode == Oper_Addr_Mode::BaseOffset) // ||
+            //oper.addr_mode == Oper_Addr_Mode::BaseIndexOffset)//(oper.type == Oper_Type::Label)
+    {
+        if ((opflags & (O1_MEM << opshift)) == 0 ||
+            (oper_idx > 0 && o1_mem))
+        {
+            Operand temp = TempOperand(ctx, oper.data_type, AF_Write);
+            Instruction *load = NewInstruction(ctx, MoveOp(oper.data_type), temp, oper);
+            array::Insert(instructions, instr_index, load);
+
+            temp.access_flags = oper.access_flags;
+            //temp.addr_mode = oper.addr_mode;
+            //temp.scale_offset = oper.scale_offset;
+            return temp;
+        }
     }
     //else if (oper.type == Oper_Type::StringConst)
     //{
@@ -960,9 +1016,10 @@ static Instruction* PushInstruction(Codegen_Context *ctx,
         Operand oper2 = NoneOperand(),
         Operand oper3 = NoneOperand())
 {
-    oper1 = LoadImmediates(ctx, instructions, instructions.count, oper1);
-    oper2 = LoadImmediates(ctx, instructions, instructions.count, oper2);
-    oper3 = LoadImmediates(ctx, instructions, instructions.count, oper3);
+    oper1 = LoadImmediates(ctx, opcode, 0, instructions, instructions.count, oper1);
+    bool o1_mem = (oper1.addr_mode == Oper_Addr_Mode::BaseOffset);
+    oper2 = LoadImmediates(ctx, opcode, 1, instructions, instructions.count, oper2, o1_mem);
+    oper3 = LoadImmediates(ctx, opcode, 2, instructions, instructions.count, oper3, o1_mem);
     Instruction *instr = NewInstruction(ctx, opcode, oper1, oper2, oper3);
     array::Push(instructions, instr);
     return instr;
@@ -986,9 +1043,10 @@ static void InsertInstruction(Codegen_Context *ctx,
         Operand oper2 = NoneOperand(),
         Operand oper3 = NoneOperand())
 {
-    oper1 = LoadImmediates(ctx, instructions, instr_index, oper1);
-    oper2 = LoadImmediates(ctx, instructions, instr_index, oper2);
-    oper3 = LoadImmediates(ctx, instructions, instr_index, oper3);
+    oper1 = LoadImmediates(ctx, opcode, 0, instructions, instr_index, oper1);
+    bool o1_mem = (oper1.addr_mode == Oper_Addr_Mode::BaseOffset);
+    oper2 = LoadImmediates(ctx, opcode, 1, instructions, instr_index, oper2, o1_mem);
+    oper3 = LoadImmediates(ctx, opcode, 2, instructions, instr_index, oper3, o1_mem);
     Instruction *instr = NewInstruction(ctx, opcode, oper1, oper2, oper3);
     array::Insert(instructions, instr_index, instr);
     instr_index++;
@@ -1502,6 +1560,10 @@ static Operand GetAddress(Codegen_Context *ctx, Ir_Operand *ir_oper)
         if (TypeIsString(ir_oper->type))
             return IrOperand(ctx, ir_oper, AF_ReadWrite);
         INVALID_CODE_PATH;
+    }
+    else if (ir_oper->oper_type == IR_OPER_GlobalVariable)
+    {
+        return IrOperand(ctx, ir_oper, AF_ReadWrite);
     }
     Name name;
     if (ir_oper->oper_type == IR_OPER_Variable)
@@ -3315,15 +3377,31 @@ void OutputCode_Amd64(Codegen_Context *ctx)
         fprintf(f, "; -----\n\n");
     }
 
-    fprintf(f, "\nsection .data\n");
+    fprintf(f, "\nsection .bss\n");
 
     // globals
+
+    if (ctx->global_var_count)
+    {
+        fprintf(f, "\n;global variables\n");
+        for (s64 i = 0; i < ctx->global_var_count; i++)
+        {
+            Symbol *symbol = ctx->global_vars[i];
+            s32 align = GetAlign(symbol->type);
+            s32 size = GetSize(symbol->type);
+            fprintf(f, "\nalign %d\n", align);
+            PrintName(file, symbol->unique_name);
+            fprintf(f, ":\tresb %d\n", size);
+        }
+    }
+
+    fprintf(f, "\nsection .data\n");
 
     // constants
 
     if (ctx->float32_consts.count)
     {
-        fprintf(f, "\nalign 4\n");
+        fprintf(f, "\nalign 16\n");
         for (s64 i = 0; i < ctx->float32_consts.count; i++)
         {
             Float32_Const fconst = ctx->float32_consts[i];
@@ -3333,7 +3411,7 @@ void OutputCode_Amd64(Codegen_Context *ctx)
     }
     if (ctx->float64_consts.count)
     {
-        fprintf(f, "\nalign 8\n");
+        fprintf(f, "\nalign 16\n");
         for (s64 i = 0; i < ctx->float64_consts.count; i++)
         {
             Float64_Const fconst = ctx->float64_consts[i];

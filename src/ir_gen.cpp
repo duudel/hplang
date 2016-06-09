@@ -19,6 +19,7 @@ b32 operator == (Ir_Operand oper1, Ir_Operand oper2)
     {
         case IR_OPER_None: return true;
         case IR_OPER_Variable:
+        case IR_OPER_GlobalVariable:
         case IR_OPER_Routine:
         case IR_OPER_ForeignRoutine:
             return oper1.var.name == oper2.var.name;
@@ -98,6 +99,7 @@ void FreeIrGenContext(Ir_Gen_Context *ctx)
     }
     array::Free(ctx->routines);
     array::Free(ctx->foreign_routines);
+    array::Free(ctx->global_vars);
 }
 
 static b32 ContinueGen(Ir_Gen_Context *ctx)
@@ -206,7 +208,6 @@ static Ir_Operand NewVariableRef(Ir_Routine *routine, Type *type, Name name)
     return oper;
 }
 
-/*
 static Ir_Operand NewGlobalVariableRef(Ir_Routine *routine, Type *type, Name name)
 {
     (void)routine;
@@ -216,7 +217,6 @@ static Ir_Operand NewGlobalVariableRef(Ir_Routine *routine, Type *type, Name nam
     oper.var.name = name;
     return oper;
 }
-*/
 
 static Ir_Operand NewRoutineRef(Ir_Routine *routine, Type *type, Name name)
 {
@@ -705,7 +705,7 @@ static Ir_Operand GenRefUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
 {
     Unary_Op op = expr->unary_expr.op;
     Ast_Expr *oper_expr = expr->unary_expr.expr;
-    Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
+    Ir_Operand oper = GenRefExpression(ctx, oper_expr, routine);
     //Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
     switch (op)
     {
@@ -994,7 +994,10 @@ static Ir_Operand GenVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
     }
     else if (symbol->sym_type == SYM_Variable)
     {
-        return NewVariableRef(routine, expr->expr_type, name);
+        if (symbol->global)
+            return NewGlobalVariableRef(routine, expr->expr_type, name);
+        else
+            return NewVariableRef(routine, expr->expr_type, name);
     }
     else if (symbol->sym_type == SYM_Constant)
     {
@@ -1025,7 +1028,10 @@ static Ir_Operand GenRefVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Rout
     }
     else if (symbol->sym_type == SYM_Variable)
     {
-        return NewVariableRef(routine, ref_type, name);
+        if (symbol->global)
+            return NewGlobalVariableRef(routine, ref_type, name);
+        else
+            return NewVariableRef(routine, ref_type, name);
     }
     else if (symbol->sym_type == SYM_Constant)
     {
@@ -1269,7 +1275,9 @@ static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine
     Symbol *symbol = node->variable_decl.symbol;
     Ast_Expr *init_expr = node->variable_decl.init_expr;
 
-    Ir_Operand var_oper = NewVariableRef(routine, symbol->type, symbol->unique_name);
+    Ir_Operand var_oper = (toplevel)
+        ? NewGlobalVariableRef(routine, symbol->type, symbol->unique_name)
+        : NewVariableRef(routine, symbol->type, symbol->unique_name);
     PushInstruction(ctx, routine, IR_VarDecl, var_oper);
 
     if (init_expr)
@@ -1525,6 +1533,7 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
             len = fprintf(file, "_");
             break;
         case IR_OPER_Variable:
+        case IR_OPER_GlobalVariable:
             len = PrintName(file, oper.var.name, 17);
             break;
         case IR_OPER_Temp:

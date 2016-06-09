@@ -71,7 +71,7 @@ enum Ir_Oper_Type
 {
     IR_OPER_None,
     IR_OPER_Variable,
-    //IR_OPER_GlobalVariable,
+    IR_OPER_GlobalVariable,
     IR_OPER_Temp,
     IR_OPER_Immediate,
     IR_OPER_Label,

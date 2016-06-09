@@ -39,3 +39,17 @@ main :: ()
 
     return 0;
 }
+
+/*
+buf : char[];
+buf += "Hello ";
+buf += name;
+buf += "!";
+
+greeting := to_string(buf);
+free(name);
+free(buf);
+
+print(greeting);
+free(greeting);
+*/

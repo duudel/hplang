@@ -334,7 +334,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     }
 
     Codegen_Context cg_ctx = NewCodegenContext((IoFile*)asm_file, ctx, ctx->options.target);
-    GenerateCode(&cg_ctx, ir_ctx.routines, ir_ctx.foreign_routines);
+    GenerateCode(&cg_ctx, ir_ctx.routines, ir_ctx.foreign_routines, ir_ctx.global_vars);
 
     OutputCode(&cg_ctx);
 
@@ -399,6 +399,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     const char *gcc_args[] = {
         //"-Wl,--oformat=", gcc_target,
         gcc_target,
+        "-Wl,-einit_",
         "-Lstdlib",
         "-o", bin_filename,
         obj_filename,

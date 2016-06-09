@@ -226,6 +226,9 @@ struct Codegen_Context
     s64 foreign_routine_count;
     Name *foreign_routines;
 
+    s64 global_var_count;
+    Symbol **global_vars;
+
     IoFile *code_out;
     Compiler_Context *comp_ctx;
 };
@@ -234,7 +237,8 @@ Codegen_Context NewCodegenContext(IoFile *out,
         Compiler_Context *comp_ctx, Codegen_Target cg_target);
 void FreeCodegenContext(Codegen_Context *ctx);
 
-void GenerateCode(Codegen_Context *ctx, Ir_Routine_List routines, Array<Name> foreign_routines);
+void GenerateCode(Codegen_Context *ctx, Ir_Routine_List routines,
+        Array<Name> foreign_routines, Array<Symbol*> global_vars);
 
 void OutputCode(Codegen_Context *ctx);
 

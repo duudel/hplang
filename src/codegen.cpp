@@ -48,13 +48,21 @@ void FreeCodegenContext(Codegen_Context *ctx)
     FreeMemoryArena(&ctx->arena);
 }
 
-void GenerateCode(Codegen_Context *ctx, Ir_Routine_List routines, Array<Name> foreign_routines)
+void GenerateCode(Codegen_Context *ctx, Ir_Routine_List routines,
+        Array<Name> foreign_routines, Array<Symbol*> global_vars)
 {
     ctx->foreign_routine_count = foreign_routines.count;
     ctx->foreign_routines = PushArray<Name>(&ctx->arena, foreign_routines.count);
     for (s64 i = 0; i < ctx->foreign_routine_count; i++)
     {
         ctx->foreign_routines[i] = foreign_routines[i];
+    }
+
+    ctx->global_var_count = global_vars.count;
+    ctx->global_vars = PushArray<Symbol*>(&ctx->arena, global_vars.count);
+    for (s64 i = 0; i < ctx->global_var_count; i++)
+    {
+        ctx->global_vars[i] = global_vars[i];
     }
 
     switch (ctx->target)

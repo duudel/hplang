@@ -155,6 +155,7 @@ struct Symbol
     Name name;
     Name unique_name;
     Type *type;
+    b32 global;
 
     Symbol *next_overload;
 };

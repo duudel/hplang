@@ -1696,6 +1696,10 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
             ErrorVaribleShadowsParam(ctx, node, name);
     }
     Symbol *symbol = AddSymbol(ctx->env, SYM_Variable, name, type);
+    // TODO(henrik): Make checking/marking a variable as global more elegant.
+    // Maybe new symbol type SYM_GlobalVariable?
+    if (!ctx->env->current->parent)
+        symbol->global = true;
     node->variable_decl.symbol = symbol;
 }
 
