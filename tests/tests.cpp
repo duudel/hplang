@@ -10,6 +10,7 @@
 #include <cstdlib> // for system()
 
 FILE *nulldev;
+FILE *outfile;
 
 using namespace hplang;
 
@@ -86,183 +87,244 @@ void RecursiveRtInfer_Test(Test_Context *test_ctx, Compiler_Context comp_ctx)
 
 struct Line_Col
 {
-    s64 line, column;
+    s32 line, column;
 };
 
 typedef void (*Test_Function)(Test_Context *test_ctx, Compiler_Context comp_ctx);
 
-struct Test
+struct Fail_Test
 {
     Compilation_Phase stop_after;
-    const char *filename;
-    Line_Col fail_lexing;       // if line, column != 0, should fail lexing at the location
-    Line_Col fail_parsing;      // if line, column != 0, should fail parsing at the location
-    Line_Col fail_sem_check;    // if line, column != 0, should fail checking at the location
+    const char *source_filename;
+    Line_Col fail_location;
+};
+
+struct Succeed_Test
+{
+    Compilation_Phase stop_after;
+    const char *source_filename;
     Test_Function test_func;
 };
 
-Test tests[] = {
-    (Test){ CP_Lexing,  "tests/lexer_fail/crlf_test.hp",        {4, 26}, {}, {}, nullptr },
-    (Test){ CP_Lexing,  "tests/lexer_fail/only_one_dquote.hp",  {1, 1}, {}, {}, nullptr },
-    (Test){ CP_Lexing,  "tests/lexer_fail/non_ending_mlc.hp",   {6, 5}, {}, {}, nullptr },
-    (Test){ CP_Parsing, "tests/parser_fail/token_test.hp",      {}, {1, 1}, {}, nullptr },
-    (Test){ CP_Parsing, "tests/parser_fail/if_paren_test.hp",   {}, {8, 23}, {}, nullptr },
-    (Test){ CP_Parsing, "tests/expr_test.hp", {}, {}, {}, nullptr },
-    (Test){ CP_Parsing, "tests/stmt_test.hp", {}, {}, {}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/infer_var_type_from_null.hp",    {}, {}, {4, 1}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/dup_func_param.hp",              {}, {}, {4, 39}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/dup_variable.hp",                {}, {}, {7, 5}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/var_shadows_param.hp",           {}, {}, {6, 5}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/ambiguous_func_call.hp",         {}, {}, {8, 9}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/dup_func_def.hp",                {}, {}, {5, 1}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/return_infer_fail.hp",           {}, {}, {11, 12}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/void_func_return.hp",            {}, {}, {6, 12}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/non_void_func_return.hp",        {}, {}, {6, 5}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/infer_ret_type_from_null.hp",    {}, {}, {4, 1}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/access_non_struct.hp",           {}, {}, {7, 10}, nullptr },
-    (Test){ CP_Checking, "tests/sem_check_fail/deref_void_ptr.hp",              {}, {}, {7, 10}, nullptr },
-    (Test){ CP_Checking, "tests/empty.hp",              {}, {}, {}, nullptr },
-    (Test){ CP_Checking, "tests/variable_scope.hp",     {}, {}, {}, nullptr },
-    (Test){ CP_Checking, "tests/struct_access.hp",      {}, {}, {}, nullptr },
-    (Test){ CP_Linking, "tests/hello_test.hp",          {}, {}, {}, nullptr },
-    (Test){ CP_Linking, "tests/beer_test.hp",           {}, {}, {}, Beer_Test },
-    (Test){ CP_Linking, "tests/pointer_arith.hp",       {}, {}, {}, nullptr },
-    (Test){ CP_Linking, "tests/member_access.hp",       {}, {}, {}, nullptr },
-    (Test){ CP_Linking, "tests/module_test.hp",         {}, {}, {}, nullptr },
-    (Test){ CP_Linking, "tests/modules_test.hp",        {}, {}, {}, nullptr },
-    (Test){ CP_Linking, "tests/recursive_rt_infer.hp",  {}, {}, {}, RecursiveRtInfer_Test },
-    (Test){ CP_Linking, "tests/difficult_rt_infer.hp",  {}, {}, {}, nullptr },
-    (Test){ CP_Linking, "tests/function_var.hp",        {}, {}, {}, nullptr },
-    (Test){ CP_Linking, "tests/struct_as_arg.hp",       {}, {}, {}, nullptr },
-    (Test){ CP_Linking, "tests/arg_passing.hp",         {}, {}, {}, nullptr },
+struct Execute_Test
+{
+    const char *source_filename;
+    const char *expected_output_filename;
+    Test_Function test_func;
 };
 
-void PrintError(const char *filename, s64 line, s64 column, const char *message)
-{
-    fprintf(stderr, "%s:%" PRId64 ":%" PRId64 ": TEST ERROR: %s\n",
-            filename, line, column, message);
-}
+static Fail_Test fail_tests[] = {
+    (Fail_Test){ CP_Lexing,  "tests/lexer_fail/crlf_test.hp",                       {4, 26} },
+    (Fail_Test){ CP_Lexing,  "tests/lexer_fail/only_one_dquote.hp",                 {1, 1} },
+    (Fail_Test){ CP_Lexing,  "tests/lexer_fail/non_ending_mlc.hp",                  {6, 5} },
+    (Fail_Test){ CP_Parsing, "tests/parser_fail/token_test.hp",                     {1, 1} },
+    (Fail_Test){ CP_Parsing, "tests/parser_fail/if_paren_test.hp",                  {8, 23} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/infer_var_type_from_null.hp",   {4, 1} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/dup_func_param.hp",             {4, 39} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/dup_variable.hp",               {7, 5} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/var_shadows_param.hp",          {6, 5} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/ambiguous_func_call.hp",        {8, 9} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/dup_func_def.hp",               {5, 1} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/return_infer_fail.hp",          {11, 12} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/void_func_return.hp",           {6, 12} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/non_void_func_return.hp",       {6, 5} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/infer_ret_type_from_null.hp",   {4, 1} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/access_non_struct.hp",          {7, 10} },
+    (Fail_Test){ CP_Checking, "tests/sem_check_fail/deref_void_ptr.hp",             {7, 10} },
+};
 
-b32 CheckPhaseResult(Compiler_Context *compiler_ctx,
-        const char *filename, Line_Col fail_line_col,
-        Compilation_Result expected_result,
-        const char *unexpected_error, const char *expecting_error)
+static Succeed_Test succeed_tests[] = {
+    (Succeed_Test){ CP_Parsing, "tests/expr_test.hp",           nullptr },
+    (Succeed_Test){ CP_Parsing, "tests/stmt_test.hp",           nullptr },
+    (Succeed_Test){ CP_Checking, "tests/empty.hp",              nullptr },
+    (Succeed_Test){ CP_Checking, "tests/variable_scope.hp",     nullptr },
+    (Succeed_Test){ CP_Checking, "tests/struct_access.hp",      nullptr },
+};
+
+static Execute_Test exec_tests[] = {
+    (Execute_Test){ "tests/hello_test.hp",          nullptr, nullptr },
+    (Execute_Test){ "tests/beer_test.hp",           nullptr, Beer_Test },
+    (Execute_Test){ "tests/pointer_arith.hp",       nullptr, nullptr },
+    (Execute_Test){ "tests/member_access.hp",       nullptr, nullptr },
+    (Execute_Test){ "tests/module_test.hp",         nullptr, nullptr },
+    (Execute_Test){ "tests/modules_test.hp",        nullptr, nullptr },
+    (Execute_Test){ "tests/recursive_rt_infer.hp",  nullptr, RecursiveRtInfer_Test },
+    (Execute_Test){ "tests/difficult_rt_infer.hp",  nullptr, nullptr },
+    (Execute_Test){ "tests/function_var.hp",        nullptr, nullptr },
+    (Execute_Test){ "tests/struct_as_arg.hp",       nullptr, nullptr },
+    (Execute_Test){ "tests/arg_passing.hp",         nullptr, nullptr },
+};
+
+//static void PrintError(const char *filename, s64 line, s64 column, const char *message)
+//{
+//    fprintf(stderr, "%s:%" PRId64 ":%" PRId64 ": TEST ERROR: %s\n",
+//            filename, line, column, message);
+//}
+
+static b32 CheckErrorLocation(Compiler_Context *compiler_ctx, Line_Col fail_location)
 {
-    b32 should_fail = (fail_line_col.line && fail_line_col.column);
-    if (should_fail)
+    File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
+    if (error_loc.line == fail_location.line &&
+        error_loc.column == fail_location.column)
     {
-        if (compiler_ctx->result == expected_result)
-        {
-            File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-            if (error_loc.line == fail_line_col.line &&
-                error_loc.column == fail_line_col.column)
-            {
-                return true;
-            }
-            PrintError(filename, error_loc.line, error_loc.column, unexpected_error);
-        }
-        PrintError(filename, fail_line_col.line, fail_line_col.column, expecting_error);
-        return false;
+        return true;
     }
-    else if (compiler_ctx->result == expected_result)
-    {
-        File_Location error_loc = compiler_ctx->error_ctx.first_error_loc;
-        PrintError(filename, error_loc.line, error_loc.column, unexpected_error);
-        return false;
-    }
-    return true;
+    return false;
 }
 
-b32 CheckLexingResult(Compiler_Context *compiler_ctx,
-        const Test &test)
+b32 RunTest(const Fail_Test &test)
 {
-    return CheckPhaseResult(compiler_ctx, test.filename,
-            test.fail_lexing, RES_FAIL_Lexing,
-            "Unexpected lexer error", "Expected lexer error");
-}
+    fprintf(outfile, "Running test '%s'\n", test.source_filename);
 
-b32 CheckParsingResult(Compiler_Context *compiler_ctx,
-        const Test &test)
-{
-    return CheckPhaseResult(compiler_ctx, test.filename,
-            test.fail_parsing, RES_FAIL_Parsing,
-            "Unexpected parser error", "Expected parser error");
-}
-
-b32 CheckSemCheckResult(Compiler_Context *compiler_ctx,
-        const Test &test)
-{
-    return CheckPhaseResult(compiler_ctx, test.filename,
-            test.fail_sem_check, RES_FAIL_SemanticCheck,
-            "Unexpected semantic check error", "Expected semantic check error");
-}
-
-s64 RunTest(Test_Context *test_ctx, const Test &test)
-{
-    fprintf(stderr, "Running test '%s'\n", test.filename);
-
-    s64 failed = 0;
+    b32 failed = false;
     Compiler_Context compiler_ctx = NewCompilerContext();
     compiler_ctx.options.stop_after = test.stop_after;
 
-    Open_File *file = OpenFile(&compiler_ctx, test.filename);
+    Open_File *file = OpenFile(&compiler_ctx, test.source_filename);
     if (file)
     {
-        b32 should_fail_lexing =
-            (test.fail_lexing.line && test.fail_lexing.column);
-        b32 should_fail_parsing =
-            (test.fail_parsing.line && test.fail_parsing.column);
-        b32 should_fail_sem_check =
-            (test.fail_sem_check.line && test.fail_sem_check.column);
-        b32 should_fail = should_fail_lexing || should_fail_parsing || should_fail_sem_check;
-
-        if (should_fail)
-            compiler_ctx.error_ctx.file = (IoFile*)nulldev;
-        else
-            compiler_ctx.error_ctx.file = (IoFile*)stderr;
-
+        compiler_ctx.error_ctx.file = (IoFile*)nulldev;
         Compile(&compiler_ctx, file);
 
-        if (!CheckLexingResult(&compiler_ctx, test))
-            failed = 1;
-        else if (!CheckParsingResult(&compiler_ctx, test))
-            failed = 1;
-        else if (!CheckSemCheckResult(&compiler_ctx, test))
-            failed = 1;
-        else if (test.test_func)
+        File_Location error_loc = compiler_ctx.error_ctx.first_error_loc;
+        switch (test.stop_after)
         {
-            test.test_func(test_ctx, compiler_ctx);
-        }
-        if (test.stop_after == CP_Linking)
-        {
-            //if (system("compile_out.sh") == 0)
+        case CP_Lexing:
+            if (compiler_ctx.result != RES_FAIL_Lexing)
             {
-                int result = system("out.exe");
-                if (result != 0)
-                {
-                    fprintf(stderr, "Error executing the test '%s'\n", test.filename);
-                    failed = 1;
-                }
+                fprintf(outfile, "TEST ERROR: Was expecting lexing failure at %d:%d\n",
+                        test.fail_location.line, test.fail_location.column);
+                failed = true;
             }
-            //else
-            //{
-            //    fprintf(stderr, "Error assembling and linking '%s'\n", test.filename);
-            //    failed = 1;
-            //}
+            else if (!CheckErrorLocation(&compiler_ctx, test.fail_location))
+            {
+                fprintf(outfile, "TEST ERROR: Was expecting lexing failure at %d:%d, but got error at %d:%d\n",
+                        test.fail_location.line, test.fail_location.column, error_loc.line, error_loc.column);
+                failed = true;
+            } break;
+        case CP_Parsing:
+            if (compiler_ctx.result != RES_FAIL_Parsing)
+            {
+                fprintf(outfile, "TEST ERROR: Was expecting parsing failure at %d:%d\n",
+                        test.fail_location.line, test.fail_location.column);
+                failed = true;
+            }
+            else if (!CheckErrorLocation(&compiler_ctx, test.fail_location))
+            {
+                fprintf(outfile, "TEST ERROR: Was expecting parsing failure at %d:%d, but got error at %d:%d\n",
+                        test.fail_location.line, test.fail_location.column, error_loc.line, error_loc.column);
+                failed = true;
+            } break;
+        case CP_Checking:
+            if (compiler_ctx.result != RES_FAIL_SemanticCheck)
+            {
+                fprintf(outfile, "TEST ERROR: Was expecting semantic check failure at %d:%d\n",
+                        test.fail_location.line, test.fail_location.column);
+                failed = true;
+            }
+            else if (!CheckErrorLocation(&compiler_ctx, test.fail_location))
+            {
+                fprintf(outfile, "TEST ERROR: Was expecting semantic check failure at %d:%d, but got error at %d:%d\n",
+                        test.fail_location.line, test.fail_location.column, error_loc.line, error_loc.column);
+                failed = true;
+            } break;
+        case CP_IrGen:
+        case CP_CodeGen:
+        case CP_Assembling:
+        case CP_Linking:
+            fprintf(outfile, "INVALID TEST ERROR: Failing tests should only be tested for the lexing--semantic check part of the compiler");
+            INVALID_CODE_PATH;
+            break;
         }
     }
     else
     {
-        fprintf(stderr, "Error: Could not open test file '%s'\n", test.filename);
-        failed = 1;
+        fprintf(outfile, "TEST ERROR: Could not open test file '%s'\n", test.source_filename);
+        failed = true;
     }
 
     FreeCompilerContext(&compiler_ctx);
 
-    fprintf(stderr, "----\n"); fflush(stderr);
+    fprintf(outfile, "----\n"); fflush(outfile);
+    return !failed;
+}
 
-    if (test_ctx->errors > 0) failed = 1;
-    return failed;
+b32 RunTest(const Succeed_Test &test)
+{
+    fprintf(outfile, "Running test '%s'\n", test.source_filename);
+
+    b32 failed = false;
+    Compiler_Context compiler_ctx = NewCompilerContext();
+    compiler_ctx.options.stop_after = test.stop_after;
+
+    Open_File *file = OpenFile(&compiler_ctx, test.source_filename);
+    if (file)
+    {
+        compiler_ctx.error_ctx.file = (IoFile*)outfile;
+        Compile(&compiler_ctx, file);
+
+        if (compiler_ctx.result != RES_OK)
+        {
+            fprintf(outfile, "TEST ERROR: Unexpected errors\n");
+            failed = true;
+        }
+        else if (test.test_func)
+        {
+            Test_Context test_ctx = { };
+            test.test_func(&test_ctx, compiler_ctx);
+            failed = (test_ctx.errors > 0);
+        }
+    }
+    else
+    {
+        fprintf(outfile, "TEST ERROR: Could not open test file '%s'\n", test.source_filename);
+        failed = true;
+    }
+
+    FreeCompilerContext(&compiler_ctx);
+
+    fprintf(outfile, "----\n"); fflush(outfile);
+    return !failed;
+}
+
+b32 RunTest(const Execute_Test &test)
+{
+    fprintf(outfile, "Running test '%s'\n", test.source_filename);
+
+    b32 failed = false;
+    Compiler_Context compiler_ctx = NewCompilerContext();
+
+    Open_File *file = OpenFile(&compiler_ctx, test.source_filename);
+    if (file)
+    {
+        compiler_ctx.error_ctx.file = (IoFile*)outfile;
+        Compile(&compiler_ctx, file);
+
+        if (compiler_ctx.result != RES_OK)
+        {
+            fprintf(outfile, "TEST ERROR: Unexpected errors\n");
+            failed = true;
+        }
+        else
+        {
+            int result = system("out.exe");
+            if (result != 0)
+            {
+                fprintf(outfile, "TEST ERROR: Error executing the test '%s'\n", test.source_filename);
+                failed = true;
+            }
+        }
+    }
+    else
+    {
+        fprintf(outfile, "TEST ERROR: Could not open test file '%s'\n", test.source_filename);
+        failed = true;
+    }
+
+    FreeCompilerContext(&compiler_ctx);
+
+    fprintf(outfile, "----\n"); fflush(outfile);
+    return !failed;
 }
 
 int main(int argc, char **argv)
@@ -270,29 +332,41 @@ int main(int argc, char **argv)
     (void)argc;
     (void)argv;
 
+    outfile = stdout;
+
     nulldev = fopen("/dev/null", "w");
     if (!nulldev)
         nulldev = fopen("nul", "w");
     if (!nulldev)
     {
-        fprintf(stderr, "Could not open null device, exiting...\n");
+        fprintf(outfile, "Could not open null device, exiting...\n");
         return -1;
     }
 
-    fprintf(stderr, "----\n");
+    fprintf(outfile, "----\n");
+
+    s64 total_tests = 0;
+    total_tests += array_length(fail_tests);
+    total_tests += array_length(succeed_tests);
+    total_tests += array_length(exec_tests);
 
     s64 failed_tests = 0;
-    s64 total_tests = array_length(tests);
-    for (const Test &test : tests)
+    for (const Fail_Test &test : fail_tests)
     {
-        Test_Context test_ctx = { };
-        failed_tests += RunTest(&test_ctx, test);
-        fflush(stderr);
+        failed_tests += RunTest(test) ? 0 : 1;
+    }
+    for (const Succeed_Test &test : succeed_tests)
+    {
+        failed_tests += RunTest(test) ? 0 : 1;
+    }
+    for (const Execute_Test &test : exec_tests)
+    {
+        failed_tests += RunTest(test) ? 0 : 1;
     }
 
-    fprintf(stderr, "----\n");
-    fprintf(stderr, "%" PRId64 " tests run, %" PRId64 " failed\n", total_tests, failed_tests);
-    fprintf(stderr, "----\n");
-    return failed_tests;
+    fprintf(outfile, "----\n");
+    fprintf(outfile, "%" PRId64 " tests run, %" PRId64 " failed\n", total_tests, failed_tests);
+    fprintf(outfile, "----\n");
+    return 0; //failed_tests;
 }
 
