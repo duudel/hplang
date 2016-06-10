@@ -1,4 +1,5 @@
 
+#include "hplang.h"
 #include "compiler_options.h"
 
 namespace hplang
@@ -9,11 +10,9 @@ Compiler_Options DefaultCompilerOptions()
     Compiler_Options result = { };
 
     result.target =
-#if defined(WIN32) || defined(_WIN32) || defined(_WIN64)
+#ifdef HP_WIN
         CGT_AMD64_Windows;
-#elif defined(linux) || defined(__linux) || defined(__linux__)
-        CGT_AMD64_Unix;
-#elif defined(__unix__)
+#elif defined(HP_UNIX)
         CGT_AMD64_Unix;
 #else
         CGT_AMD64_Unix;

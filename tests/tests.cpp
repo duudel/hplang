@@ -290,7 +290,7 @@ b32 RunTest(const Succeed_Test &test)
     return !failed;
 }
 
-#if defined(WIN32)
+#if defined(HP_WIN)
 const char *test_exe = "out.exe";
 #else
 const char *test_exe = "./out";
