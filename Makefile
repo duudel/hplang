@@ -1,7 +1,7 @@
 
 COMPILER := gcc
 COMPILER_FLAGS := -std=c++11 -Wall -Wextra -fno-exceptions -fno-rtti -g
-EXENAME := hplangc.exe
+EXENAME := hplangc
 
 SOURCES := \
 	src/amd64_codegen.cpp \
@@ -50,7 +50,7 @@ run_debug:
 	$(GDB) ./$(EXENAME) 2> /dev/null
 
 
-TESTEXE := tests/tests.exe
+TESTEXE := tests/tests
 
 build_tests:
 	$(COMPILER) $(COMPILER_FLAGS) tests/tests.cpp $(SOURCES) -o $(TESTEXE)
