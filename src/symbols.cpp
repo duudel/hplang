@@ -437,6 +437,11 @@ static void AddBuiltinFunctions(Environment *env)
     hp_alloc_type->function_type.return_type = GetPointerType(env, GetBuiltinType(TYP_void));
     hp_alloc_type->function_type.parameter_types[0] = GetBuiltinType(TYP_s64);
     AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "hp_alloc"), hp_alloc_type);
+
+    Type *c_exit_type = PushFunctionType(env, TYP_Function, 1);
+    c_exit_type->function_type.return_type = GetBuiltinType(TYP_void);
+    c_exit_type->function_type.parameter_types[0] = GetBuiltinType(TYP_s32);
+    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "exit"), c_exit_type);
 }
 
 Environment NewEnvironment(const char *main_func_name)

@@ -290,6 +290,12 @@ b32 RunTest(const Succeed_Test &test)
     return !failed;
 }
 
+#if defined(WIN32)
+const char *test_exe = "out.exe";
+#else
+const char *test_exe = "./out";
+#endif
+
 b32 RunTest(const Execute_Test &test)
 {
     fprintf(outfile, "Running test '%s'\n", test.source_filename);
@@ -310,9 +316,8 @@ b32 RunTest(const Execute_Test &test)
         }
         else
         {
-            errno = 0;
             fflush(nullptr);
-            FILE *test_output = popen("out.exe", "r");
+            FILE *test_output = popen(test_exe, "r");
             if (!test_output)
             {
                 fprintf(outfile, "TEST ERROR: Error executing the test '%s'\n", test.source_filename);
@@ -327,7 +332,6 @@ b32 RunTest(const Execute_Test &test)
             {
                 if (test.expected_output_filename)
                 {
-                    errno = 0;
                     FILE *expected_output = fopen(test.expected_output_filename, "r");
                     if (expected_output)
                     {
@@ -387,7 +391,6 @@ b32 RunTest(const Execute_Test &test)
                         failed = true;
                     }
                 }
-                errno = 0;
                 int result = pclose(test_output);
                 //result /= 256;
                 //result /= 256;

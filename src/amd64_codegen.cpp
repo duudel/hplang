@@ -317,14 +317,16 @@ static Reg_Info nix_reg_info[] = {
     { REG_NONE,    -1,  RF_None | RF_NonAllocable },
     { REG_rax,      0,  RF_CallerSave | RF_Return },
     { REG_rbx,     -1,  RF_None },
-    { REG_rcx,      0,  RF_CallerSave | RF_Arg },
-    { REG_rdx,      1,  RF_CallerSave | RF_Arg | RF_Return },
+    { REG_rcx,      3,  RF_CallerSave | RF_Arg },
+    // NOTE(henrik): cannot use rdx as the second return register until
+    // Reg_Info can store both arg and return register index.
+    { REG_rdx,      2,  RF_CallerSave | RF_Arg }, //| RF_Return }, 
     { REG_rbp,     -1,  RF_NonAllocable },
-    { REG_rsi,     -1,  RF_CallerSave | RF_Arg },
-    { REG_rdi,     -1,  RF_CallerSave | RF_Arg },
+    { REG_rsi,      1,  RF_CallerSave | RF_Arg },
+    { REG_rdi,      0,  RF_CallerSave | RF_Arg },
     { REG_rsp,     -1,  RF_NonAllocable },
-    { REG_r8,       2,  RF_CallerSave | RF_Arg },
-    { REG_r9,       3,  RF_CallerSave | RF_Arg },
+    { REG_r8,       4,  RF_CallerSave | RF_Arg },
+    { REG_r9,       5,  RF_CallerSave | RF_Arg },
     { REG_r10,     -1,  RF_CallerSave },
     { REG_r11,     -1,  RF_CallerSave },
     { REG_r12,     -1,  RF_None },
@@ -336,10 +338,10 @@ static Reg_Info nix_reg_info[] = {
     { REG_xmm1,     1,   RF_CallerSave | RF_Arg | RF_Return | RF_Float },
     { REG_xmm2,     2,   RF_CallerSave | RF_Arg | RF_Float },
     { REG_xmm3,     3,   RF_CallerSave | RF_Arg | RF_Float },
-    { REG_xmm4,    -1,   RF_CallerSave | RF_Arg | RF_Float },
-    { REG_xmm5,    -1,   RF_CallerSave | RF_Arg | RF_Float },
-    { REG_xmm6,    -1,   RF_CallerSave | RF_Arg | RF_Float },
-    { REG_xmm7,    -1,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm4,     4,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm5,     5,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm6,     6,   RF_CallerSave | RF_Arg | RF_Float },
+    { REG_xmm7,     7,   RF_CallerSave | RF_Arg | RF_Float },
     { REG_xmm8,    -1,   RF_CallerSave | RF_Float },
     { REG_xmm9,    -1,   RF_CallerSave | RF_Float },
     { REG_xmm10,   -1,   RF_CallerSave | RF_Float },
@@ -3051,6 +3053,17 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
     {
         Operand main_label = LabelOperand(ctx->comp_ctx->env.main_func_name, AF_Read);
         PushInstruction(ctx, OP_call, main_label);
+
+        Oper_Data_Type return_type = Oper_Data_Type::S32;
+        const Reg *ret_reg = GetReturnRegister(ctx->reg_alloc, return_type, 0);
+        const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, return_type, 0);
+        PushLoad(ctx,
+                RegOperand(*arg_reg, return_type, AF_Write),
+                RegOperand(*ret_reg, return_type, AF_Read));
+
+        Name exit_name = PushName(&ctx->arena, "exit");
+        Operand exit_label = LabelOperand(exit_name, AF_Read);
+        PushInstruction(ctx, OP_call, exit_label);
     }
     PushInstruction(ctx, OP_LABEL, LabelOperand(routine->return_label.name, AF_Read));
 }

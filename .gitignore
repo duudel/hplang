@@ -1,7 +1,11 @@
 
 *.exe
 *.o
+*.a
 *.swp
 
 # generated assembly files
 *.s
+
+# default compiled binary executable
+out
