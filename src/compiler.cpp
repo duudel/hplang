@@ -131,27 +131,51 @@ Open_File* OpenFile(Compiler_Context *ctx, String filename)
 }
 
 // TODO(henrik): This code path pushes the filename string to ctx->arena first
-// here and then in OpenFile. Remove the double pushing.
+// here and then in OpenFile. Remove the double pushing. 
+// NOTE(henrik): This version null terminates the string.
 Open_File* OpenModule(Compiler_Context *ctx,
         Open_File *current_file, String module_name, String *filename_out)
 {
     const char extension[] = ".hp";
     String filename_str;
 
-    s64 filename_size = current_file->base_end + module_name.size + sizeof(extension);
-    char *filename = (char*)PushData(&ctx->arena, filename_size, 1);
-
-    filename_str.data = filename;
-    filename_str.size = filename_size - 1;
-
+    // NOTE(henrik): Module name starting with colon ':' is a system module.
     s64 i = 0;
-    for (; i < current_file->base_end; i++)
+    if (module_name.size > 0 && module_name.data[0] == ':')
     {
-        filename_str.data[i] = current_file->filename.data[i];
+        const char stdlib[] = "stdlib/";
+        s64 sizeof_stdlib = sizeof(stdlib) - 1; // discard null teermination
+        s64 filename_size = sizeof_stdlib + module_name.size + sizeof(extension);
+        char *filename = (char*)PushData(&ctx->arena, filename_size, 1);
+        
+        filename_str.data = filename;
+        filename_str.size = filename_size - 1;
+
+        for (; i < sizeof_stdlib; i++)
+        {
+            filename_str.data[i] = stdlib[i];
+        }
+        for (; i < sizeof_stdlib + module_name.size - 1; i++)
+        {
+            filename_str.data[i] = module_name.data[1 + i - sizeof_stdlib];
+        }
     }
-    for (; i < current_file->base_end + module_name.size; i++)
+    else
     {
-        filename_str.data[i] = module_name.data[i - current_file->base_end];
+        s64 filename_size = current_file->base_end + module_name.size + sizeof(extension);
+        char *filename = (char*)PushData(&ctx->arena, filename_size, 1);
+
+        filename_str.data = filename;
+        filename_str.size = filename_size - 1;
+
+        for (; i < current_file->base_end; i++)
+        {
+            filename_str.data[i] = current_file->filename.data[i];
+        }
+        for (; i < current_file->base_end + module_name.size; i++)
+        {
+            filename_str.data[i] = module_name.data[i - current_file->base_end];
+        }
     }
     filename_str.data[i+0] = '.';
     filename_str.data[i+1] = 'h';
@@ -383,6 +407,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     {
         fprintf((FILE*)ctx->error_ctx.file, "Could not assemble the file '%s'\n",
                 asm_filename);
+        ctx->result = RES_FAIL_InternalError;
         return false;
     }
 
@@ -423,6 +448,7 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     {
         fprintf((FILE*)ctx->error_ctx.file, "Could not link the file '%s'\n",
                 obj_filename);
+        ctx->result = RES_FAIL_Linking;
         return false;
     }
 #endif

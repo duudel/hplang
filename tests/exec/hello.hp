@@ -1,6 +1,6 @@
 // Hello world compiler test
 
-import "io";
+import ":io";
 
 main :: () : s32
 {

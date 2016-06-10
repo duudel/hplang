@@ -9,6 +9,7 @@
 #include <cinttypes>
 #include <cstdlib> // for system()
 
+
 FILE *nulldev;
 FILE *outfile;
 
@@ -110,7 +111,6 @@ struct Execute_Test
 {
     const char *source_filename;
     const char *expected_output_filename;
-    Test_Function test_func;
 };
 
 static Fail_Test fail_tests[] = {
@@ -139,20 +139,23 @@ static Succeed_Test succeed_tests[] = {
     (Succeed_Test){ CP_Checking, "tests/empty.hp",              nullptr },
     (Succeed_Test){ CP_Checking, "tests/variable_scope.hp",     nullptr },
     (Succeed_Test){ CP_Checking, "tests/struct_access.hp",      nullptr },
+    (Succeed_Test){ CP_Checking, "tests/recursive_rt_infer.hp", RecursiveRtInfer_Test },
+    (Succeed_Test){ CP_Checking, "tests/difficult_rt_infer.hp", nullptr },
 };
 
 static Execute_Test exec_tests[] = {
-    (Execute_Test){ "tests/hello_test.hp",          nullptr, nullptr },
-    (Execute_Test){ "tests/beer_test.hp",           nullptr, Beer_Test },
-    (Execute_Test){ "tests/pointer_arith.hp",       nullptr, nullptr },
-    (Execute_Test){ "tests/member_access.hp",       nullptr, nullptr },
-    (Execute_Test){ "tests/module_test.hp",         nullptr, nullptr },
-    (Execute_Test){ "tests/modules_test.hp",        nullptr, nullptr },
-    (Execute_Test){ "tests/recursive_rt_infer.hp",  nullptr, RecursiveRtInfer_Test },
-    (Execute_Test){ "tests/difficult_rt_infer.hp",  nullptr, nullptr },
-    (Execute_Test){ "tests/function_var.hp",        nullptr, nullptr },
-    (Execute_Test){ "tests/struct_as_arg.hp",       nullptr, nullptr },
-    (Execute_Test){ "tests/arg_passing.hp",         nullptr, nullptr },
+    (Execute_Test){ "tests/exec/hello.hp",      "tests/exec/hello.stdout" },
+    (Execute_Test){ "tests/exec/factorial.hp",  "tests/exec/factorial.stdout" },
+    (Execute_Test){ "tests/exec/fibo.hp",       "tests/exec/fibo.stdout" },
+    (Execute_Test){ "tests/exec/beer.hp",       "tests/exec/beer.stdout" },
+    (Execute_Test){ "tests/exec/nbody.hp",      "tests/exec/nbody.stdout" },
+    (Execute_Test){ "tests/pointer_arith.hp",   nullptr },
+    (Execute_Test){ "tests/member_access.hp",   nullptr },
+    (Execute_Test){ "tests/module_test.hp",     nullptr },
+    (Execute_Test){ "tests/modules_test.hp",    nullptr },
+    (Execute_Test){ "tests/function_var.hp",    nullptr },
+    (Execute_Test){ "tests/struct_as_arg.hp",   nullptr },
+    (Execute_Test){ "tests/arg_passing.hp",     nullptr },
 };
 
 //static void PrintError(const char *filename, s64 line, s64 column, const char *message)
@@ -307,11 +310,96 @@ b32 RunTest(const Execute_Test &test)
         }
         else
         {
-            int result = system("out.exe");
-            if (result != 0)
+            errno = 0;
+            fflush(nullptr);
+            FILE *test_output = popen("out.exe", "r");
+            if (!test_output)
             {
                 fprintf(outfile, "TEST ERROR: Error executing the test '%s'\n", test.source_filename);
                 failed = true;
+            }
+            else if (ferror(test_output))
+            {
+                fprintf(outfile, "TEST ERROR: pipe in erronous state\n");
+                failed = true;
+            }
+            else
+            {
+                if (test.expected_output_filename)
+                {
+                    errno = 0;
+                    FILE *expected_output = fopen(test.expected_output_filename, "r");
+                    if (expected_output)
+                    {
+                        Line_Col loc = { };
+                        loc.line = 1;
+                        loc.column = 1;
+                        const s64 buf_size = 256;
+                        char test_buf[buf_size];
+                        char expected_buf[buf_size];
+                        //while (!failed)
+                        //rewind(test_output);
+                        fseek(test_output, 0, SEEK_SET);
+                        while (true)
+                        {
+                            s64 test_size = fread(&test_buf, 1, buf_size, test_output);
+                            s64 expected_size = fread(&expected_buf, 1, buf_size, expected_output);
+                            if (!failed)
+                            {
+                                for (s64 i = 0; i < test_size && i < expected_size; i++)
+                                {
+                                    if (test_buf[i] != expected_buf[i])
+                                    {
+                                        fprintf(outfile, "TEST ERROR: Test output mismatch\n");
+                                        fprintf(outfile, "%s:%d:%d: (test output) '%c' != '%c' ; %d != %d (expected)\n",
+                                                test.expected_output_filename, loc.line, loc.column,
+                                                test_buf[i], expected_buf[i], test_buf[i], expected_buf[i]);
+                                        failed = true;
+                                        break;
+                                    }
+                                    if (test_buf[i] == '\n')
+                                    {
+                                        loc.line++;
+                                        loc.column = 0;
+                                    }
+                                    else
+                                    {
+                                        loc.column++;
+                                    }
+                                }
+                                if (!failed && test_size != expected_size)
+                                {
+                                    fprintf(outfile, "TEST ERROR: Test output length mismatch\n");
+                                    fprintf(outfile, "%s:%d:%d: (test output) %" PRId64 " != %" PRId64 " (expected)\n",
+                                            test.expected_output_filename, loc.line, loc.column,
+                                            test_size, expected_size);
+                                    failed = true;
+                                }
+                            }
+                            if (test_size == 0)
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        fprintf(outfile, "TEST ERROR: Could not open file for expected output ('%s')\n",
+                                test.expected_output_filename);
+                        failed = true;
+                    }
+                }
+                errno = 0;
+                int result = pclose(test_output);
+                //result /= 256;
+                //result /= 256;
+                //result = (result & 0xff00) >> 8;
+                //int result = system("out.exe");
+                if (result != 0)
+                {
+                    if (result == EOF) fprintf(outfile, "EOF\n");
+                    fprintf(outfile, "TEST ERROR: Executed test's exit code was %d(%x) for '%s'\n",
+                            result, result, test.source_filename);
+                    failed = true;
+                }
             }
         }
     }

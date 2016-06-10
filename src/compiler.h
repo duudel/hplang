@@ -18,6 +18,7 @@ enum Compilation_Result
     RES_FAIL_Lexing,
     RES_FAIL_Parsing,
     RES_FAIL_SemanticCheck,
+    RES_FAIL_Linking,
     RES_FAIL_InternalError
 };
 

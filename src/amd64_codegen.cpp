@@ -3433,9 +3433,9 @@ void OutputCode_Amd64(Codegen_Context *ctx)
         for (s64 i = 0; i < ctx->global_var_count; i++)
         {
             Symbol *symbol = ctx->global_vars[i];
-            s32 align = GetAlign(symbol->type);
-            s32 size = GetSize(symbol->type);
-            fprintf(f, "\nalign %d\n", align);
+            //s32 align = GetAlign(symbol->type);
+            s32 size = GetAlignedSize(symbol->type);
+            //fprintf(f, "\nalign %d\n", align);
             PrintName(file, symbol->unique_name);
             fprintf(f, ":\tresb %d\n", size);
         }
