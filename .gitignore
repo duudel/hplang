@@ -7,5 +7,9 @@
 # generated assembly files
 *.s
 
+# the compiler binary
+hplangc
 # default compiled binary executable
 out
+# test program binary executable
+tests/tests

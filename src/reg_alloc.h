@@ -59,6 +59,10 @@ struct Reg_Alloc
     s64 reg_count;
     const Reg_Info *reg_info;
 
+    // is argument index shared between arguments passed in general registers
+    // and float registers.
+    b32 arg_index_shared;
+
     Special_Regs general_regs;
     Special_Regs float_regs;
 
@@ -66,7 +70,8 @@ struct Reg_Alloc
 };
 
 void InitRegAlloc(Reg_Alloc *reg_alloc,
-        s64 total_reg_count, const Reg_Info *reg_info);
+        s64 total_reg_count, const Reg_Info *reg_info,
+        b32 arg_index_shared);
 
 void FreeRegAlloc(Reg_Alloc *reg_alloc);
 
@@ -84,6 +89,8 @@ void ReleaseRegister(Reg_Alloc *reg_alloc, Reg reg, Oper_Data_Type data_type);
 
 const Reg* GetReturnRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64 ret_index);
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64 arg_index);
+void AdvanceArgIndex(Reg_Alloc *reg_alloc, Oper_Data_Type data_type,
+        s64 *arg_index, s64 *float_arg_index);
 
 } // hplang
 

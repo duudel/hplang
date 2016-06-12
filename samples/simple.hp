@@ -12,9 +12,9 @@ import "io";
 //    //return y + 0.2;
 //}
 
-foreign {
-    sqrt :: (x : f64) : f64;
-}
+//foreign {
+//    sqrt :: (x : f64) : f64;
+//}
 
 main :: ()
 {

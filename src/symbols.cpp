@@ -401,6 +401,16 @@ void PrintType(IoFile *file, Type *type)
     }
 }
 
+b32 SymbolIsGlobal(Symbol *symbol)
+{
+    return (symbol->flags & SYMF_Global) != 0;
+}
+
+b32 SymbolIsIntrinsic(Symbol *symbol)
+{
+    return (symbol->flags & SYMF_Intrinsic) != 0;
+}
+
 
 static void AddBuiltinTypes(Environment *env)
 {
@@ -442,6 +452,13 @@ static void AddBuiltinFunctions(Environment *env)
     c_exit_type->function_type.return_type = GetBuiltinType(TYP_void);
     c_exit_type->function_type.parameter_types[0] = GetBuiltinType(TYP_s32);
     AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "exit"), c_exit_type);
+
+    Name sqrt_name = PushName(&env->arena, "sqrt");
+    Type *sqrt_f64_type = PushFunctionType(env, TYP_Function, 1);
+    sqrt_f64_type->function_type.return_type = GetBuiltinType(TYP_f64);
+    sqrt_f64_type->function_type.parameter_types[0] = GetBuiltinType(TYP_f64);
+    Symbol *sqrt_sym = AddFunction(env, sqrt_name, sqrt_f64_type);
+    sqrt_sym->flags = SYMF_Intrinsic;
 }
 
 Environment NewEnvironment(const char *main_func_name)

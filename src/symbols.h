@@ -149,13 +149,19 @@ enum Symbol_Type
 
 struct Scope;
 
+enum Symbol_Flags
+{
+    SYMF_Global = 1,
+    SYMF_Intrinsic = 2,
+};
+
 struct Symbol
 {
     Symbol_Type sym_type;
     Name name;
     Name unique_name;
     Type *type;
-    b32 global;
+    u32 flags;
 
     Symbol *next_overload;
 };
@@ -218,6 +224,9 @@ Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
 Symbol* AddFunction(Environment *env, Name name, Type *type);
 Symbol* LookupSymbol(Environment *env, Name name);
 Symbol* LookupSymbolInCurrentScope(Environment *env, Name name);
+
+b32 SymbolIsGlobal(Symbol *symbol);
+b32 SymbolIsIntrinsic(Symbol *symbol);
 
 b32 TypesEqual(Type *a, Type *b);
 

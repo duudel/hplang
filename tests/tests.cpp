@@ -145,17 +145,17 @@ static Succeed_Test succeed_tests[] = {
 
 static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/exec/hello.hp",      "tests/exec/hello.stdout" },
-    (Execute_Test){ "tests/exec/factorial.hp",  "tests/exec/factorial.stdout" },
-    (Execute_Test){ "tests/exec/fibo.hp",       "tests/exec/fibo.stdout" },
-    (Execute_Test){ "tests/exec/beer.hp",       "tests/exec/beer.stdout" },
-    (Execute_Test){ "tests/exec/nbody.hp",      "tests/exec/nbody.stdout" },
-    (Execute_Test){ "tests/pointer_arith.hp",   nullptr },
-    (Execute_Test){ "tests/member_access.hp",   nullptr },
-    (Execute_Test){ "tests/module_test.hp",     nullptr },
-    (Execute_Test){ "tests/modules_test.hp",    nullptr },
-    (Execute_Test){ "tests/function_var.hp",    nullptr },
-    (Execute_Test){ "tests/struct_as_arg.hp",   nullptr },
-    (Execute_Test){ "tests/arg_passing.hp",     nullptr },
+    //(Execute_Test){ "tests/exec/factorial.hp",  "tests/exec/factorial.stdout" },
+    //(Execute_Test){ "tests/exec/fibo.hp",       "tests/exec/fibo.stdout" },
+    //(Execute_Test){ "tests/exec/beer.hp",       "tests/exec/beer.stdout" },
+    //(Execute_Test){ "tests/exec/nbody.hp",      "tests/exec/nbody.stdout" },
+    //(Execute_Test){ "tests/pointer_arith.hp",   nullptr },
+    //(Execute_Test){ "tests/member_access.hp",   nullptr },
+    //(Execute_Test){ "tests/module_test.hp",     nullptr },
+    //(Execute_Test){ "tests/modules_test.hp",    nullptr },
+    //(Execute_Test){ "tests/function_var.hp",    nullptr },
+    //(Execute_Test){ "tests/struct_as_arg.hp",   nullptr },
+    //(Execute_Test){ "tests/arg_passing.hp",     nullptr },
 };
 
 //static void PrintError(const char *filename, s64 line, s64 column, const char *message)
@@ -293,7 +293,7 @@ b32 RunTest(const Succeed_Test &test)
 #if defined(HP_WIN)
 const char *test_exe = "out.exe";
 #else
-const char *test_exe = "./out";
+const char *test_exe = "./out > stdout";
 #endif
 
 b32 RunTest(const Execute_Test &test)

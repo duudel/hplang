@@ -1699,7 +1699,7 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
     // TODO(henrik): Make checking/marking a variable as global more elegant.
     // Maybe new symbol type SYM_GlobalVariable?
     if (!ctx->env->current->parent)
-        symbol->global = true;
+        symbol->flags |= SYMF_Global;
     node->variable_decl.symbol = symbol;
 }
 

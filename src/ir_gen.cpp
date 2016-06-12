@@ -996,7 +996,7 @@ static Ir_Operand GenVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
     }
     else if (symbol->sym_type == SYM_Variable)
     {
-        if (symbol->global)
+        if (SymbolIsGlobal(symbol))
             return NewGlobalVariableRef(routine, expr->expr_type, name);
         else
             return NewVariableRef(routine, expr->expr_type, name);
@@ -1030,7 +1030,7 @@ static Ir_Operand GenRefVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Rout
     }
     else if (symbol->sym_type == SYM_Variable)
     {
-        if (symbol->global)
+        if (SymbolIsGlobal(symbol))
             return NewGlobalVariableRef(routine, ref_type, name);
         else
             return NewVariableRef(routine, ref_type, name);
@@ -1395,6 +1395,30 @@ static void GenIrAst(Ir_Gen_Context *ctx, Ast *ast, Ir_Routine *routine)
     }
 }
 
+static void GenSqrtFunction(Ir_Gen_Context *ctx, Ir_Routine *top_level_routine)
+{
+    (void)top_level_routine;
+    Environment *env = &ctx->comp_ctx->env;
+
+    Name sqrt_name = MakeConstName("sqrt");
+    Name x_name = MakeConstName("x");
+    Symbol *symbol = LookupSymbol(env, sqrt_name);
+    Type *ftype = symbol->type;
+
+    s64 arg_count = ftype->function_type.parameter_count;
+    ASSERT(arg_count == 1);
+    Ir_Routine *routine = PushRoutine(ctx, symbol->unique_name, arg_count);
+    for (s64 i = 0; i < arg_count; i++)
+    {
+        Type *type = ftype->function_type.parameter_types[i];
+        Name name = x_name;
+        routine->args[i] = NewVariableRef(routine, type, name);
+    }
+    Ir_Operand result = NewTemp(ctx, routine, ftype->function_type.return_type);
+    PushInstruction(ctx, routine, IR_Sqrt, result, routine->args[0]);
+    PushInstruction(ctx, routine, IR_Return, result);
+}
+
 b32 GenIr(Ir_Gen_Context *ctx)
 {
     //Name top_level_name = PushName(&ctx->arena, "@toplevel");
@@ -1408,6 +1432,9 @@ b32 GenIr(Ir_Gen_Context *ctx)
         Module *module = array::At(modules, index);
         GenIrAst(ctx, &module->ast, top_level_routine);
     }
+
+    GenSqrtFunction(ctx, top_level_routine);
+
     Environment *env = &ctx->comp_ctx->env;
     for (s64 i = 0; i < env->root->table.count; i++)
     {

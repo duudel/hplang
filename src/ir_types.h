@@ -58,6 +58,7 @@ namespace hplang
     PASTE_IR(IR_F32_TO_F64)\
     PASTE_IR(IR_F64_TO_F32)\
     \
+    PASTE_IR(IR_Sqrt)\
     PASTE_IR(IR_COUNT)
 
 #define PASTE_IR(ir) ir,
@@ -67,6 +68,20 @@ enum Ir_Opcode
 };
 #undef PASTE_IR
 
+// TODO(henrik): Decide how foreign functions/routines should be handled.
+// Concept of foreign functions should affect function types as well, if
+// foreign function call convention has any limits or differs from the "hplang
+// native". As foreign functions refer to C call convention external linkage
+// functions that conform to the ABI of the target platform. This means that if
+// "hplang native ABI" != "platform ABI", then this needs to be taken into
+// account when generating the code for the calls to the foreign functions.
+// This also means that if we have a variable which points to a function we can
+// only have it point to either foreign or native functions, thus making it
+// necessary to differentiate between these two function types in the type
+// system.
+// NOTE(henrik): Only the operand type needs to have the notion of
+// foreign/native routine; there should not be need for both call and
+// call_foreign ir instructions.
 enum Ir_Oper_Type
 {
     IR_OPER_None,
@@ -146,7 +161,7 @@ struct Symbol;
 
 struct Ir_Routine
 {
-    Symbol *symbol;
+    //Symbol *symbol;
     Name name;
 
     s64 arg_count;

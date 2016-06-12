@@ -1,7 +1,7 @@
 
 COMPILER := gcc
 COMPILER_FLAGS := -std=c++11 -Wall -Wextra -fno-exceptions -fno-rtti -g
-EXENAME := hplangc.exe
+EXENAME := hplangc
 
 SOURCES := \
 	src/amd64_codegen.cpp \
@@ -39,7 +39,8 @@ run:
 	@#-./$(EXENAME) -di tests/member_access.hp 2> stderr.out
 	@#-./$(EXENAME) -diR tests/pointer_arith.hp 2> stderr.out
 	@#-./$(EXENAME) -dR tests/difficult_rt_infer.hp 2> stderr.out
-	-./$(EXENAME) -diR samples/nbody.hp 2> stderr.out
+	@#-./$(EXENAME) -diR samples/nbody.hp 2> stderr.out
+	-./$(EXENAME) -diR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dRi samples/simple.hp 2> stderr.out
 
 
@@ -50,7 +51,7 @@ run_debug:
 	$(GDB) ./$(EXENAME) 2> /dev/null
 
 
-TESTEXE := tests/tests.exe
+TESTEXE := tests/tests
 
 build_tests:
 	$(COMPILER) $(COMPILER_FLAGS) tests/tests.cpp $(SOURCES) -o $(TESTEXE)

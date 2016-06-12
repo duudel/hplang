@@ -25,11 +25,13 @@ static void ReorderIndexedRegs(Array<Reg> &regs, const Reg_Info *reg_info)
 }
 
 void InitRegAlloc(Reg_Alloc *reg_alloc,
-        s64 total_reg_count, const Reg_Info *reg_info)
+        s64 total_reg_count, const Reg_Info *reg_info,
+        b32 arg_index_shared)
 {
     *reg_alloc = { };
     reg_alloc->reg_count = total_reg_count;
     reg_alloc->reg_info = reg_info;
+    reg_alloc->arg_index_shared = arg_index_shared;
 
     s64 general_reg_count = 0;
     s64 float_reg_count = 0;
@@ -181,6 +183,27 @@ const Reg* GetReturnRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64
     return nullptr;
 }
 
+void AdvanceArgIndex(Reg_Alloc *reg_alloc, Oper_Data_Type data_type,
+        s64 *arg_index, s64 *float_arg_index)
+{
+    if (reg_alloc->arg_index_shared)
+    {
+        *arg_index = *arg_index - 1;
+        *float_arg_index = *float_arg_index - 1;
+    }
+    else
+    {
+        if (data_type == Oper_Data_Type::F32 ||
+            data_type == Oper_Data_Type::F64)
+        {
+            *float_arg_index = *float_arg_index - 1;
+        }
+        else
+        {
+            *arg_index = *arg_index - 1;
+        }
+    }
+}
 
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64 arg_index)
 {
