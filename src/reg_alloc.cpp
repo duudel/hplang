@@ -76,6 +76,11 @@ void FreeRegAlloc(Reg_Alloc *reg_alloc)
     array::Free(reg_alloc->free_regs);
     array::Free(reg_alloc->free_float_regs);
     array::Free(reg_alloc->spills);
+
+    array::Free(reg_alloc->general_regs.return_regs);
+    array::Free(reg_alloc->general_regs.arg_regs);
+    array::Free(reg_alloc->float_regs.return_regs);
+    array::Free(reg_alloc->float_regs.arg_regs);
 }
 
 void ResetRegAlloc(Reg_Alloc *reg_alloc)

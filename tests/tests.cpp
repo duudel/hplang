@@ -299,6 +299,7 @@ const char *test_exe = "./out";
 b32 RunTest(const Execute_Test &test)
 {
     fprintf(outfile, "Running test '%s'\n", test.source_filename);
+    fflush(outfile);
 
     b32 failed = false;
     Compiler_Context compiler_ctx = NewCompilerContext();

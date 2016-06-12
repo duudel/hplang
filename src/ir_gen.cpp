@@ -100,6 +100,8 @@ void FreeIrGenContext(Ir_Gen_Context *ctx)
     array::Free(ctx->routines);
     array::Free(ctx->foreign_routines);
     array::Free(ctx->global_vars);
+
+    FreeMemoryArena(&ctx->arena);
 }
 
 static b32 ContinueGen(Ir_Gen_Context *ctx)

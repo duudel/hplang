@@ -13,7 +13,6 @@ Codegen_Context NewCodegenContext(IoFile *out,
     Codegen_Context cg_ctx = { };
     cg_ctx.target = cg_target;
     cg_ctx.reg_alloc = PushStruct<Reg_Alloc>(&cg_ctx.arena);
-    //cg_ctx.code_out = comp_ctx->error_ctx.file; // NOTE(henrik): Just for testing
     cg_ctx.code_out = out;
     cg_ctx.comp_ctx = comp_ctx;
 
@@ -38,6 +37,7 @@ void FreeCodegenContext(Codegen_Context *ctx)
     {
         Routine *routine = &ctx->routines[i];
         array::Free(routine->local_offsets);
+        array::Free(routine->labels);
         array::Free(routine->instructions);
         array::Free(routine->prologue);
         array::Free(routine->callee_save_spills);
@@ -45,6 +45,11 @@ void FreeCodegenContext(Codegen_Context *ctx)
     }
     ctx->routine_count = 0;
     ctx->routines = nullptr;
+
+    array::Free(ctx->float32_consts);
+    array::Free(ctx->float64_consts);
+    array::Free(ctx->str_consts);
+
     FreeMemoryArena(&ctx->arena);
 }
 

@@ -484,6 +484,7 @@ void FreeEnvironment(Environment *env)
         FreeScope(array::At(env->scopes, i));
     }
     array::Free(env->scopes);
+    FreeMemoryArena(&env->arena);
 }
 
 Scope* CurrentScope(Environment *env)
