@@ -3172,7 +3172,9 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
     ctx->routines = PushArray<Routine>(&ctx->arena, ir_routines.count);
     for (s64 i = 0; i < ir_routines.count; i++)
     {
-        ctx->current_routine = &ctx->routines[i];
+        Routine *routine = &ctx->routines[i];
+        *routine = { };
+        ctx->current_routine = routine;
         GenerateCode(ctx, ir_routines[i]);
     }
 
