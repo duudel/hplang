@@ -867,6 +867,7 @@ static inline Instruction* NewInstruction(
         Operand oper3 = NoneOperand())
 {
     Instruction *instr = PushStruct<Instruction>(&ctx->arena);
+    *instr = { };
     instr->opcode = (Opcode)opcode;
     instr->oper1 = oper1;
     instr->oper2 = oper2;
@@ -2216,6 +2217,11 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
 
     Array<Live_Sets> live_sets = { };
     array::Resize(live_sets, instructions.count);
+    for (s64 i = 0; i < live_sets.count; i++)
+    {
+        live_sets[i].live_in = { };
+        live_sets[i].live_out = { };
+    }
 
     Live_Sets &entry = live_sets[0];
     for (s64 i = 0; i < ir_routine->arg_count; i++)
