@@ -392,10 +392,7 @@ b32 RunTest(const Execute_Test &test)
                     }
                 }
                 int result = pclose(test_output);
-                //result /= 256;
-                //result /= 256;
                 //result = (result & 0xff00) >> 8;
-                //int result = system("out.exe");
                 if (result != 0)
                 {
                     if (result == EOF) fprintf(outfile, "EOF\n");
