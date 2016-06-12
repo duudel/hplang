@@ -9,10 +9,6 @@ Translated from Cristoph Bauer's C version
 
 import ":io";
 
-foreign {
-    sqrt :: (x : f64) : f64;
-}
-
 pi := 3.141592653589793d;
 solar_mass := 4.0d * pi * pi;
 days_per_year := 365.24;

@@ -1,0 +1,52 @@
+// Register pressure test to test register allocation
+// 2016-06-12
+
+import ":io";
+
+
+seq :: (n : s64) : s64
+{
+    if (n <= 0) return 0;
+    return n + seq(n - 1);
+}
+
+main :: ()
+{
+    x := 5 + 6 + 7 + 8 + 9 + 10;
+    a := 1;
+    b := 2;
+    c := 3;
+    d := 4;
+    e := 5;
+
+    x = a + b + c + d + e;
+    println(x);
+
+    f := 6;
+    g := 7;
+    h := 8;
+    i := 9;
+    j := 10;
+    k := 11;
+    l := 12;
+    x = a + b + c + d + e + f + g + h + i + j + k + l;
+    println(x);
+
+    m := 13;
+    n := 14;
+    o := 15;
+    p := 16;
+    q := 17;
+    r := 18;
+    x = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r;
+    println(x);
+
+    x += a + b + b + b + e + e + e + f + f + f + r;
+    println(x);
+
+    println(seq(5));
+    println(seq(12));
+    println(seq(18));
+
+    return 0;
+}

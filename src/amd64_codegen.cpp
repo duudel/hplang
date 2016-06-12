@@ -108,6 +108,9 @@ enum Opcode_Mod
     PASTE_OP(mulsd,     O1_REG | O2_REG)\
     PASTE_OP(divsd,     O1_REG | O2_REG)\
     \
+    PASTE_OP(sqrtss,    O1_REG | O2_REG)\
+    PASTE_OP(sqrtsd,    O1_REG | O2_REG)\
+    \
     PASTE_OP(push,      O1_REG)\
     PASTE_OP(pop,       O1_REG)\
     \
@@ -320,7 +323,7 @@ static Reg_Info nix_reg_info[] = {
     { REG_rcx,      3,  RF_CallerSave | RF_Arg },
     // NOTE(henrik): cannot use rdx as the second return register until
     // Reg_Info can store both arg and return register index.
-    { REG_rdx,      2,  RF_CallerSave | RF_Arg }, //| RF_Return }, 
+    { REG_rdx,      2,  RF_CallerSave | RF_Arg }, //| RF_Return },
     { REG_rbp,     -1,  RF_NonAllocable },
     { REG_rsi,      1,  RF_CallerSave | RF_Arg },
     { REG_rdi,      0,  RF_CallerSave | RF_Arg },
@@ -368,10 +371,10 @@ void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
         break;
 
     case CGT_AMD64_Windows:
-        InitRegAlloc(ctx->reg_alloc, array_length(win_reg_info), win_reg_info);
+        InitRegAlloc(ctx->reg_alloc, array_length(win_reg_info), win_reg_info, true);
         break;
     case CGT_AMD64_Unix:
-        InitRegAlloc(ctx->reg_alloc, array_length(nix_reg_info), nix_reg_info);
+        InitRegAlloc(ctx->reg_alloc, array_length(nix_reg_info), nix_reg_info, false);
         break;
     }
 }
@@ -1408,6 +1411,14 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
             }
         } break;
 
+    case IR_Sqrt:
+        {
+            Amd64_Opcode sqrt_op = (ltype->tag == TYP_f32) ? OP_sqrtss : OP_sqrtsd;
+            PushInstruction(ctx, sqrt_op,
+                    IrOperand(ctx, &ir_instr->target, AF_Write),
+                    IrOperand(ctx, &ir_instr->oper1, AF_Read));
+        } break;
+
     case IR_And:
         PushInstruction(ctx, OP_and,
                 IrOperand(ctx, &ir_instr->oper1, AF_ReadWrite),
@@ -1593,8 +1604,8 @@ static s64 PushArgs(Codegen_Context *ctx,
 {
     s64 arg_count = ctx->current_arg_count;
     s64 arg_index = arg_count - 1;
-    s64 arg_reg_idx = arg_index;
-    s64 float_arg_reg_idx = arg_index;
+    s64 arg_idx = arg_index;
+    s64 float_arg_idx = arg_index;
 
     s64 arg_stack_alloc = (arg_count > 4 ? arg_count : 4) * 8;
     arg_stack_alloc = Align(arg_stack_alloc, 16);
@@ -1618,9 +1629,8 @@ static s64 PushArgs(Codegen_Context *ctx,
         Oper_Data_Type arg_data_type = DataTypeFromType(arg_type);
         if (TypeIsStruct(arg_type))
         {
-            const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, arg_reg_idx);
-            float_arg_reg_idx--;
-            arg_reg_idx--;
+            const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, arg_idx);
+            AdvanceArgIndex(ctx->reg_alloc, arg_data_type, &arg_idx, &float_arg_idx);
 
             if (arg_reg)
             {
@@ -1668,10 +1678,8 @@ static s64 PushArgs(Codegen_Context *ctx,
         }
         else
         {
-            const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, arg_reg_idx);
-            //AdvanceArgIndex(&arg_idx, &float_arg_idx);
-            float_arg_reg_idx--;
-            arg_reg_idx--;
+            const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, arg_idx);
+            AdvanceArgIndex(ctx->reg_alloc, arg_data_type, &arg_idx, &float_arg_idx);
 
             if (arg_reg)
             {
@@ -1687,8 +1695,6 @@ static s64 PushArgs(Codegen_Context *ctx,
                 PushLoad(ctx,
                         BaseOffsetOperand(REG_rsp, arg_index * 8, target.data_type, AF_Write),
                         target);
-                //NOT_IMPLEMENTED("stack arguments");
-                //INVALID_CODE_PATH;
             }
         }
 
@@ -1778,6 +1784,7 @@ static void GenerateCode(Codegen_Context *ctx,
         case IR_Not:
         case IR_Neg:
         case IR_Compl:
+        case IR_Sqrt:
             GenerateArithmetic(ctx, ir_instr);
             break;
 
@@ -3035,10 +3042,26 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
         routine->name = ir_routine->name;
     }
 
-    PushPrologue(ctx, OP_push, RegOperand(REG_rbp, Oper_Data_Type::U64, AF_Read));
-    PushPrologue(ctx, OP_mov,
-            RegOperand(REG_rbp, Oper_Data_Type::PTR, AF_Write),
-            RegOperand(REG_rsp, Oper_Data_Type::PTR, AF_Read));
+    Oper_Data_Type dt = Oper_Data_Type::U64;
+    Operand rbp = RegOperand(REG_rbp, dt, AF_Read);
+    Operand rsp = RegOperand(REG_rsp, dt, AF_Read);
+    if (toplevel)
+    {
+        // NOTE(henrik): Here we align stack to 16 byte boundary, if we are the
+        // toplevel init procedure (i.e. program entry point).
+        Operand rax = RegOperand(REG_rax, dt, AF_Read);
+        Operand rbx = RegOperand(REG_rbx, dt, AF_Read);
+        PushPrologue(ctx, OP_mov, W_(rax), R_(rbp));
+        PushPrologue(ctx, OP_and, RW_(rax), ImmOperand((u64)0xf, AF_Read));
+        PushPrologue(ctx, OP_mov, W_(rbx), ImmOperand((u64)0x10, AF_Read));
+        PushPrologue(ctx, OP_sub, RW_(rbx), R_(rax));
+        PushPrologue(ctx, OP_sub, RW_(rsp), R_(rbx));
+    }
+    else
+    {
+        PushPrologue(ctx, OP_push, R_(rbp));
+    }
+    PushPrologue(ctx, OP_mov, W_(rbp), R_(rsp));
 
     routine->return_label.name = PushName(&ctx->arena, ".ret_label");
 

@@ -125,6 +125,16 @@ inline Name MakeName(String str)
     return result;
 }
 
+template <s64 N>
+inline Name MakeConstName(const char (&str)[N])
+{
+    Name result;
+    result.str.size = N - 1;
+    result.str.data = const_cast<char*>(str);
+    result.hash = Hash(result.str);
+    return result;
+}
+
 } // hplang
 
 #define H_HPLANG_COMMON_H
