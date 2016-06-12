@@ -145,10 +145,10 @@ static Succeed_Test succeed_tests[] = {
 
 static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/exec/hello.hp",      "tests/exec/hello.stdout" },
-    //(Execute_Test){ "tests/exec/factorial.hp",  "tests/exec/factorial.stdout" },
-    //(Execute_Test){ "tests/exec/fibo.hp",       "tests/exec/fibo.stdout" },
-    //(Execute_Test){ "tests/exec/beer.hp",       "tests/exec/beer.stdout" },
-    //(Execute_Test){ "tests/exec/nbody.hp",      "tests/exec/nbody.stdout" },
+    (Execute_Test){ "tests/exec/factorial.hp",  "tests/exec/factorial.stdout" },
+    (Execute_Test){ "tests/exec/fibo.hp",       "tests/exec/fibo.stdout" },
+    (Execute_Test){ "tests/exec/beer.hp",       "tests/exec/beer.stdout" },
+    (Execute_Test){ "tests/exec/nbody.hp",      "tests/exec/nbody.stdout" },
     //(Execute_Test){ "tests/pointer_arith.hp",   nullptr },
     //(Execute_Test){ "tests/member_access.hp",   nullptr },
     //(Execute_Test){ "tests/module_test.hp",     nullptr },
@@ -293,7 +293,7 @@ b32 RunTest(const Succeed_Test &test)
 #if defined(HP_WIN)
 const char *test_exe = "out.exe";
 #else
-const char *test_exe = "./out > stdout";
+const char *test_exe = "./out";
 #endif
 
 b32 RunTest(const Execute_Test &test)
@@ -307,6 +307,7 @@ b32 RunTest(const Execute_Test &test)
     if (file)
     {
         compiler_ctx.error_ctx.file = (IoFile*)outfile;
+
         Compile(&compiler_ctx, file);
 
         if (compiler_ctx.result != RES_OK)
@@ -342,8 +343,6 @@ b32 RunTest(const Execute_Test &test)
                         char test_buf[buf_size];
                         char expected_buf[buf_size];
                         //while (!failed)
-                        //rewind(test_output);
-                        fseek(test_output, 0, SEEK_SET);
                         while (true)
                         {
                             s64 test_size = fread(&test_buf, 1, buf_size, test_output);
@@ -391,6 +390,7 @@ b32 RunTest(const Execute_Test &test)
                         failed = true;
                     }
                 }
+                fflush(nullptr);
                 int result = pclose(test_output);
                 //result = (result & 0xff00) >> 8;
                 if (result != 0)

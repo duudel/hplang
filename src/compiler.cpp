@@ -131,7 +131,7 @@ Open_File* OpenFile(Compiler_Context *ctx, String filename)
 }
 
 // TODO(henrik): This code path pushes the filename string to ctx->arena first
-// here and then in OpenFile. Remove the double pushing. 
+// here and then in OpenFile. Remove the double pushing.
 // NOTE(henrik): This version null terminates the string.
 Open_File* OpenModule(Compiler_Context *ctx,
         Open_File *current_file, String module_name, String *filename_out)
@@ -147,7 +147,7 @@ Open_File* OpenModule(Compiler_Context *ctx,
         s64 sizeof_stdlib = sizeof(stdlib) - 1; // discard null teermination
         s64 filename_size = sizeof_stdlib + module_name.size + sizeof(extension);
         char *filename = (char*)PushData(&ctx->arena, filename_size, 1);
-        
+
         filename_str.data = filename;
         filename_str.size = filename_size - 1;
 
@@ -253,6 +253,23 @@ s64 Invoke(const char *command, const char **args, s64 arg_count)
     }
     //fprintf(stderr, "Invoking: %s\n", buf);
     return system(buf);
+}
+
+static String StripExtension(String filename)
+{
+    for (s64 i = filename.size - 1; i >= 0; i--)
+    {
+        if (filename.data[i] == '.')
+        {
+            filename.size = i;
+            break;
+        }
+        else if (filename.data[i] == '/')
+        {
+            break;
+        }
+    }
+    return filename;
 }
 
 b32 Compile(Compiler_Context *ctx, Open_File *open_file)
@@ -420,7 +437,13 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     // TODO(henrik): derive the default output filenames from the source filename:
     // samples/factorial.hp -> samples/factorial.exe
     const char *bin_filename = ctx->options.output_filename;
-    if (!bin_filename) bin_filename = "out";
+    //if (!bin_filename) bin_filename = "out";
+    if (!bin_filename)
+    {
+        String output_fname = StripExtension(open_file->filename);
+        output_fname = PushNullTerminatedString(&ctx->arena, output_fname.data, output_fname.size);
+        bin_filename = output_fname.data;
+    }
     const char *gcc_target = nullptr;
     switch (ctx->options.target)
     {
