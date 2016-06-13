@@ -60,3 +60,7 @@ run_tests: build_tests
 	./$(TESTEXE)
 	@#$(GDB) ./$(TESTEXE)
 
+clean_tests:
+	find ./tests -perm /111 -type f -exec rm -v {} \;
+
+

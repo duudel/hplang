@@ -111,6 +111,7 @@ struct Execute_Test
 {
     const char *source_filename;
     const char *expected_output_filename;
+    s32 expected_exit_code;
 };
 
 static Fail_Test fail_tests[] = {
@@ -144,18 +145,19 @@ static Succeed_Test succeed_tests[] = {
 };
 
 static Execute_Test exec_tests[] = {
-    (Execute_Test){ "tests/exec/hello.hp",      "tests/exec/hello.stdout" },
-    (Execute_Test){ "tests/exec/factorial.hp",  "tests/exec/factorial.stdout" },
-    (Execute_Test){ "tests/exec/fibo.hp",       "tests/exec/fibo.stdout" },
-    (Execute_Test){ "tests/exec/beer.hp",       "tests/exec/beer.stdout" },
-    (Execute_Test){ "tests/exec/nbody.hp",      "tests/exec/nbody.stdout" },
-    (Execute_Test){ "tests/pointer_arith.hp",   nullptr },
-    (Execute_Test){ "tests/member_access.hp",   nullptr },
-    (Execute_Test){ "tests/module_test.hp",     nullptr },
-    (Execute_Test){ "tests/modules_test.hp",    nullptr },
-    (Execute_Test){ "tests/function_var.hp",    nullptr },
-    (Execute_Test){ "tests/struct_as_arg.hp",   nullptr },
-    (Execute_Test){ "tests/arg_passing.hp",     nullptr },
+    (Execute_Test){ "tests/exec/hello.hp",          "tests/exec/hello.stdout",          0 },
+    (Execute_Test){ "tests/exec/factorial.hp",      "tests/exec/factorial.stdout",      0 },
+    (Execute_Test){ "tests/exec/fibo.hp",           "tests/exec/fibo.stdout",           0 },
+    (Execute_Test){ "tests/exec/beer.hp",           "tests/exec/beer.stdout",           0 },
+    (Execute_Test){ "tests/exec/reg_pressure.hp",   "tests/exec/reg_pressure.stdout",   0 },
+    (Execute_Test){ "tests/exec/module_test.hp",    nullptr,                            42 },
+    (Execute_Test){ "tests/exec/modules_test.hp",   nullptr,                            0 },
+    (Execute_Test){ "tests/exec/nbody.hp",          "tests/exec/nbody.stdout",          0 },
+    (Execute_Test){ "tests/pointer_arith.hp",       nullptr,                            0 },
+    (Execute_Test){ "tests/member_access.hp",       nullptr,                            0 },
+    (Execute_Test){ "tests/function_var.hp",        nullptr,                            0 },
+    (Execute_Test){ "tests/struct_as_arg.hp",       nullptr,                            0 },
+    (Execute_Test){ "tests/arg_passing.hp",         nullptr,                            0 },
 };
 
 //static void PrintError(const char *filename, s64 line, s64 column, const char *message)
@@ -387,19 +389,21 @@ b32 RunTest(const Execute_Test &test)
                     }
                     else
                     {
-                        fprintf(outfile, "TEST ERROR: Could not open file for expected output ('%s')\n",
-                                test.expected_output_filename);
+                        fprintf(outfile, "TEST ERROR: Could not open file for expected output ('%s')\n\tfor test '%s'\n",
+                                test.expected_output_filename, test.source_filename);
                         failed = true;
                     }
                 }
                 fflush(nullptr);
                 int result = pclose(test_output);
                 //result = (result & 0xff00) >> 8;
-                if (result != 0)
+                if (result != test.expected_exit_code)
                 {
                     if (result == EOF) fprintf(outfile, "EOF\n");
-                    fprintf(outfile, "TEST ERROR: Executed test's exit code was %d(%x) for '%s'\n",
-                            result, result, test.source_filename);
+                    fprintf(outfile, "TEST ERROR: Executed test's exit code was %d(%x) and not %d(%x)\n\tfor test '%s'\n",
+                            result, result,
+                            test.expected_exit_code, test.expected_exit_code,
+                            test.source_filename);
                     failed = true;
                 }
             }
@@ -407,7 +411,7 @@ b32 RunTest(const Execute_Test &test)
     }
     else
     {
-        fprintf(outfile, "TEST ERROR: Could not open test file '%s'\n", test.source_filename);
+        fprintf(outfile, "TEST ERROR: Could not open test source file '%s'\n", test.source_filename);
         failed = true;
     }
 
