@@ -25,4 +25,5 @@ main :: ()
     print_factorial(5);     // = 120
     print_factorial(6);     // = 720
     print_factorial(12);    // = 479001600
+    return 0;
 }

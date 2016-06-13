@@ -443,8 +443,10 @@ static void AddBuiltinTypes(Environment *env)
 
     members[0].name = PushName(&env->arena, "size");
     members[0].type = GetBuiltinType(TYP_s64);
+    members[0].offset = 0;
     members[1].name = PushName(&env->arena, "data");
     members[1].type = GetPointerType(env, GetBuiltinType(TYP_char));
+    members[1].offset = 8;
 }
 
 static void AddBuiltinFunctions(Environment *env)
