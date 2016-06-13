@@ -420,6 +420,12 @@ static void AddBuiltinTypes(Environment *env)
              i++)
     {
         Type *type = &builtin_types[i];
+        // TODO(henrik): Cached pointer type could be set by a previous
+        // compiler context, thus making it invalid after the context was freed.
+        // This is just a work around. A better solution is to duplicate
+        // builtin types to the env->arena and make GetBuiltinType take env as
+        // parameter.
+        type->pointer_type = nullptr;
         const Type_Info &info = builtin_type_infos[i];
         Name name = PushName(&env->arena, info.name);
         if (info.sym_type == SYM_PrimitiveType)

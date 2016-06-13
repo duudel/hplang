@@ -362,6 +362,7 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
         {
             Type *pointer_type = nullptr;
             s64 indirection = node->type_node.pointer.indirection;
+            ASSERT(indirection > 0);
             while (indirection > 0)
             {
                 Type *base_type = CheckType(ctx, node->type_node.pointer.base_type);
