@@ -34,7 +34,7 @@ void PrintOptions(Arg_Options_Context *ctx)
         int len = 0;
         if (opt->long_name)
         {
-            len += printf("--%s", opt->long_name);
+            len += printf("  --%s", opt->long_name);
             if (opt->long_args)
             {
                 for (int i = 0; ; i++)
