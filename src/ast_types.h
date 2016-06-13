@@ -309,7 +309,7 @@ struct Ast_Parameter
 {
     Name name;
     Ast_Node *type;
-    
+
     Symbol *symbol;
 };
 
@@ -440,8 +440,12 @@ template <class T>
 Ast_Node* PushAstNode(Ast *ast, Ast_Node_Type node_type, File_Location file_loc)
 {
     ast->stmt_count++;
-    Ast_NT_FL *nt_loc = PushStruct<Ast_NT_FL>(&ast->arena);
-    T *node = PushStruct<T>(&ast->arena);
+    //ArenaRequestAlloc(&ast->arena, sizeof(Ast_NT_FL) + sizeof(T));
+    //Ast_NT_FL *nt_loc = PushStruct<Ast_NT_FL>(&ast->arena);
+    //T *node = PushStruct<T>(&ast->arena);
+    Ast_NT_FL *nt_loc = (Ast_NT_FL*)PushData(&ast->arena,
+            sizeof(Ast_NT_FL) + sizeof(T), alignof(Ast_NT_FL));
+    T *node = (T*)(nt_loc + 1);
     nt_loc->node_type = node_type;
     nt_loc->file_loc = file_loc;
     *node = { };
@@ -459,8 +463,12 @@ template <class T>
 Ast_Expr* PushAstExpr(Ast *ast, Ast_Expr_Type expr_type, File_Location file_loc)
 {
     ast->expr_count++;
-    Ast_ET_FL *et_loc = PushStruct<Ast_ET_FL>(&ast->arena);
-    T *expr = PushStruct<T>(&ast->arena);
+    //ArenaRequestAlloc(&ast->arena, sizeof(Ast_ET_FL) + sizeof(T));
+    //Ast_ET_FL *et_loc = PushStruct<Ast_ET_FL>(&ast->arena);
+    //T *expr = PushStruct<T>(&ast->arena);
+    Ast_ET_FL *et_loc = (Ast_ET_FL*)PushData(&ast->arena,
+            sizeof(Ast_ET_FL) + sizeof(T), alignof(Ast_ET_FL));
+    T *expr = (T*)(et_loc + 1);
     et_loc->type = expr_type;
     et_loc->expr_type = nullptr;
     et_loc->file_loc = file_loc;

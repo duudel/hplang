@@ -1892,6 +1892,9 @@ static void GenerateCode(Codegen_Context *ctx,
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 if (TypeIsPointer(oper_type))
                 {
+                    fprintf(stdout, "Getting struct member offset of ptr ");
+                    PrintType((IoFile*)stdout, oper_type);
+                    fprintf(stdout, "\n");
                     s64 member_offset = GetStructMemberOffset(oper_type->base_type, member_index);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                     oper1.data_type = target.data_type;
@@ -1902,6 +1905,9 @@ static void GenerateCode(Codegen_Context *ctx,
                 }
                 else
                 {
+                    fprintf(stdout, "Getting struct member offset of ");
+                    PrintType((IoFile*)stdout, oper_type);
+                    fprintf(stdout, "\n");
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                     oper1.data_type = target.data_type;

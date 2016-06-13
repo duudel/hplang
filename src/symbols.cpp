@@ -605,7 +605,11 @@ Type* PushFunctionType(Environment *env, Type_Tag tag, s64 param_count)
     Type *ftype = PushType(env, tag);
     ftype->function_type.parameter_count = param_count;
     if (param_count > 0)
+    {
         ftype->function_type.parameter_types = PushArray<Type*>(&env->arena, param_count);
+        for (s64 i = 0; i < param_count; i++)
+            ftype->function_type.parameter_types[i] = nullptr;
+    }
     else
         ftype->function_type.parameter_types = nullptr;
     return ftype;
