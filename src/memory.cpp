@@ -112,12 +112,22 @@ void GetMemoryArenaUsage(Memory_Arena *arena, s64 *used, s64 *unused)
 
 static b32 AllocateNewMemoryBlock(Memory_Arena *arena, s64 min_size)
 {
+#if 1
     s64 memory_block_size = MBytes(4);
     min_size = Align(min_size, KBytes(4));
+#else
+    // NOTE(henrik): This can be used to test the allocation system.
+    s64 memory_block_size = 128;
+    min_size = Align(min_size, 16);
+#endif
     memory_block_size = (memory_block_size < min_size) ? min_size : memory_block_size;
 
     Pointer data = Alloc(sizeof(Memory_Block) + memory_block_size);
-    if (!data.ptr) return false;
+    if (!data.ptr)
+    {
+        INVALID_CODE_PATH;
+        return false;
+    }
 
     Memory_Block *block = (Memory_Block*)data.ptr;
     block->memory.ptr = (void*)(block + 1);
