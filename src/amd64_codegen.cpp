@@ -1710,21 +1710,23 @@ static s64 PushArgs(Codegen_Context *ctx,
     return arg_stack_alloc;
 }
 
-static void AddLocal(Codegen_Context *ctx,
-        Ir_Operand *ir_oper)
+static void AddLocal(Codegen_Context *ctx, Ir_Operand *ir_oper)
 {
-    Routine *routine = ctx->current_routine;
-    Name name = ir_oper->var.name;
-    ASSERT(!hashtable::Lookup(routine->local_offsets, name));
+    if (TypeIsStruct(ir_oper->type))
+    {
+        Routine *routine = ctx->current_routine;
+        Name name = ir_oper->var.name;
+        ASSERT(!hashtable::Lookup(routine->local_offsets, name));
 
-    Local_Offset *offs = PushStruct<Local_Offset>(&ctx->arena);
+        Local_Offset *offs = PushStruct<Local_Offset>(&ctx->arena);
 
-    routine->locals_size += GetAlignedSize(ir_oper->type);
-    routine->locals_size = Align(routine->locals_size, 8);
-    offs->name = name;
-    offs->offset = -routine->locals_size;
+        routine->locals_size += GetAlignedSize(ir_oper->type);
+        routine->locals_size = Align(routine->locals_size, 8);
+        offs->name = name;
+        offs->offset = -routine->locals_size;
 
-    hashtable::Put(routine->local_offsets, name, offs);
+        hashtable::Put(routine->local_offsets, name, offs);
+    }
 }
 
 static void Copy(Codegen_Context *ctx,
