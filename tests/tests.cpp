@@ -149,13 +149,13 @@ static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/exec/fibo.hp",       "tests/exec/fibo.stdout" },
     (Execute_Test){ "tests/exec/beer.hp",       "tests/exec/beer.stdout" },
     (Execute_Test){ "tests/exec/nbody.hp",      "tests/exec/nbody.stdout" },
-    //(Execute_Test){ "tests/pointer_arith.hp",   nullptr },
-    //(Execute_Test){ "tests/member_access.hp",   nullptr },
-    //(Execute_Test){ "tests/module_test.hp",     nullptr },
-    //(Execute_Test){ "tests/modules_test.hp",    nullptr },
-    //(Execute_Test){ "tests/function_var.hp",    nullptr },
-    //(Execute_Test){ "tests/struct_as_arg.hp",   nullptr },
-    //(Execute_Test){ "tests/arg_passing.hp",     nullptr },
+    (Execute_Test){ "tests/pointer_arith.hp",   nullptr },
+    (Execute_Test){ "tests/member_access.hp",   nullptr },
+    (Execute_Test){ "tests/module_test.hp",     nullptr },
+    (Execute_Test){ "tests/modules_test.hp",    nullptr },
+    (Execute_Test){ "tests/function_var.hp",    nullptr },
+    (Execute_Test){ "tests/struct_as_arg.hp",   nullptr },
+    (Execute_Test){ "tests/arg_passing.hp",     nullptr },
 };
 
 //static void PrintError(const char *filename, s64 line, s64 column, const char *message)

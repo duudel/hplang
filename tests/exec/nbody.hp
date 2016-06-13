@@ -219,24 +219,8 @@ main :: (N : s64)
     N = 5;
     init_bodies();
 
-    print("Body count: ");
-    println(BODY_COUNT);
-    idx := 0;
-    bodies[0].x = 2.0;
-    bodies[0].y = 2.8;
-    print(bodies[idx].x, bodies[idx].y, bodies[idx].z);
-    println();
-    idx += 1;
-    print(bodies[idx].x, bodies[idx].y, bodies[idx].z);
-    println();
-    //print_bodies(BODY_COUNT, bodies);
-    return 0;
-
     offset_momentum(BODY_COUNT, bodies);
-    //return 0;
-
-    print("Body count: ");
-    println(BODY_COUNT);
+    return 0;
 
     e := energy(BODY_COUNT, bodies);
     print(e); println();
