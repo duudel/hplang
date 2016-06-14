@@ -774,7 +774,7 @@ static s64 UniqueTypeString(char *buf, s64 bufsize, Type *type)
         case TYP_pointer:
             {
                 s64 len = snprintf(buf, bufsize, "P");
-                return UniqueTypeString(buf + len, bufsize - len, type->base_type);
+                return len + UniqueTypeString(buf + len, bufsize - len, type->base_type);
             }
         case TYP_void:
             return snprintf(buf, bufsize, "v");
@@ -808,6 +808,7 @@ static s64 UniqueTypeString(char *buf, s64 bufsize, Type *type)
             {
                 s64 len = snprintf(buf, bufsize, "#");
                 len += UniqueTypeString(buf + len, bufsize - len, type->function_type.return_type);
+                len += snprintf(buf + len, bufsize - len, "$");
                 for (s64 i = 0; i < type->function_type.parameter_count; i++)
                 {
                     Type *param_type = type->function_type.parameter_types[i];
@@ -821,15 +822,14 @@ static s64 UniqueTypeString(char *buf, s64 bufsize, Type *type)
                 Name struct_name = type->struct_type.name;
                 s64 len = snprintf(buf, bufsize, "T");
 
-                if (len + struct_name.str.size >= bufsize)
-                    return len + struct_name.str.size;
-
-                for (s64 i = 0; i < struct_name.str.size; i++)
+                if (len + struct_name.str.size < bufsize)
                 {
-                    buf[len] = struct_name.str.data[i];
-                    len += 1;
+                    for (s64 i = 0; i < struct_name.str.size; i++)
+                    {
+                        buf[len + i] = struct_name.str.data[i];
+                    }
                 }
-                return len;
+                return len + struct_name.str.size;
             }
         default:
             break;
