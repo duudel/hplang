@@ -1263,6 +1263,37 @@ static void GenWhileStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routin
     SetLabelTarget(ctx, routine, while_end_label);
 }
 
+static void GenVariableDecl(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool toplevel);
+
+static void GenForStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
+{
+    ExtractComment(ctx, node->file_loc);
+
+    if (node->for_stmt.init_expr)
+    {
+        GenExpression(ctx, node->for_stmt.init_expr, routine);
+    }
+    else
+    {
+        GenVariableDecl(ctx, node->for_stmt.init_stmt, routine, false);
+    }
+
+    Ir_Operand for_end_label = NewLabel(ctx);
+
+    Ir_Operand for_start_label = NewLabel(ctx);
+    SetLabelTarget(ctx, routine, for_start_label);
+
+    Ir_Operand cond_res = GenExpression(ctx, node->for_stmt.cond_expr, routine);
+    PushJump(ctx, routine, IR_Jz, for_end_label, cond_res);
+
+    GenIr(ctx, node->for_stmt.loop_stmt, routine);
+
+    GenExpression(ctx, node->for_stmt.incr_expr, routine);
+    PushJump(ctx, routine, IR_Jump, for_start_label);
+
+    SetLabelTarget(ctx, routine, for_end_label);
+}
+
 static void GenReturnStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
     ExtractComment(ctx, node->file_loc);
@@ -1284,7 +1315,7 @@ static void GenBlockStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *r
     }
 }
 
-static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
+static void GenFunctionDef(Ir_Gen_Context *ctx, Ast_Node *node)
 {
     Symbol *symbol = node->function_def.symbol;
     s64 arg_count = symbol->type->function_type.parameter_count;
@@ -1306,7 +1337,7 @@ static void AddGlobalVariable(Ir_Gen_Context *ctx, Symbol *symbol)
     array::Push(ctx->global_vars, symbol);
 }
 
-static void GenVariable(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool toplevel)
+static void GenVariableDecl(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool toplevel)
 {
     ExtractComment(ctx, node->file_loc);
 
@@ -1355,10 +1386,10 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool
             break;
 
         case AST_VariableDecl:
-            GenVariable(ctx, node, routine, toplevel);
+            GenVariableDecl(ctx, node, routine, toplevel);
             break;
         case AST_FunctionDef:
-            GenFunction(ctx, node);
+            GenFunctionDef(ctx, node);
             break;
         case AST_FunctionDecl:
             // TODO(henrik): GenIr for FunctionDecl
@@ -1401,7 +1432,7 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool
             GenWhileStmt(ctx, node, routine);
             break;
         case AST_ForStmt:
-            NOT_IMPLEMENTED("IR gen for AST_ForStmt");
+            GenForStmt(ctx, node, routine);
             break;
         case AST_RangeForStmt:
             NOT_IMPLEMENTED("IR gen for AST_RangeForStmt");

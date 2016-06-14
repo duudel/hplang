@@ -1167,7 +1167,7 @@ static Ast_Node* ParseForStatement(Parser_Context *ctx)
             Expect(ctx, TOK_Semicolon);
             if (!init_expr)
             {
-                Error(ctx, "Expecting for init expression");
+                Error(ctx, "Expecting for statement init expression");
                 GetNextToken(ctx);
             }
         }

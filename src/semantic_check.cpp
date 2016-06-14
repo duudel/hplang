@@ -1724,7 +1724,7 @@ static void CheckIfStatement(Sem_Check_Context *ctx, Ast_Node *node)
     Type *cond_type = CheckExpression(ctx, cond_expr, &vt);
 
     if (!TypeIsNone(cond_type) && !TypeIsBoolean(cond_type))
-        Error(ctx, cond_expr->file_loc, "If condition must be boolean");
+        Error(ctx, cond_expr->file_loc, "If statement condition must be boolean");
     CheckStatement(ctx, then_stmt);
     if (else_stmt)
         CheckStatement(ctx, else_stmt);
@@ -1739,8 +1739,47 @@ static void CheckWhileStatement(Sem_Check_Context *ctx, Ast_Node *node)
     Type *cond_type = CheckExpression(ctx, cond_expr, &vt);
 
     if (!TypeIsNone(cond_type) && !TypeIsBoolean(cond_type))
-        Error(ctx, cond_expr->file_loc, "While condition must be boolean");
+        Error(ctx, cond_expr->file_loc, "While loop condition must be boolean");
     CheckStatement(ctx, loop_stmt);
+}
+
+static void CheckForStatement(Sem_Check_Context *ctx, Ast_Node *node)
+{
+    Ast_Node *init_stmt = node->for_stmt.init_stmt;
+    Ast_Expr *init_expr = node->for_stmt.init_expr;
+    Ast_Expr *cond_expr = node->for_stmt.cond_expr;
+    Ast_Expr *incr_expr = node->for_stmt.incr_expr;
+    Ast_Node *loop_stmt = node->for_stmt.loop_stmt;
+
+    OpenScope(ctx->env);
+    if (init_expr)
+    {
+        Value_Type vt;
+        CheckExpression(ctx, init_expr, &vt);
+    }
+    else
+    {
+        ASSERT(init_stmt != nullptr);
+        CheckVariableDecl(ctx, init_stmt);
+    }
+
+    if (cond_expr)
+    {
+        Value_Type vt;
+        Type *cond_type = CheckExpression(ctx, cond_expr, &vt);
+
+        if (!TypeIsNone(cond_type) && !TypeIsBoolean(cond_type))
+            Error(ctx, cond_expr->file_loc, "For loop condition must be boolean");
+    }
+
+    if (incr_expr)
+    {
+        Value_Type vt;
+        CheckExpression(ctx, incr_expr, &vt);
+    }
+
+    CheckStatement(ctx, loop_stmt);
+    CloseScope(ctx->env);
 }
 
 static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
@@ -1852,8 +1891,7 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
             CheckWhileStatement(ctx, node);
             break;
         case AST_ForStmt:
-            //CheckForStatement(ctx, node);
-            NOT_IMPLEMENTED("For statement");
+            CheckForStatement(ctx, node);
             break;
         case AST_RangeForStmt:
             //CheckRangeForStatement(ctx, node);
