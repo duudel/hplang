@@ -5,8 +5,9 @@ import "other_module";
 
 main :: ()
 {
+    result := var_from_module * var_from_other_module;
     var_from_module = -42;
     var_from_other_module = 8;
     //var_from_nowhere = 5;
-    return 0;
+    return result;
 }

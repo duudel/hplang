@@ -150,14 +150,14 @@ static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/exec/fibo.hp",           "tests/exec/fibo.stdout",           0 },
     (Execute_Test){ "tests/exec/beer.hp",           "tests/exec/beer.stdout",           0 },
     (Execute_Test){ "tests/exec/reg_pressure.hp",   "tests/exec/reg_pressure.stdout",   0 },
+    (Execute_Test){ "tests/struct_as_arg.hp",       nullptr,                            0 },
+    (Execute_Test){ "tests/arg_passing.hp",         "tests/exec/arg_passing.stdout",    120 },
     (Execute_Test){ "tests/exec/module_test.hp",    nullptr,                            42 },
-    (Execute_Test){ "tests/exec/modules_test.hp",   nullptr,                            0 },
+    (Execute_Test){ "tests/exec/modules_test.hp",   nullptr,                            210 },
     (Execute_Test){ "tests/exec/nbody.hp",          "tests/exec/nbody.stdout",          0 },
     (Execute_Test){ "tests/pointer_arith.hp",       nullptr,                            0 },
     (Execute_Test){ "tests/member_access.hp",       nullptr,                            0 },
     (Execute_Test){ "tests/function_var.hp",        nullptr,                            0 },
-    (Execute_Test){ "tests/struct_as_arg.hp",       nullptr,                            0 },
-    (Execute_Test){ "tests/arg_passing.hp",         nullptr,                            0 },
 };
 
 //static void PrintError(const char *filename, s64 line, s64 column, const char *message)

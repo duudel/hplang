@@ -973,9 +973,10 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
 
 static Ir_Operand GenAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
-    Ir_Operand oper = GenRefExpression(ctx, expr, routine);
-    Ir_Operand result = NewTemp(ctx, routine, expr->expr_type);
-    PushInstruction(ctx, routine, IR_Load, result, oper);
+    //Ir_Operand oper = GenRefExpression(ctx, expr, routine);
+    //Ir_Operand result = NewTemp(ctx, routine, expr->expr_type);
+    //PushInstruction(ctx, routine, IR_Load, result, oper);
+    Ir_Operand result = GenRefExpression(ctx, expr, routine);
     return result;
 }
 
@@ -994,6 +995,9 @@ static Ir_Operand GenVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
     }
     else if (symbol->sym_type == SYM_Parameter)
     {
+        Type *ref_type = GetPointerType(&ctx->comp_ctx->env, expr->expr_type);
+        if (TypeIsStruct(expr->expr_type))
+            return NewVariableRef(routine, ref_type, name);
         return NewVariableRef(routine, expr->expr_type, name);
     }
     else if (symbol->sym_type == SYM_Variable)
@@ -1059,18 +1063,21 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     // indices.  This makes it impossible (or impractical) to delete or insert
     // instructions later to the ir instruction list.
     s64 arg_instr_idx = -1;
-    for (s64 i = 0; i < expr->function_call.args.count; i++)
+    //for (s64 i = 0; i < expr->function_call.args.count; i++)
+    for (s64 i = expr->function_call.args.count - 1; i >= 0; i--)
     {
-        Ast_Expr *arg = array::At(expr->function_call.args, i);
+        Ast_Expr *arg = expr->function_call.args[i];
 
         Ir_Operand arg_res = GenExpression(ctx, arg, routine);
 
+#if 0
         // NOTE(henrik): Struct types are passed as pointer (string literal is a
         // special case for now).
         if (TypeIsStruct(arg->expr_type) && arg->type != AST_StringLiteral)
         {
             arg_res.type = GetPointerType(&ctx->comp_ctx->env, arg->expr_type);
         }
+#endif
 
         s64 instr_idx = routine->instructions.count;
         PushInstruction(ctx, routine, IR_Arg, arg_res,
@@ -1261,7 +1268,9 @@ static void GenFunction(Ir_Gen_Context *ctx, Ast_Node *node)
     {
         Ast_Node *param_node = array::At(node->function_def.parameters, i);
         Type *type = symbol->type->function_type.parameter_types[i];
+        //if (TypeIsStruct(type)) type = GetPointerType(&ctx->comp_ctx->env, type);
         Name name = param_node->parameter.symbol->unique_name;
+        //param_node->parameter.symbol->type = type;
         func_routine->args[i] = NewVariableRef(func_routine, type, name);
     }
     GenIr(ctx, node->function_def.body, func_routine);

@@ -26,12 +26,13 @@ static void ReorderIndexedRegs(Array<Reg> &regs, const Reg_Info *reg_info)
 
 void InitRegAlloc(Reg_Alloc *reg_alloc,
         s64 total_reg_count, const Reg_Info *reg_info,
-        b32 arg_index_shared)
+        b32 arg_index_shared, s32 shadow_arg_reg_count)
 {
     *reg_alloc = { };
     reg_alloc->reg_count = total_reg_count;
     reg_alloc->reg_info = reg_info;
     reg_alloc->arg_index_shared = arg_index_shared;
+    reg_alloc->shadow_arg_reg_count = shadow_arg_reg_count;
 
     s64 general_reg_count = 0;
     s64 float_reg_count = 0;
@@ -172,10 +173,15 @@ b32 IsFloatRegister(Reg_Alloc *reg_alloc, Reg reg)
 }
 
 
+static b32 DataTypeIsFloat(Oper_Data_Type data_type)
+{
+    return (data_type == Oper_Data_Type::F32) ||
+           (data_type == Oper_Data_Type::F64);
+}
+
 const Reg* GetReturnRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64 ret_index)
 {
-    if (data_type == Oper_Data_Type::F32 ||
-        data_type == Oper_Data_Type::F64)
+    if (DataTypeIsFloat(data_type))
     {
         if (ret_index < reg_alloc->float_regs.return_regs.count)
             return &reg_alloc->float_regs.return_regs[ret_index];
@@ -188,55 +194,89 @@ const Reg* GetReturnRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64
     return nullptr;
 }
 
-void AdvanceArgIndex(Reg_Alloc *reg_alloc, Oper_Data_Type data_type,
-        s64 *arg_index, s64 *float_arg_index)
+static void AdvanceArgIndex(Reg_Alloc *reg_alloc,
+        Oper_Data_Type data_type, Reg_Seq_Index *arg_index, bool arg_passed_in_reg)
 {
+    arg_index->total_arg_count++;
+    if (!arg_passed_in_reg)
+    {
+        arg_index->stack_arg_count++;
+        return;
+    }
+
     if (reg_alloc->arg_index_shared)
     {
-        *arg_index = *arg_index - 1;
-        *float_arg_index = *float_arg_index - 1;
+        arg_index->general_reg++;
+        arg_index->float_reg++;
     }
     else
     {
-        if (data_type == Oper_Data_Type::F32 ||
-            data_type == Oper_Data_Type::F64)
+        if (DataTypeIsFloat(data_type))
         {
-            *float_arg_index = *float_arg_index - 1;
+            arg_index->float_reg++;
         }
         else
         {
-            *arg_index = *arg_index - 1;
+            arg_index->general_reg++;
         }
     }
 }
 
-const Reg* GetArgRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64 arg_index)
+s64 GetArgStackAllocSize(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index)
 {
-    if (data_type == Oper_Data_Type::F32 ||
-        data_type == Oper_Data_Type::F64)
+    s32 stack_arg_count = reg_alloc->shadow_arg_reg_count;
+    stack_arg_count += arg_index.stack_arg_count;
+    return stack_arg_count * 8;
+}
+
+s64 GetOffsetFromBasePointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index)
+{
+    s64 stack_slots = 0;
+    if (reg_alloc->shadow_arg_reg_count)
     {
-        if (arg_index < reg_alloc->float_regs.arg_regs.count)
-            return &reg_alloc->float_regs.arg_regs[arg_index];
+        stack_slots += arg_index.total_arg_count;
     }
     else
     {
-        if (arg_index < reg_alloc->general_regs.arg_regs.count)
-            return &reg_alloc->general_regs.arg_regs[arg_index];
+        stack_slots += arg_index.stack_arg_count;
     }
+    // NOTE(henrik): Return -1 when there is no local offset for the argument.
+    if (stack_slots == 0) return -1;
+
+    stack_slots += 2 - 1; // old rbp, return address
+    return stack_slots * 8;
+}
+
+const Reg* GetArgRegister(Reg_Alloc *reg_alloc,
+        Oper_Data_Type data_type, Reg_Seq_Index *arg_index)
+{
+    if (DataTypeIsFloat(data_type))
+    {
+        s32 index = arg_index->float_reg;
+        if (index < reg_alloc->float_regs.arg_regs.count)
+        {
+            AdvanceArgIndex(reg_alloc, data_type, arg_index, true);
+            return &reg_alloc->float_regs.arg_regs[index];
+        }
+    }
+    else
+    {
+        s32 index = arg_index->general_reg;
+        if (index < reg_alloc->general_regs.arg_regs.count)
+        {
+            AdvanceArgIndex(reg_alloc, data_type, arg_index, true);
+            return &reg_alloc->general_regs.arg_regs[index];
+        }
+    }
+    AdvanceArgIndex(reg_alloc, data_type, arg_index, false);
     return nullptr;
 }
 
 
 b32 HasFreeRegisters(Reg_Alloc *reg_alloc, Oper_Data_Type data_type)
 {
-    switch (data_type)
-    {
-    case Oper_Data_Type::F32:
-    case Oper_Data_Type::F64:
+    if (DataTypeIsFloat(data_type))
         return reg_alloc->free_float_regs.count > 0;
-    default:
-        break;
-    }
     return reg_alloc->free_regs.count > 0;
 }
 
@@ -264,28 +304,17 @@ static Reg GetFreeFloatRegister(Reg_Alloc *reg_alloc)
 
 Reg GetFreeRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type)
 {
-    switch (data_type)
-    {
-    case Oper_Data_Type::F32:
-    case Oper_Data_Type::F64:
+    if (DataTypeIsFloat(data_type))
         return GetFreeFloatRegister(reg_alloc);
-    default:
-        return GetFreeGeneralRegister(reg_alloc);
-    }
+    return GetFreeGeneralRegister(reg_alloc);
 }
 
 void ReleaseRegister(Reg_Alloc *reg_alloc, Reg reg, Oper_Data_Type data_type)
 {
-    switch (data_type)
-    {
-    case Oper_Data_Type::F32:
-    case Oper_Data_Type::F64:
+    if (DataTypeIsFloat(data_type))
         array::Push(reg_alloc->free_float_regs, reg);
-        break;
-    default:
+    else
         array::Push(reg_alloc->free_regs, reg);
-        break;
-    }
 }
 
 } // hplang

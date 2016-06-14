@@ -371,10 +371,18 @@ void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
         break;
 
     case CGT_AMD64_Windows:
-        InitRegAlloc(ctx->reg_alloc, array_length(win_reg_info), win_reg_info, true);
+        InitRegAlloc(ctx->reg_alloc,
+                array_length(win_reg_info),
+                win_reg_info,
+                true,                       // Is argument register index shared.
+                4);                         // Count of argument registers that need shadow space backing.
         break;
     case CGT_AMD64_Unix:
-        InitRegAlloc(ctx->reg_alloc, array_length(nix_reg_info), nix_reg_info, false);
+        InitRegAlloc(ctx->reg_alloc,
+                array_length(nix_reg_info),
+                nix_reg_info,
+                false,
+                0);
         break;
     }
 }
@@ -1530,6 +1538,18 @@ static u32 GetAlign(Oper_Data_Type data_type)
     return 0;
 }
 
+static void SetArgLocalOffset(Codegen_Context *ctx, Name name, s64 offset)
+{
+    Routine *routine = ctx->current_routine;
+    ASSERT(!hashtable::Lookup(routine->local_offsets, name));
+
+    Local_Offset *offs = PushStruct<Local_Offset>(&ctx->arena);
+    offs->name = name;
+    offs->offset = offset;
+
+    hashtable::Put(routine->local_offsets, name, offs);
+}
+
 static s64 GetLocalOffset(Codegen_Context *ctx, Name name, Oper_Data_Type data_type)
 {
     Routine *routine = ctx->current_routine;
@@ -1603,16 +1623,16 @@ static void PushOperandUse(Codegen_Context *ctx, Operand_Use **use, const Operan
 static s64 PushArgs(Codegen_Context *ctx,
         Ir_Routine *ir_routine, Ir_Instruction *ir_instr, Operand_Use **uses)
 {
-    s64 arg_count = ctx->current_arg_count;
-    s64 arg_index = arg_count - 1;
-    s64 arg_idx = arg_index;
-    s64 float_arg_idx = arg_index;
+    s64 arg_index = 0; //arg_count - 1;
+    Reg_Seq_Index arg_reg_index = { };
 
-    s64 arg_stack_alloc = (arg_count > 4 ? arg_count : 4) * 8;
-    arg_stack_alloc = Align(arg_stack_alloc, 16);
-    PushInstruction(ctx, OP_sub,
-            RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write),
-            ImmOperand(arg_stack_alloc, AF_Read));
+    //s64 arg_stack_alloc = //(arg_count > 4 ? arg_count : 4) * 8;
+    //    ArgStackSize(ctx->reg_alloc, arg_count);
+    //arg_stack_alloc = Align(arg_stack_alloc, 16);
+    Instruction *alloc_stack_instr = PushInstruction(ctx, OP_sub,
+            RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write));
+            //,
+            //ImmOperand(arg_stack_alloc, AF_Read));
 
     ASSERT(ir_instr->oper2.oper_type == IR_OPER_Immediate);
     s64 arg_instr_idx = ir_instr->oper2.imm_s64;
@@ -1628,60 +1648,30 @@ static s64 PushArgs(Codegen_Context *ctx,
 
         Type *arg_type = arg_instr->target.type;
         Oper_Data_Type arg_data_type = DataTypeFromType(arg_type);
+        const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, &arg_reg_index);
         if (TypeIsStruct(arg_type))
         {
-            const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, arg_idx);
-            AdvanceArgIndex(ctx->reg_alloc, arg_data_type, &arg_idx, &float_arg_idx);
-
+            //fprintf(stderr, "struct arg\n");
             if (arg_reg)
             {
-                if (arg_type->size > 8)
-                {
-                    Operand arg_oper = FixedRegOperand(ctx, *arg_reg, Oper_Data_Type::PTR, AF_Write);
-                    //PushLoad(ctx,
-                    //        arg_oper,
-                    //        R_(GetAddress(ctx, &arg_instr->target)));
-                    PushLoadAddr(ctx,
-                            arg_oper,
-                            R_(GetAddress(ctx, &arg_instr->target)));
-                    PushOperandUse(ctx, &use, arg_oper);
-                }
-                else
-                {
-                    Operand arg_oper = FixedRegOperand(ctx, *arg_reg, Oper_Data_Type::PTR, AF_Write);
-                    PushLoadAddr(ctx,
-                            arg_oper,
-                            IrOperand(ctx, &arg_instr->target, AF_Read));
-                    PushOperandUse(ctx, &use, arg_oper);
-                }
+                Operand arg_oper = FixedRegOperand(ctx, *arg_reg, Oper_Data_Type::PTR, AF_Write);
+                PushLoadAddr(ctx,
+                        arg_oper,
+                        R_(GetAddress(ctx, &arg_instr->target)));
+                PushOperandUse(ctx, &use, arg_oper);
             }
             else
             {
-                if (arg_type->size > 8)
-                {
-                    Operand temp = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                    PushLoadAddr(ctx, W_(temp), R_(GetAddress(ctx, &arg_instr->target)));
-                    PushLoad(ctx,
-                            BaseOffsetOperand(REG_rsp, arg_index * 8, temp.data_type, AF_Write),
-                            R_(temp));
-                }
-                else
-                {
-                    Operand temp = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                    PushLoad(ctx,
-                            temp,
-                            BaseOffsetOperand(ctx, &arg_instr->target, 0, temp.data_type, AF_Read));
-                    PushLoad(ctx,
-                            BaseOffsetOperand(REG_rsp, arg_index * 8, temp.data_type, AF_Write),
-                            R_(temp));
-                }
+                Operand temp = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                PushLoadAddr(ctx, W_(temp), R_(GetAddress(ctx, &arg_instr->target)));
+                PushLoad(ctx,
+                        BaseOffsetOperand(REG_rsp, arg_index * 8, temp.data_type, AF_Write),
+                        R_(temp));
+                PushOperandUse(ctx, &use, IrOperand(ctx, &arg_instr->target, AF_Read));
             }
         }
         else
         {
-            const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, arg_idx);
-            AdvanceArgIndex(ctx->reg_alloc, arg_data_type, &arg_idx, &float_arg_idx);
-
             if (arg_reg)
             {
                 Operand arg_oper = FixedRegOperand(ctx, *arg_reg, arg_data_type, AF_Write);
@@ -1699,7 +1689,7 @@ static s64 PushArgs(Codegen_Context *ctx,
             }
         }
 
-        arg_index--;
+        arg_index++;
 
         ASSERT(arg_instr->oper1.oper_type == IR_OPER_Immediate);
         arg_instr_idx = arg_instr->oper1.imm_s64;
@@ -1707,6 +1697,8 @@ static s64 PushArgs(Codegen_Context *ctx,
 
     *uses = use_head.next;
 
+    s64 arg_stack_alloc = GetArgStackAllocSize(ctx->reg_alloc, arg_reg_index);
+    alloc_stack_instr->oper2 = ImmOperand(arg_stack_alloc, AF_Read);
     return arg_stack_alloc;
 }
 
@@ -1726,6 +1718,10 @@ static void AddLocal(Codegen_Context *ctx, Ir_Operand *ir_oper)
         offs->offset = -routine->locals_size;
 
         hashtable::Put(routine->local_offsets, name, offs);
+
+        PushLoadAddr(ctx,
+                IrOperand(ctx, ir_oper, AF_Write),
+                BaseOffsetOperand(REG_rbp, offs->offset, Oper_Data_Type::PTR, AF_Read));
     }
 }
 
@@ -1873,9 +1869,11 @@ static void GenerateCode(Codegen_Context *ctx,
                 //PushInstruction(ctx, OP_SPILL, oper);
 
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                Operand source = R_(GetAddress(ctx, &ir_instr->oper1));
+                //Operand source = R_(GetAddress(ctx, &ir_instr->oper1));
+                Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                 source.data_type = target.data_type;
-                PushLoad(ctx, target, source);
+                PushLoad(ctx, target, BaseOffsetOperand(source, 0, AF_Read));
+                //PushLoad(ctx, target, source);
             } break;
         case IR_Store:
             {
@@ -2112,12 +2110,28 @@ struct Name_Data_Type
     Name name;
     Reg fixed_reg;
     Oper_Data_Type data_type;
+    b32 spilled;
 };
 struct Live_Sets
 {
     Array<Name_Data_Type> live_in;
     Array<Name_Data_Type> live_out;
 };
+
+b32 SetAddSpilled(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type)
+{
+    for (s64 i = 0; i < set.count; i++)
+    {
+        if (set[i].name == name) return false;
+    }
+    Name_Data_Type nd = { };
+    nd.name = name;
+    nd.fixed_reg = { };
+    nd.data_type = data_type;
+    nd.spilled = true;
+    array::Push(set, nd);
+    return true;
+}
 
 b32 SetAdd(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type, Reg fixed_reg = { })
 {
@@ -2205,7 +2219,12 @@ static b32 AddOper(Array<Name_Data_Type> &set, Operand oper, Oper_Access_Flags a
         Reg fixed_reg = { };
         Name name = GetOperName(oper, &fixed_reg);
         if (name.str.size != 0)
-            return SetAdd(set, name, oper.data_type, fixed_reg);
+        {
+            Oper_Data_Type data_type = oper.data_type;
+            if (oper.addr_mode != Oper_Addr_Mode::Direct)
+                data_type = Oper_Data_Type::PTR;
+            return SetAdd(set, name, data_type, fixed_reg);
+        }
     }
     return false;
 }
@@ -2225,15 +2244,22 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
         live_sets[i].live_out = { };
     }
 
+    // Add argument registers to the first instructions live out set.
     Live_Sets &entry = live_sets[0];
+
+    Reg_Seq_Index arg_reg_index = { };
     for (s64 i = 0; i < ir_routine->arg_count; i++)
     {
         Ir_Operand *arg = &ir_routine->args[i];
         Oper_Data_Type data_type = DataTypeFromType(arg->type);
-        const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, data_type, i);
+        const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, data_type, &arg_reg_index);
         if (arg_reg)
         {
             SetAdd(entry.live_out, arg->var.name, data_type, *arg_reg);
+        }
+        else
+        {
+            SetAddSpilled(entry.live_out, arg->var.name, data_type);
         }
     }
 
@@ -2242,7 +2268,6 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
     {
         changed = false;
         for (s64 i = 0; i < instructions.count; i++)
-        //for (s64 i = instructions.count - 1; i >= 0; i--)
         {
             Instruction *instr = instructions[i];
             Instruction *next_instr = nullptr;
@@ -2322,6 +2347,7 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
             li.reg = name_dt.fixed_reg;
             li.data_type = name_dt.data_type;
             li.is_fixed = (name_dt.fixed_reg.reg_index != REG_NONE);
+            li.is_spilled = name_dt.spilled;
             for (s64 instr_i = current_I + 1; instr_i < live_sets.count; instr_i++)
             {
                 Live_Sets &ls = live_sets[instr_i];
@@ -2585,7 +2611,6 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
     {
         Live_Interval active_interval = active[i];
         if (active_interval.end >= instr_index)
-        //if (active_interval.end >= interval.start)
             return;
         array::Erase(active, i);
 
@@ -2954,6 +2979,8 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             Reg reg = GetFreeRegister(reg_alloc, interval.data_type);
             interval.reg = reg;
             AddToActive(active, interval);
+            if (interval.is_spilled)
+                Unspill(reg_alloc, interval, interval.start);
         }
 
         for (s64 instr_i = interval.start;
@@ -3050,6 +3077,18 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
         routine->name = ir_routine->name;
     }
 
+    // Set local offsets for arguments
+    Reg_Seq_Index arg_reg_index = { };
+    for (s64 i = 0; i < ir_routine->arg_count; i++)
+    {
+        Ir_Operand *arg = &ir_routine->args[i];
+        Oper_Data_Type data_type = DataTypeFromType(arg->type);
+        GetArgRegister(ctx->reg_alloc, data_type, &arg_reg_index);
+        s64 offset = GetOffsetFromBasePointer(ctx->reg_alloc, arg_reg_index);
+        if (offset > 0)
+            SetArgLocalOffset(ctx, arg->var.name, offset);
+    }
+
     Oper_Data_Type dt = Oper_Data_Type::U64;
     Operand rbp = RegOperand(REG_rbp, dt, AF_Read);
     Operand rsp = RegOperand(REG_rsp, dt, AF_Read);
@@ -3071,6 +3110,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
     }
     PushPrologue(ctx, OP_mov, W_(rbp), R_(rsp));
 
+    // TODO(henrik): Move up out of routine
     routine->return_label.name = PushName(&ctx->arena, ".ret_label");
 
     for (s64 i = 0; i < ir_routine->instructions.count; i++)
@@ -3086,8 +3126,9 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
         PushInstruction(ctx, OP_call, main_label);
 
         Oper_Data_Type return_type = Oper_Data_Type::S32;
+        Reg_Seq_Index arg_reg_index = { };
         const Reg *ret_reg = GetReturnRegister(ctx->reg_alloc, return_type, 0);
-        const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, return_type, 0);
+        const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, return_type, &arg_reg_index);
         PushLoad(ctx,
                 RegOperand(*arg_reg, return_type, AF_Write),
                 RegOperand(*ret_reg, return_type, AF_Read));

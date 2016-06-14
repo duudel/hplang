@@ -1,23 +1,62 @@
 // Tests argument passing
 // 2016-05-19
 
+import ":io";
+
 My_Struct :: struct
 {
     bval : bool;
     fval : f64;
+    ival : s16;
 }
 
-func :: (a : s32, b : f64, c : My_Struct, d : bool, e : My_Struct)
+func ::
+    ( a : s32           // 1.
+    , b : f64           // 2.
+    , c : My_Struct     // 3.
+    , d : bool          // 4.
+    , e : My_Struct     // 5.
+    , f : bool          // 6.
+    , g : s32           // 7.
+    , h : u8            // 8.
+    , i : My_Struct)    // 9.
 {
     x := c.bval ? 10 : 16;
     e.fval = 0.5;
+    i.ival += (-7) -> s16;
+    return x * c.ival + i.ival - h;
 }
 
 main :: ()
 {
     s1 : My_Struct;
     s2 : My_Struct;
-    func(15, 12.5, s1, false, s2);
 
-    return 0;
+    s1.bval = false;
+    s1.fval = 15.0;
+    s1.ival = 8 -> s16;
+
+    s2.bval = true;
+    s2.fval = 0.0;
+    s2.ival = 12 -> s16;
+
+    f := true;
+    g := -5;
+    h := 2;
+
+    s3 : My_Struct;
+    s3.bval = false;
+    s3.fval = 128.24;
+    s3.ival = 1 -> s16;
+
+    result := func(15, 12.5, s1, false, s2, f, g, h -> u8, s3);
+
+    s2.bval = true;
+    print("s2.fval = ");
+    print(s2.fval);
+    println();
+    print("s3.ival = ");
+    println(s3.ival);
+
+    return result;
 }
