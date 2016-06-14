@@ -163,8 +163,6 @@ struct Routine
     s64 locals_size;
     Array<Local_Offset*> local_offsets;
 
-    Label return_label;
-
     Array<Label_Instr*> labels;
 
     Ir_Routine *ir_routine;
@@ -172,6 +170,7 @@ struct Routine
     Instruction_List instructions;
     Instruction_List prologue;
     Instruction_List callee_save_spills;
+    Instruction_List callee_save_unspills;
     Instruction_List epilogue;
 };
 
@@ -208,6 +207,8 @@ struct Codegen_Context
 
     Codegen_Target target;
     Reg_Alloc *reg_alloc;
+
+    Name return_label_name;
 
     s64 current_arg_count;
     s64 fixed_reg_id;

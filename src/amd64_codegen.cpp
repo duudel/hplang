@@ -365,6 +365,7 @@ void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
         reg_names[i] = PushName(&ctx->arena, reg_name_strings_8b[i]);
         reg_save_names[i] = PushName(&ctx->arena, reg_save_name_strings[i]);
     }
+    ctx->return_label_name = PushName(&ctx->arena, ".ret_label");
     switch (cg_target)
     {
     case CGT_COUNT:
@@ -2082,8 +2083,7 @@ static void GenerateCode(Codegen_Context *ctx,
                     RegOperand(*ret_reg, data_type, AF_Write),
                     IrOperand(ctx, &ir_instr->target, AF_Read));
             }
-            PushInstruction(ctx, OP_jmp,
-                    LabelOperand(ctx->current_routine->return_label.name, AF_Read));
+            PushInstruction(ctx, OP_jmp, LabelOperand(ctx->return_label_name, AF_Read));
             break;
 
         case IR_S_TO_F32:
@@ -3040,7 +3040,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
     for (s64 i = 0; i < live_intervals.count; i++)
     {
         Live_Interval interval = live_intervals[i];
-        s64 next_interval_start = interval.end; //interval.start;
+        s64 next_interval_start = interval.end;
         if (i + 1 < live_intervals.count)
             next_interval_start = live_intervals[i + 1].start;
 
@@ -3115,7 +3115,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
 
             PushInstruction(ctx, routine->callee_save_spills,
                     mov_op, stack_slot, reg_oper);
-            PushInstruction(ctx, routine->epilogue,
+            PushInstruction(ctx, routine->callee_save_unspills,
                     mov_op, W_(reg_oper), R_(stack_slot));
         }
     }
@@ -3169,8 +3169,6 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
     }
     PushPrologue(ctx, OP_mov, W_(rbp), R_(rsp));
 
-    // TODO(henrik): Move up out of routine
-    routine->return_label.name = PushName(&ctx->arena, ".ret_label");
 
     for (s64 i = 0; i < ir_routine->instructions.count; i++)
     {
@@ -3196,7 +3194,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
         Operand exit_label = LabelOperand(exit_name, AF_Read);
         PushInstruction(ctx, OP_call, exit_label);
     }
-    PushInstruction(ctx, OP_LABEL, LabelOperand(routine->return_label.name, AF_Read));
+    PushInstruction(ctx, OP_LABEL, LabelOperand(ctx->return_label_name, AF_Read));
 }
 
 static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
@@ -3564,6 +3562,11 @@ void OutputCode_Amd64(Codegen_Context *ctx)
         }
         fprintf(f, "; routine body\n");
         PrintInstructions(file, routine->instructions);
+        if (routine->callee_save_unspills.count > 0)
+        {
+            fprintf(f, "; callee save unspills\n");
+            PrintInstructions(file, routine->callee_save_unspills);
+        }
         fprintf(f, "; epilogue\n");
         PrintInstructions(file, routine->epilogue);
         fprintf(f, "; -----\n\n");
