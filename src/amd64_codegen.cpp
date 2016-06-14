@@ -2688,10 +2688,8 @@ static void AddToUnhandled(Array<Live_Interval> &unhandled, Live_Interval interv
 static void ExpireOldIntervals(Codegen_Context *ctx,
         Array<Live_Interval> &active,
         Array<Live_Interval> &inactive,
-        Array<Live_Interval> &unhandled,
         s64 instr_index)
 {
-    (void)unhandled;
     for (s64 i = 0; i < active.count; ) //i++)
     {
         Live_Interval active_interval = active[i];
@@ -3008,26 +3006,23 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
     SetOperand(ctx, active, &instr->oper3, instr_i);
 }
 
-/*
 static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
-        Array<Live_Interval> &active,
+        Array<Live_Interval> &active, Array<Live_Interval> &inactive,
         s64 interval_start, s64 next_interval_start)
 {
-    //Reg_Alloc *reg_alloc = ctx->reg_alloc;
+    if (ctx->comp_ctx->options.debug_reg_alloc)
+    {
+        fprintf(stderr, "Scanning instructions in live interval [%" PRId64 ",%" PRId64 "]\n",
+            interval_start, next_interval_start);
+    }
+
     for (s64 instr_i = interval_start; instr_i <= next_interval_start; instr_i++)
     {
+        ExpireOldIntervals(ctx, active, inactive, instr_i);
+        CheckInactiveIntervals(ctx, active, inactive, instr_i);
         ScanInstruction(ctx, routine, active, instr_i);
-        //Instruction *instr = routine->instructions[instr_i];
-        //if ((Amd64_Opcode)instr->opcode == OP_call)
-        //{
-        //    SpillCallerSaves(reg_alloc, active, instr_i - 1);
-        //    UnspillCallerSaves(reg_alloc, active, instr_i + 1);
-        //}
-        //SetOperand(ctx, active, &instr->oper1, instr_i);
-        //SetOperand(ctx, active, &instr->oper2, instr_i);
-        //SetOperand(ctx, active, &instr->oper3, instr_i);
     }
-}*/
+}
 
 static void LinearScanRegAllocation(Codegen_Context *ctx,
         Array<Live_Interval> &live_intervals)
@@ -3049,8 +3044,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
         if (i + 1 < live_intervals.count)
             next_interval_start = live_intervals[i + 1].start;
 
-        ExpireOldIntervals(ctx, active, inactive,
-                live_intervals, interval.start);
+        ExpireOldIntervals(ctx, active, inactive, interval.start);
         CheckInactiveIntervals(ctx, active, inactive, interval.start);
 
         if (interval.reg.reg_index != REG_NONE)
@@ -3069,25 +3063,12 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
 
             if (interval.is_spilled)
             {
-                //printf("Is spilled ");
-                //PrintName((IoFile*)stdout, interval.name);
-                //printf("\n");
                 Unspill(reg_alloc, interval, interval.start);
             }
         }
 
-        // TODO(henrik): Make into a function:
-        for (s64 instr_i = interval.start;
-            instr_i < next_interval_start;
-            instr_i++)
-        {
-            ExpireOldIntervals(ctx, active, inactive,
-                    live_intervals, instr_i);
-            CheckInactiveIntervals(ctx, active, inactive, instr_i);
-            ScanInstruction(ctx, routine, active, instr_i);
-        }
-        //ScanInstructions(ctx, routine, active, active_f,
-        //        interval.start, next_interval_start - 1);
+        ScanInstructions(ctx, routine, active, inactive,
+                interval.start, next_interval_start - 1);
 
         last_interval_start = interval.start;
         if (interval.end > last_interval_end)
@@ -3110,24 +3091,8 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
 
     last_interval_end = routine->instructions.count - 1;
 
-    if (ctx->comp_ctx->options.debug_reg_alloc)
-    {
-        fprintf(stderr, "Scanning last live interval [%d,%d]\n",
+    ScanInstructions(ctx, routine, active, inactive,
             last_interval_start, last_interval_end);
-    }
-
-    //ScanInstructions(ctx, routine, active,
-    //        last_interval_start, last_interval_end);
-
-        for (s64 instr_i = last_interval_start;
-            instr_i <= last_interval_end;
-            instr_i++)
-        {
-            ExpireOldIntervals(ctx, active, inactive,
-                    live_intervals, instr_i);
-            CheckInactiveIntervals(ctx, active, inactive, instr_i);
-            ScanInstruction(ctx, routine, active, instr_i);
-        }
 
     InsertSpills(ctx);
 
@@ -3177,12 +3142,9 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
     {
         Ir_Operand *arg = &ir_routine->args[i];
         Oper_Data_Type data_type = DataTypeFromType(arg->type);
-        const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, data_type, &arg_reg_index);
-        (void)arg_reg;
+        GetArgRegister(ctx->reg_alloc, data_type, &arg_reg_index);
         s64 offset = GetOffsetFromBasePointer(ctx->reg_alloc, arg_reg_index);
-        // TODO(henrik): i >= 4 for shadow space
-        if (offset > 0) // && i >= 4)
-        //if (!arg_reg && offset >= 0)
+        if (offset > 0)
             SetArgLocalOffset(ctx, arg->var.name, offset);
     }
 
