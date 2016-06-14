@@ -820,7 +820,6 @@ s64 UniqueTypeString(char *buf, s64 bufsize, Type *type)
             {
                 Name struct_name = type->struct_type.name;
                 s64 len = snprintf(buf, bufsize, "T");
-                //s64 len = snprintf(buf, bufsize, "T%d", (s32)struct_name.str.size);
 
                 if (len + struct_name.str.size >= bufsize)
                     return len + struct_name.str.size;
@@ -845,11 +844,7 @@ static Name MakeUniqueOverloadName(Environment *env, Name base_name, Type *type)
     {
         return base_name;
     }
-    // TODO(henrik): This way of making unique names for function overloads is
-    // not the best. The names do not "survive" reordering of the functions in
-    // the source or their compilation order. Maybe make the unique name based
-    // on the type? So something similar to c++ name mangling.
-#if 1
+
     ASSERT(type->tag == TYP_Function);
     s64 buf_size = 32;
     char *buf = PushArray<char>(&env->arena, base_name.str.size + buf_size);
@@ -870,29 +865,6 @@ static Name MakeUniqueOverloadName(Environment *env, Name base_name, Type *type)
     {
         str.data[i] = base_name.str.data[i];
     }
-#else
-    (void)type;
-
-    s64 max_size = base_name.str.size + 32;
-    char *data = (char*)PushData(&env->arena, max_size, 1);
-    String str;
-    str.size = 0;
-    str.data = data;
-
-    for (s64 i = 0; i < base_name.str.size; i++)
-    {
-        str.data[i] = base_name.str.data[i];
-    }
-    str.size = base_name.str.size;
-
-    char *buf = str.data + str.size;
-    int id_len = snprintf(buf, max_size - str.size, "#%" PRIx64, env->unique_id);
-
-    ASSERT(str.size + id_len < max_size);
-    str.size += id_len;
-
-    env->unique_id++;
-#endif
 
     return MakeName(str);
 }
@@ -906,7 +878,6 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
         if (old_symbol->sym_type == SYM_Function)
         {
             Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
-            //symbol->unique_name = MakeUniqueOverloadName(env, symbol->unique_name, type);
             Symbol *prev = old_symbol;
             while (prev->next_overload)
             {
@@ -921,7 +892,6 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
     else
     {
         Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
-        //symbol->unique_name = MakeUniqueOverloadName(env, symbol->unique_name, type);
         PutHash(scope->table, name, symbol);
         scope->symbol_count++;
         return symbol;

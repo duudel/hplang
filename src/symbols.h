@@ -192,7 +192,6 @@ struct Environment
     Scope *current;
 
     Name main_func_name;
-    s64 unique_id;
     s64 scope_id;
 };
 
