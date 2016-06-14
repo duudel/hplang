@@ -3190,8 +3190,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
                 RegOperand(*arg_reg, return_type, AF_Write),
                 RegOperand(*ret_reg, return_type, AF_Read));
 
-        // TODO(henrik): Move PushName(.., "exit") to some place else.
-        Name exit_name = PushName(&ctx->arena, "exit");
+        Name exit_name = MakeConstName("exit");
         Operand exit_label = LabelOperand(exit_name, AF_Read);
         PushInstruction(ctx, OP_call, exit_label);
     }

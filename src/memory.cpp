@@ -158,6 +158,16 @@ static void* AllocateFromMemoryBlock(Memory_Block *block, s64 size, s64 alignmen
     return (void*)ptr;
 }
 
+void TryToFreeData(Memory_Arena *arena, void *ptr, s64 size)
+{
+    Memory_Block *block = arena->head;
+    if (!block) return;
+    u8 *prev_top = block->top_pointer - size;
+    if (prev_top == (u8*)ptr)
+    {
+        block->top_pointer = prev_top;
+    }
+}
 
 void* PushData(Memory_Arena *arena, s64 size, s64 alignment)
 {

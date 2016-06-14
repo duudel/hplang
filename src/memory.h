@@ -23,6 +23,14 @@ struct Memory_Arena
 void FreeMemoryArena(Memory_Arena *arena);
 void GetMemoryArenaUsage(Memory_Arena *arena, s64 *used, s64 *unused);
 
+// The function tries to free previously allocated data. It is not an error to
+// fail to do so. The function is used when some data, whose size is unknown at
+// the allocation time, is needed. If the initially allocated size was too small,
+// it might be possible to reallocate the data. Once called with pointer ptr,
+// the pointer is not valid any more. Following calls to allocation functions
+// may return the same pointer or a new pointer.
+void TryToFreeData(Memory_Arena *arena, void *ptr, s64 size);
+
 void* PushData(Memory_Arena *arena, s64 size, s64 alignment);
 Pointer PushDataPointer(Memory_Arena *arena, s64 size, s64 alignment);
 

@@ -763,7 +763,7 @@ Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
     return symbol;
 }
 
-s64 UniqueTypeString(char *buf, s64 bufsize, Type *type)
+static s64 UniqueTypeString(char *buf, s64 bufsize, Type *type)
 {
     switch (type->tag)
     {
@@ -847,11 +847,13 @@ static Name MakeUniqueOverloadName(Environment *env, Name base_name, Type *type)
 
     ASSERT(type->tag == TYP_Function);
     s64 buf_size = 32;
-    char *buf = PushArray<char>(&env->arena, base_name.str.size + buf_size);
+    s64 allocated_size = base_name.str.size + buf_size;
+    char *buf = PushArray<char>(&env->arena, allocated_size);
     s64 len = UniqueTypeString(buf + base_name.str.size, buf_size, type);
 
     if (len >= buf_size)
     {
+        TryToFreeData(&env->arena, buf, allocated_size);
         buf_size = len + 1;
         buf = PushArray<char>(&env->arena, base_name.str.size + buf_size);
         len = UniqueTypeString(buf + base_name.str.size, buf_size, type);

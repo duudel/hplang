@@ -1464,6 +1464,9 @@ b32 GenIr(Ir_Gen_Context *ctx)
 
     GenSqrtFunction(ctx, top_level_routine);
 
+    // TODO(henrik): Move collecting foreign functions to some better place.
+    // For example, add list of foreign functions (as well as types, etc.) to
+    // Environment.
     Environment *env = &ctx->comp_ctx->env;
     for (s64 i = 0; i < env->root->table.count; i++)
     {
