@@ -763,6 +763,82 @@ Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
     return symbol;
 }
 
+s64 UniqueTypeString(char *buf, s64 bufsize, Type *type)
+{
+    switch (type->tag)
+    {
+        case TYP_none: INVALID_CODE_PATH; break;
+        case TYP_null: INVALID_CODE_PATH; break;
+        case TYP_pending:
+            return UniqueTypeString(buf, bufsize, type->base_type);
+        case TYP_pointer:
+            {
+                s64 len = snprintf(buf, bufsize, "P");
+                return UniqueTypeString(buf + len, bufsize - len, type->base_type);
+            }
+        case TYP_void:
+            return snprintf(buf, bufsize, "v");
+        case TYP_bool:
+            return snprintf(buf, bufsize, "b");
+        case TYP_char:
+            return snprintf(buf, bufsize, "c");
+        case TYP_u8:
+            return snprintf(buf, bufsize, "u1");
+        case TYP_s8:
+            return snprintf(buf, bufsize, "s1");
+        case TYP_u16:
+            return snprintf(buf, bufsize, "u2");
+        case TYP_s16:
+            return snprintf(buf, bufsize, "s2");
+        case TYP_u32:
+            return snprintf(buf, bufsize, "u4");
+        case TYP_s32:
+            return snprintf(buf, bufsize, "s4");
+        case TYP_u64:
+            return snprintf(buf, bufsize, "u8");
+        case TYP_s64:
+            return snprintf(buf, bufsize, "s8");
+        case TYP_f32:
+            return snprintf(buf, bufsize, "f4");
+        case TYP_f64:
+            return snprintf(buf, bufsize, "f8");
+        case TYP_string:
+            return snprintf(buf, bufsize, "S");
+        case TYP_Function:
+            {
+                s64 len = snprintf(buf, bufsize, "#");
+                len += UniqueTypeString(buf + len, bufsize - len, type->function_type.return_type);
+                for (s64 i = 0; i < type->function_type.parameter_count; i++)
+                {
+                    Type *param_type = type->function_type.parameter_types[i];
+                    len += UniqueTypeString(buf + len, bufsize - len, param_type);
+                    len += snprintf(buf + len, bufsize - len, "$");
+                }
+                return len;
+            }
+        case TYP_Struct:
+            {
+                Name struct_name = type->struct_type.name;
+                s64 len = snprintf(buf, bufsize, "T");
+                //s64 len = snprintf(buf, bufsize, "T%d", (s32)struct_name.str.size);
+
+                if (len + struct_name.str.size >= bufsize)
+                    return len + struct_name.str.size;
+
+                for (s64 i = 0; i < struct_name.str.size; i++)
+                {
+                    buf[len] = struct_name.str.data[i];
+                    len += 1;
+                }
+                return len;
+            }
+        default:
+            break;
+    }
+    INVALID_CODE_PATH;
+    return 0;
+}
+
 static Name MakeUniqueOverloadName(Environment *env, Name base_name, Type *type)
 {
     if (base_name == env->main_func_name)
@@ -773,6 +849,28 @@ static Name MakeUniqueOverloadName(Environment *env, Name base_name, Type *type)
     // not the best. The names do not "survive" reordering of the functions in
     // the source or their compilation order. Maybe make the unique name based
     // on the type? So something similar to c++ name mangling.
+#if 1
+    ASSERT(type->tag == TYP_Function);
+    s64 buf_size = 32;
+    char *buf = PushArray<char>(&env->arena, base_name.str.size + buf_size);
+    s64 len = UniqueTypeString(buf + base_name.str.size, buf_size, type);
+
+    if (len >= buf_size)
+    {
+        buf_size = len + 1;
+        buf = PushArray<char>(&env->arena, base_name.str.size + buf_size);
+        len = UniqueTypeString(buf + base_name.str.size, buf_size, type);
+    }
+
+    String str;
+    str.size = len + base_name.str.size;
+    str.data = buf;
+
+    for (s64 i = 0; i < base_name.str.size; i++)
+    {
+        str.data[i] = base_name.str.data[i];
+    }
+#else
     (void)type;
 
     s64 max_size = base_name.str.size + 32;
@@ -794,6 +892,8 @@ static Name MakeUniqueOverloadName(Environment *env, Name base_name, Type *type)
     str.size += id_len;
 
     env->unique_id++;
+#endif
+
     return MakeName(str);
 }
 
@@ -806,7 +906,7 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
         if (old_symbol->sym_type == SYM_Function)
         {
             Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
-            symbol->unique_name = MakeUniqueOverloadName(env, symbol->unique_name, type);
+            //symbol->unique_name = MakeUniqueOverloadName(env, symbol->unique_name, type);
             Symbol *prev = old_symbol;
             while (prev->next_overload)
             {
@@ -821,7 +921,7 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
     else
     {
         Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
-        symbol->unique_name = MakeUniqueOverloadName(env, symbol->unique_name, type);
+        //symbol->unique_name = MakeUniqueOverloadName(env, symbol->unique_name, type);
         PutHash(scope->table, name, symbol);
         scope->symbol_count++;
         return symbol;
@@ -845,6 +945,24 @@ Symbol* LookupSymbolInCurrentScope(Environment *env, Name name)
     Scope *scope = env->current;
     ASSERT(scope != nullptr);
     return LookupSymbol(scope, name);
+}
+
+void ResolveTypeInformation(Environment *env)
+{
+    for (s64 i = 0; i < env->root->table.count; i++)
+    {
+        Symbol *symbol = env->root->table[i];
+        if (!symbol) continue;
+
+        if (symbol->sym_type == SYM_ForeignFunction ||
+            symbol->sym_type == SYM_Function)
+        {
+            do {
+                symbol->unique_name = MakeUniqueOverloadName(env, symbol->name, symbol->type);
+                symbol = symbol->next_overload;
+            } while (symbol);
+        }
+    }
 }
 
 } // hplang

@@ -351,6 +351,9 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         return true;
     }
 
+    // TODO(henrik): rename?
+    ResolveTypeInformation(&ctx->env);
+
     // IR generation
     Ir_Gen_Context ir_ctx = NewIrGenContext(ctx);
 

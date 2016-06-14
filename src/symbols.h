@@ -199,6 +199,8 @@ struct Environment
 Environment NewEnvironment(const char *main_func_name);
 void FreeEnvironment(Environment *env);
 
+void ResolveTypeInformation(Environment *env);
+
 Scope* CurrentScope(Environment *env);
 void SetCurrentScope(Environment *env, Scope *scope);
 
