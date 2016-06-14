@@ -15,6 +15,7 @@ namespace hplang
     PASTE_IR(IR_Load)\
     PASTE_IR(IR_Store)\
     PASTE_IR(IR_MovSX)\
+    PASTE_IR(IR_MovZX)\
     PASTE_IR(IR_MovMember)\
     PASTE_IR(IR_LoadMemberAddr)\
     PASTE_IR(IR_MovElement)\

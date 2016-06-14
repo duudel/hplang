@@ -3,21 +3,25 @@
 
 Test :: struct
 {
-    x : f64;
-    y : f64;
-    index : s64;
+    x : s64;
+    y : s64;
+    z : s64;
 }
 
 func :: (a : Test)
 {
     if (a.y > a.x)
         return a.y;
+    if (a.z > a.x)
+        return a.z;
     return a.x;
 }
 
 main :: ()
 {
     a : Test;
-    func(a);
-    return 0;
+    a.x = 5;
+    a.y = 10;
+    a.z = -21;
+    return func(a);
 }

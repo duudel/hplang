@@ -204,7 +204,7 @@ print_bodies :: (body_count : s64, bodies : Body*)
         //print(" m: "); print(b.mass);
         //println();
         print("Body "); println(i);
-        print(" p: "); print(bodies[i].x); //, bodies[i].y, bodies[i].z);
+        print(" p: "); print(bodies[i].x, bodies[i].y, bodies[i].z);
         println();
         //print(" v: "); print(bodies[i].vx, bodies[i].vy, bodies[i].vz);
         //println();
@@ -216,15 +216,17 @@ print_bodies :: (body_count : s64, bodies : Body*)
 
 main :: (N : s64)
 {
-    N = 5;
+    N = 1;
     init_bodies();
 
     offset_momentum(BODY_COUNT, bodies);
-    return 0;
+    //return 0;
+
+    print_bodies(BODY_COUNT, bodies);
 
     e := energy(BODY_COUNT, bodies);
     print(e); println();
-    return 0;
+    //return 0;
 
     i : s64 = 0;
     while (i < N)

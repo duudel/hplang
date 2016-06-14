@@ -1,0 +1,18 @@
+// A test source file for compiler debugging purposes
+// 2016-06-14
+
+main :: ()
+{
+    x := 5;
+    y := 0;
+    if (x < 0)
+    {
+        y = 8;
+        x = 2;
+    }
+    else
+        x = 8;
+
+    x += 3;
+    return 0;
+}

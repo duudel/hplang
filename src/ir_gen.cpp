@@ -378,6 +378,14 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
             case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
+            case TYP_u16:
+            case TYP_u32:
+            case TYP_u64:
+            case TYP_s16:
+            case TYP_s32:
+            case TYP_s64:
+                PushInstruction(ctx, routine, IR_MovZX, res, oper_res);
+                break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
@@ -409,6 +417,12 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
             case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
                 break;
+            case TYP_u32:
+            case TYP_u64:
+            case TYP_s32:
+            case TYP_s64:
+                PushInstruction(ctx, routine, IR_MovZX, res, oper_res);
+                break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
@@ -439,6 +453,10 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
                 break;
             case TYP_f64:
                 PushInstruction(ctx, routine, IR_S_TO_F64, res, oper_res);
+                break;
+            case TYP_u64:
+            case TYP_s64:
+                PushInstruction(ctx, routine, IR_MovZX, res, oper_res);
                 break;
             default:
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);

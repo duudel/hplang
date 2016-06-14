@@ -115,43 +115,46 @@ struct Execute_Test
 };
 
 static Fail_Test fail_tests[] = {
-    (Fail_Test){ CP_Lexing,  "tests/lexer_fail/crlf_test.hp",                       {4, 26} },
-    (Fail_Test){ CP_Lexing,  "tests/lexer_fail/only_one_dquote.hp",                 {1, 1} },
-    (Fail_Test){ CP_Lexing,  "tests/lexer_fail/non_ending_mlc.hp",                  {6, 5} },
-    (Fail_Test){ CP_Parsing, "tests/parser_fail/token_test.hp",                     {1, 1} },
-    (Fail_Test){ CP_Parsing, "tests/parser_fail/if_paren_test.hp",                  {8, 23} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/infer_var_type_from_null.hp",   {4, 1} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/dup_func_param.hp",             {4, 39} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/dup_variable.hp",               {7, 5} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/var_shadows_param.hp",          {6, 5} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/ambiguous_func_call.hp",        {8, 9} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/dup_func_def.hp",               {5, 1} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/return_infer_fail.hp",          {11, 12} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/void_func_return.hp",           {6, 12} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/non_void_func_return.hp",       {6, 5} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/infer_ret_type_from_null.hp",   {4, 1} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/access_non_struct.hp",          {7, 10} },
-    (Fail_Test){ CP_Checking, "tests/sem_check_fail/deref_void_ptr.hp",             {7, 10} },
+    //          stop after      test source                                             expected fail location {line, column}
+    (Fail_Test){ CP_Lexing,     "tests/lexer_fail/crlf_test.hp",                        {4, 26} },
+    (Fail_Test){ CP_Lexing,     "tests/lexer_fail/only_one_dquote.hp",                  {1, 1} },
+    (Fail_Test){ CP_Lexing,     "tests/lexer_fail/non_ending_mlc.hp",                   {6, 5} },
+    (Fail_Test){ CP_Parsing,    "tests/parser_fail/token_test.hp",                      {1, 1} },
+    (Fail_Test){ CP_Parsing,    "tests/parser_fail/if_paren_test.hp",                   {8, 23} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/infer_var_type_from_null.hp",     {4, 1} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/dup_func_param.hp",               {4, 39} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/dup_variable.hp",                 {7, 5} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/var_shadows_param.hp",            {6, 5} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/ambiguous_func_call.hp",          {8, 9} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/dup_func_def.hp",                 {5, 1} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/return_infer_fail.hp",            {11, 12} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/void_func_return.hp",             {6, 12} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/non_void_func_return.hp",         {6, 5} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/infer_ret_type_from_null.hp",     {4, 1} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/access_non_struct.hp",            {7, 10} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/deref_void_ptr.hp",               {7, 10} },
 };
 
 static Succeed_Test succeed_tests[] = {
-    (Succeed_Test){ CP_Parsing, "tests/expr_test.hp",           nullptr },
-    (Succeed_Test){ CP_Parsing, "tests/stmt_test.hp",           nullptr },
-    (Succeed_Test){ CP_Checking, "tests/empty.hp",              nullptr },
-    (Succeed_Test){ CP_Checking, "tests/variable_scope.hp",     nullptr },
-    (Succeed_Test){ CP_Checking, "tests/struct_access.hp",      nullptr },
-    (Succeed_Test){ CP_Checking, "tests/recursive_rt_infer.hp", RecursiveRtInfer_Test },
-    (Succeed_Test){ CP_Checking, "tests/difficult_rt_infer.hp", nullptr },
+    //              stop after      test source                     test function
+    (Succeed_Test){ CP_Parsing,     "tests/expr_test.hp",           nullptr },
+    (Succeed_Test){ CP_Parsing,     "tests/stmt_test.hp",           nullptr },
+    (Succeed_Test){ CP_Checking,    "tests/empty.hp",               nullptr },
+    (Succeed_Test){ CP_Checking,    "tests/variable_scope.hp",      nullptr },
+    (Succeed_Test){ CP_Checking,    "tests/struct_access.hp",       nullptr },
+    (Succeed_Test){ CP_Checking,    "tests/recursive_rt_infer.hp",  RecursiveRtInfer_Test },
+    (Succeed_Test){ CP_Checking,    "tests/difficult_rt_infer.hp",  nullptr },
 };
 
 static Execute_Test exec_tests[] = {
+    //              test source                     expected output                     expected exit code
     (Execute_Test){ "tests/exec/hello.hp",          "tests/exec/hello.stdout",          0 },
     (Execute_Test){ "tests/exec/factorial.hp",      "tests/exec/factorial.stdout",      0 },
     (Execute_Test){ "tests/exec/fibo.hp",           "tests/exec/fibo.stdout",           0 },
     (Execute_Test){ "tests/exec/beer.hp",           "tests/exec/beer.stdout",           0 },
     (Execute_Test){ "tests/exec/reg_pressure.hp",   "tests/exec/reg_pressure.stdout",   0 },
-    (Execute_Test){ "tests/struct_as_arg.hp",       nullptr,                            0 },
-    (Execute_Test){ "tests/arg_passing.hp",         "tests/exec/arg_passing.stdout",    120 },
+    (Execute_Test){ "tests/exec/struct_as_arg.hp",  nullptr,                            10 },
+    (Execute_Test){ "tests/exec/arg_passing.hp",    "tests/exec/arg_passing.stdout",    120 },
     (Execute_Test){ "tests/exec/module_test.hp",    nullptr,                            42 },
     (Execute_Test){ "tests/exec/modules_test.hp",   nullptr,                            210 },
     (Execute_Test){ "tests/exec/nbody.hp",          "tests/exec/nbody.stdout",          0 },
@@ -237,7 +240,7 @@ b32 RunTest(const Fail_Test &test)
         case CP_CodeGen:
         case CP_Assembling:
         case CP_Linking:
-            fprintf(outfile, "INVALID TEST ERROR: Failing tests should only be tested for the lexing--semantic check part of the compiler");
+            fprintf(outfile, "INVALID TEST: Failing tests should only be tested for the lexing--semantic check part of the compiler");
             INVALID_CODE_PATH;
             break;
         }

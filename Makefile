@@ -34,15 +34,18 @@ build:
 run:
 	@#-./$(EXENAME) -di -o samples/fibo samples/fibo.hp 2> stderr.out
 	@#-./$(EXENAME) -diR -o samples/beer samples/beer.hp 2> stderr.out
-	@#-./$(EXENAME) -o samples/factorial samples/factorial.hp
+	@#-./$(EXENAME) -diR -o samples/factorial samples/factorial.hp 2> stderr.out
 	@#-./$(EXENAME) -o samples/hello samples/hello.hp
 	@#-./$(EXENAME) -di tests/member_access.hp 2> stderr.out
 	@#-./$(EXENAME) -diR tests/pointer_arith.hp 2> stderr.out
 	@#-./$(EXENAME) -dR tests/difficult_rt_infer.hp 2> stderr.out
-	-./$(EXENAME) -diR tests/arg_passing.hp 2> stderr.out
+	-./$(EXENAME) -diR -o out tests/exec/arg_passing.hp 2> stderr.out
 	@#-./$(EXENAME) -diR samples/nbody.hp 2> stderr.out
+	@#-./$(EXENAME) -diR -o out tests/exec/nbody.hp 2> stderr.out
 	@#-./$(EXENAME) -diR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dRi samples/simple.hp 2> stderr.out
+	@#-./$(EXENAME) -dRi samples/test.hp 2> stderr.out
+	@#-./$(EXENAME) -dRi -o out samples/fibo.hp 2> stderr.out
 
 
 GDB := /usr/bin/gdb
