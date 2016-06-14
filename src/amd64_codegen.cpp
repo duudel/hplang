@@ -3578,15 +3578,25 @@ void OutputCode_Amd64(Codegen_Context *ctx)
 
     if (ctx->global_var_count)
     {
+        s64 offset = 0;
         fprintf(f, "\n;global variables\n");
         for (s64 i = 0; i < ctx->global_var_count; i++)
         {
             Symbol *symbol = ctx->global_vars[i];
-            //s32 align = GetAlign(symbol->type);
-            s32 size = GetAlignedSize(symbol->type);
-            //fprintf(f, "\nalign %d\n", align);
+            u32 align = GetAlign(symbol->type);
+            u32 align_res_size = offset & (align - 1);
+            offset += align_res_size;
+
+            if (align_res_size)
+                fprintf(f, "\tresb %u\t; (padding)\n", align_res_size);
+
+            u32 size = GetAlignedSize(symbol->type);
             PrintName(file, symbol->unique_name);
-            fprintf(f, ":\tresb %d\n", size);
+            fprintf(f, ":\tresb %u\t; ", size);
+            PrintType(file, symbol->type);
+            fprintf(f, "\n");
+
+            offset += size;
         }
     }
 
