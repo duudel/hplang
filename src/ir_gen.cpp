@@ -626,7 +626,14 @@ static Ir_Operand GenSubscriptExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
     Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
     Ir_Operand index_res = GenExpression(ctx, index_expr, routine);
     Ir_Operand elem_res = NewTemp(ctx, routine, expr->expr_type);
-    PushInstruction(ctx, routine, IR_MovElement, elem_res, base_res, index_res);
+    if (TypeIsStruct(expr->expr_type))
+    {
+        PushInstruction(ctx, routine, IR_LoadElementAddr, elem_res, base_res, index_res);
+    }
+    else
+    {
+        PushInstruction(ctx, routine, IR_MovElement, elem_res, base_res, index_res);
+    }
     return elem_res;
 }
 

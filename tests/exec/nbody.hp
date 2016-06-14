@@ -26,23 +26,32 @@ advance :: (body_count : s64, bodies : Body*, dt : f64) : void
     j : s64 = 0;
     while (i < body_count)
     {
-        b1 := bodies[i];
+        //b1 := bodies[i];
         j = i + 1;
         while (j < body_count)
         {
-            b2 := bodies[j];
-            dx := b1.x - b2.x;
-            dy := b1.y - b2.y;
-            dz := b1.z - b2.z;
+            //b2 := bodies[j];
+            //dx := b1.x - b2.x;
+            //dy := b1.y - b2.y;
+            //dz := b1.z - b2.z;
+            dx := bodies[i].x - bodies[j].x;
+            dy := bodies[i].y - bodies[j].y;
+            dz := bodies[i].z - bodies[j].z;
             distance := sqrt(dx*dx + dy*dy + dz*dz);
             mag := dt / (distance * distance * distance);
 
-            b1.vx -= dx * b2.mass * mag;
-            b1.vy -= dy * b2.mass * mag;
-            b1.vz -= dz * b2.mass * mag;
-            b2.vx += dx * b1.mass * mag;
-            b2.vy += dy * b1.mass * mag;
-            b2.vz += dz * b1.mass * mag;
+            //bodies[i].vx -= dx * b2.mass * mag;
+            //bodies[i].vy -= dy * b2.mass * mag;
+            //bodies[i].vz -= dz * b2.mass * mag;
+            //bodies[j].vx += dx * b1.mass * mag;
+            //bodies[j].vy += dy * b1.mass * mag;
+            //bodies[j].vz += dz * b1.mass * mag;
+            bodies[i].vx -= dx * bodies[j].mass * mag;
+            bodies[i].vy -= dy * bodies[j].mass * mag;
+            bodies[i].vz -= dz * bodies[j].mass * mag;
+            bodies[j].vx += dx * bodies[i].mass * mag;
+            bodies[j].vy += dy * bodies[i].mass * mag;
+            bodies[j].vz += dz * bodies[i].mass * mag;
 
             j += 1;
         }
@@ -51,10 +60,10 @@ advance :: (body_count : s64, bodies : Body*, dt : f64) : void
     i = 0;
     while (i < body_count)
     {
-        b := bodies + i;
-        b.x += dt * b.vx;
-        b.y += dt * b.vy;
-        b.z += dt * b.vz;
+        //b := bodies[i];
+        bodies[i].x += dt * bodies[i].vx;
+        bodies[i].y += dt * bodies[i].vy;
+        bodies[i].z += dt * bodies[i].vz;
         i += 1;
     }
 }
@@ -67,14 +76,12 @@ energy :: (body_count : s64, bodies : Body*) : f64
     j : s64 = 0;
     while (i < body_count)
     {
-        //b1 := bodies + i;
         b1 := bodies[i];
-        result += 0.5d * b1.mass * (b1.vx*b1.vx + b1.vy*b1.vy + b1.vz*b1.vz);
-            //print("(outer)Body ");
-            //print(i);
-            //print(": ");
-            //print(result);
-            //println();
+        vv := (b1.vx*b1.vx + b1.vy*b1.vy + b1.vz*b1.vz);
+        //print(vv);
+        //println();
+        result += 0.5d * b1.mass * vv;
+        j = i + 1;
         while (j < body_count)
         {
             b2 := bodies[j];
@@ -82,19 +89,12 @@ energy :: (body_count : s64, bodies : Body*) : f64
             dy := b1.y - b2.y;
             dz := b1.z - b2.z;
             distance := sqrt(dx*dx + dy*dy + dz*dz);
-            result -= (b1.mass * b2.mass) / distance;
-            //print("(inner)Body ");
-            //print(j);
-            //print(": ");
-            //print(result);
-            //println();
+            //print("d="); print(distance); println();
+            r := (b1.mass * b2.mass) / distance;
+            //print("r="); print(r); println();
+            result -= r;
             j += 1;
         }
-        //print("Body ");
-        //print(i);
-        //print(": ");
-        //print(result);
-        //println();
         i += 1;
     }
     return result;
@@ -187,7 +187,7 @@ init_bodies :: ()
 
 print :: (x : f64, y : f64, z : f64)
 {
-    print(x); print(", "); print(y); print(", "); print(z);
+    print(x); print(", \t"); print(y); print(", \t"); print(z);
 }
 
 print_bodies :: (body_count : s64, bodies : Body*)
@@ -195,17 +195,17 @@ print_bodies :: (body_count : s64, bodies : Body*)
     i := 0;
     while (i < body_count)
     {
-        //b := bodies[i];
-        //print("Body "); println(i);
-        //print(" p: "); print(b.x, b.y, b.z);
-        //println();
-        //print(" v: "); print(b.vx, b.vy, b.vz);
-        //println();
-        //print(" m: "); print(b.mass);
-        //println();
+        b := bodies[i];
         print("Body "); println(i);
-        print(" p: "); print(bodies[i].x, bodies[i].y, bodies[i].z);
+        print(" p: "); print(b.x, b.y, b.z);
         println();
+        print(" v: "); print(b.vx, b.vy, b.vz);
+        println();
+        print(" m: "); print(b.mass);
+        println();
+        //print("Body "); println(i);
+        //print(" p: "); print(bodies[i].x, bodies[i].y, bodies[i].z);
+        //println();
         //print(" v: "); print(bodies[i].vx, bodies[i].vy, bodies[i].vz);
         //println();
         //print(" m: "); print(bodies[i].mass);
@@ -214,29 +214,31 @@ print_bodies :: (body_count : s64, bodies : Body*)
     }
 }
 
-main :: (N : s64)
+main :: ()
 {
-    N = 1;
+    N := 1000;
     init_bodies();
 
+    //print_bodies(BODY_COUNT, bodies);
+    //println("---");
+
     offset_momentum(BODY_COUNT, bodies);
-    //return 0;
 
-    print_bodies(BODY_COUNT, bodies);
-
+    //print_bodies(BODY_COUNT, bodies);
     e := energy(BODY_COUNT, bodies);
-    print(e); println();
-    //return 0;
+    /*print("e = ");*/ println(e, 9);
 
     i : s64 = 0;
     while (i < N)
     {
+        //print("advance "); println(i);
         advance(BODY_COUNT, bodies, 0.01d);
         i += 1;
     }
 
+    //print_bodies(BODY_COUNT, bodies);
     e = energy(BODY_COUNT, bodies);
-    print(e); println();
+    /*print("e = ");*/ println(e, 9);
 
     return 0;
 }

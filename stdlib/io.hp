@@ -10,17 +10,17 @@ foreign {
     hp_fwrite :: (file : FILE*, size : s64, data : u8*) : s64;
     hp_fprint_uint :: (file : FILE*, x : u64) : s64;
     hp_fprint_int :: (file : FILE*, x : s64) : s64;
-    hp_fprint_f64 :: (file : FILE*, x : f64) : s64;
+    hp_fprint_f32 :: (file : FILE*, x : f32, precision : s32) : s64;
+    hp_fprint_f64 :: (file : FILE*, x : f64, precision : s32) : s64;
 }
 
 stdout : FILE* = hp_get_stdout();
 stderr : FILE* = hp_get_stderr();
 stdin : FILE* = hp_get_stdin();
 
+
 print :: (s : string) : s64
-{
-    return hp_fwrite(stdout, s.size, s.data -> u8*);
-}
+{ return hp_fwrite(stdout, s.size, s.data -> u8*); }
 
 println :: (s : string) : s64
 {
@@ -29,10 +29,23 @@ println :: (s : string) : s64
 }
 
 println :: () : s64
+{ return print("\n"); }
+
+// u64
+
+print :: (x : u64) : s64
+{ return hp_fprint_uint(stdout, x); }
+
+println :: (x : u64) : s64
 {
-    return print("\n");
+    n := hp_fprint_uint(stdout, x);
+    return n + println();
 }
 
+// s64
+
+// NOTE: This version written in hplang is here only for language robustness
+// testing purposes.
 print :: (x : s64) : s64
 {
     if (x == 0)  return print("0");
@@ -72,7 +85,43 @@ println :: (x : s64) : s64
     return n + println();
 }
 
-print :: (x : f64) : s64
+// f32
+
+print :: (x : f32) : s64
+{ return hp_fprint_f32(stdout, x, 6); }
+
+print :: (x : f32, precision : s32) : s64
+{ return hp_fprint_f32(stdout, x, precision); }
+
+println :: (x : f32) : s64
 {
-    return hp_fprint_f64(stdout, x);
+    n := hp_fprint_f32(stdout, x, 6);
+    return n + println();
 }
+
+println :: (x : f32, precision : s32) : s64
+{
+    n := hp_fprint_f32(stdout, x, precision);
+    return n + println();
+}
+
+// f64
+
+print :: (x : f64) : s64
+{ return hp_fprint_f64(stdout, x, 6); }
+
+print :: (x : f64, precision : s32) : s64
+{ return hp_fprint_f64(stdout, x, precision); }
+
+println :: (x : f64) : s64
+{
+    n := hp_fprint_f64(stdout, x, 6);
+    return n + println();
+}
+
+println :: (x : f64, precision : s32) : s64
+{
+    n := hp_fprint_f64(stdout, x, precision);
+    return n + println();
+}
+

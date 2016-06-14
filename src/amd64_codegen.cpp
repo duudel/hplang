@@ -1842,13 +1842,24 @@ static void GenerateCode(Codegen_Context *ctx,
                 if (TypeIsStruct(ir_instr->target.type))
                 {
                     Type *type = ir_instr->target.type;
+                    if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
+                    {
+                        Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                        Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                        PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
+                        PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
+                        Copy(ctx, target, source_addr, type);
+                    }
+                    else
+                    {
                     Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                    //Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Write);
-                    //Operand target_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                    Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                    Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Write);
                     PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
-                    PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
-                    Copy(ctx, target, source_addr, type);
+                    //Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                    //PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
+                    //PushLoad(ctx, source_addr, IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                    Copy(ctx, target, source, type);
+                    }
                 }
                 else
                 {
@@ -1993,8 +2004,14 @@ static void GenerateCode(Codegen_Context *ctx,
                     idx.data_type = index.data_type;
                     PushLoad(ctx, index, idx);
                     PushInstruction(ctx, OP_imul, RW_(index), ImmOperand(size, AF_Read));
+                    
+                    Operand base = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                    //Operand oper1 = GetAddress(ctx, &ir_instr->oper1);
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                    PushLoad(ctx, base, R_(oper1), S_(IrOperand(ctx, &ir_instr->oper1, AF_Read)));
                     PushLoad(ctx, target,
-                            BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
+                            BaseIndexOffsetOperand(base, 0, AF_Read),
+                            //BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
                             IndexScaleOperand(index, 1, AF_Read));
                 }
             } break;
@@ -2020,13 +2037,11 @@ static void GenerateCode(Codegen_Context *ctx,
                     PushInstruction(ctx, OP_imul, RW_(index), ImmOperand(size, AF_Read));
 
                     Operand base = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                    Operand oper1 = GetAddress(ctx, &ir_instr->oper1);
+                    //Operand oper1 = GetAddress(ctx, &ir_instr->oper1);
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                     PushLoad(ctx, base, R_(oper1), S_(IrOperand(ctx, &ir_instr->oper1, AF_Read)));
-                    //Instruction *load = PushLoad(ctx, base, R_(oper1));
-                    //PushOperandUse(ctx, &use, IrOperand(ctx, ir_instr->oper1, AF_Read));
                     PushLoadAddr(ctx, target,
                             BaseIndexOffsetOperand(base, 0, AF_Read),
-                            //BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
                             IndexScaleOperand(index, 1, AF_Read));
                 }
             } break;

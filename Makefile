@@ -39,9 +39,10 @@ run:
 	@#-./$(EXENAME) -di tests/member_access.hp 2> stderr.out
 	@#-./$(EXENAME) -diR tests/pointer_arith.hp 2> stderr.out
 	@#-./$(EXENAME) -dR tests/difficult_rt_infer.hp 2> stderr.out
-	-./$(EXENAME) -diR -o out tests/exec/arg_passing.hp 2> stderr.out
+	@#-./$(EXENAME) -diR -o out tests/exec/arg_passing.hp 2> stderr.out
 	@#-./$(EXENAME) -diR samples/nbody.hp 2> stderr.out
-	@#-./$(EXENAME) -diR -o out tests/exec/nbody.hp 2> stderr.out
+	-./$(EXENAME) -diR -o out tests/exec/nbody.hp 2> stderr.out
+	@#-./$(EXENAME) -diR -o out tests/member_access.hp 2> stderr.out
 	@#-./$(EXENAME) -diR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dRi samples/simple.hp 2> stderr.out
 	@#-./$(EXENAME) -dRi samples/test.hp 2> stderr.out

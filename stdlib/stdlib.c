@@ -36,7 +36,9 @@ s64 hp_fprint_uint(FILE *file, u64 x)
 { return fprintf(stdout, "%" PRIu64, x); }
 
 s64 hp_fprint_int(FILE *file, s64 x)
-//{ return fprintf(stdout, "%" PRId64, x); }
+#if 1
+{ return fprintf(stdout, "%" PRId64, x); }
+#else
 {
     if (x == 0) return printf("0");
     int neg = (x < 0);
@@ -63,9 +65,11 @@ s64 hp_fprint_int(FILE *file, s64 x)
     }
     return written;
 }
+#endif
 
-s64 hp_fprint_f32(FILE *file, f32 x)
-{ return fprintf(stdout, "%f", x); }
+s64 hp_fprint_f32(FILE *file, f32 x, s32 precision)
+{ return fprintf(stdout, "%.*f", precision, x); }
 
-s64 hp_fprint_f64(FILE *file, f64 x)
-{ return fprintf(stdout, "%f", x); }
+s64 hp_fprint_f64(FILE *file, f64 x, s32 precision)
+{ return fprintf(stdout, "%.*f", precision, x); }
+

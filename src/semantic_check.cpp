@@ -473,14 +473,22 @@ static s64 CheckFunctionArgs(Type *ftype, s64 arg_count, Type **arg_types)
 
         // TODO(henrik): Make the check and overload resolution more robust and
         // intuitive for the user.
-        score <<= 2; // TODO(henrik): should this be done?
+        //score <<= 2; // TODO(henrik): should this be done?
         if (TypesEqual(arg_type, param_type))
         {
-            score += 2;
+            score += 3;
         }
         else if (CheckTypeCoercion(arg_type, param_type))
         {
-            score += 1;
+            if (TypeIsIntegral(arg_type) && TypeIsIntegral(param_type))
+            {
+                if (TypeIsSigned(arg_type) == TypeIsSigned(param_type))
+                    score += 2;
+            }
+            else
+            {
+                score += 1;
+            }
         }
         else
         {
