@@ -1,18 +1,58 @@
 // A test source file for compiler debugging purposes
 // 2016-06-14
 
+import ":io";
+
+Vector :: struct
+{
+    x : f64;
+    y : f64;
+    z : f64;
+}
+
+add :: (v1 : Vector, v2 : Vector) : Vector
+{
+    result : Vector;
+    result.x = v1.x + v2.x;
+    result.y = v1.y + v2.y;
+    result.z = v1.z + v2.z;
+    return result;
+}
+
+print :: (v : Vector)
+{
+    n := print(v.x);
+    n += print(", ");
+    n += print(v.y);
+    n += print(", ");
+    n += print(v.z);
+    return n;
+}
+
+println :: (v : Vector)
+{
+    n := print(v);
+    return n + println();
+}
+
 main :: ()
 {
-    x := 5;
-    y := 0;
-    if (x < 0)
-    {
-        y = 8;
-        x = 2;
-    }
-    else
-        x = 8;
+    a : Vector;
+    b : Vector;
 
-    x += 3;
+    a.x = 0.5;
+    a.y = -0.5;
+    a.z = -3.25;
+    //a.x = 0.5;
+
+    b.x = 2.5;
+    b.y = 0.25;
+    b.z = -2.0;
+
+    print(" "); println(a);
+    print("+"); println(b);
+    a = add(a, b);
+    println("------------------------------");
+    print("="); println(a);
     return 0;
 }

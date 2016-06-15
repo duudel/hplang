@@ -583,9 +583,7 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     {
         Struct_Member *member = &base_type->struct_type.members[member_index];
         if (member->name == member_name)
-        {
             break;
-        }
     }
     ASSERT(member_index >= 0);
 
@@ -613,9 +611,7 @@ static Ir_Operand GenRefAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
     {
         Struct_Member *member = &base_type->struct_type.members[member_index];
         if (member->name == member_name)
-        {
             break;
-        }
     }
     ASSERT(member_index >= 0);
 

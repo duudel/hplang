@@ -2731,8 +2731,16 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
             next.data_type = active_interval.data_type;
 
             AddToUnhandled(inactive, next);
-            if (next.start > instr_index)
+
+            // TODO(henrik): Investigate: why were we spilling here? Was it really needed?
+            // NOTE(henrik): Disabled, as it caused subtle bugs.
+            if (false && next.start > instr_index)
+            {
+                fprintf(stderr, "<<Insert spill of ");
+                PrintName((IoFile*)stderr, next.name);
+                fprintf(stderr, ">>\n");
                 Spill(ctx->reg_alloc, next, instr_index-1);
+            }
         }
 
         ReleaseRegister(ctx->reg_alloc, active_interval.reg, active_interval.data_type);
@@ -3637,7 +3645,7 @@ void OutputCode_Amd64(Codegen_Context *ctx)
         {
             Float32_Const fconst = ctx->float32_consts[i];
             PrintName(file, fconst.label_name);
-            fprintf(f, ":\tdd\t%" PRIu32 "\n", fconst.uvalue);
+            fprintf(f, ":\tdd\t%" PRIu32 "\t; %f\n", fconst.uvalue, fconst.value);
         }
     }
     if (ctx->float64_consts.count)
@@ -3647,7 +3655,7 @@ void OutputCode_Amd64(Codegen_Context *ctx)
         {
             Float64_Const fconst = ctx->float64_consts[i];
             PrintName(file, fconst.label_name);
-            fprintf(f, ":\tdq\t%" PRIu64 "\n", fconst.uvalue);
+            fprintf(f, ":\tdq\t%" PRIu64 "\t; %f\n", fconst.uvalue, fconst.value);
         }
     }
 
