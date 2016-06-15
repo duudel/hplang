@@ -27,7 +27,11 @@ FILE* hp_get_stderr() { return stderr; }
 FILE* hp_get_stdin() { return stdin; }
 
 s64 hp_fwrite(FILE *file, s64 size, u8 *data)
-{ return fwrite(data, 1, size, stdout); }
+{
+    s64 n = fwrite(data, 1, size, stdout);
+    fflush(stdout);
+    return n;
+}
 
 s64 hp_write(s64 size, u8 *data)
 { return fwrite(data, 1, size, stdout); }

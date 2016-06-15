@@ -1827,6 +1827,12 @@ static void GenerateCode(Codegen_Context *ctx,
 
         case IR_Addr:
             {
+                if (TypeIsStruct(ir_instr->oper1.type))
+                {
+                    PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+                    break;
+                }
+
                 Operand addr_oper = GetAddress(ctx, &ir_instr->oper1);
                 Operand oper = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                 //PushLoad(ctx, W_(addr_oper), IrOperand(ctx, &ir_instr->oper1, AF_Read));
@@ -1937,6 +1943,7 @@ static void GenerateCode(Codegen_Context *ctx,
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 if (TypeIsPointer(oper_type))
                 {
+                    ASSERT(TypeIsStruct(oper_type->base_type));
                     s64 member_offset = GetStructMemberOffset(oper_type->base_type, member_index);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                     oper1.data_type = target.data_type;
@@ -1947,6 +1954,7 @@ static void GenerateCode(Codegen_Context *ctx,
                 }
                 else
                 {
+                    ASSERT(TypeIsStruct(oper_type));
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                     oper1.data_type = target.data_type;
@@ -1969,10 +1977,12 @@ static void GenerateCode(Codegen_Context *ctx,
                 if (TypeIsPointer(oper_type))
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type->base_type, member_index);
-                    Operand base = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                    Operand oper1 = GetAddress(ctx, &ir_instr->oper1);
-                    PushLoad(ctx, base, R_(oper1));
-                    PushLoadAddr(ctx, target, BaseOffsetOperand(base, member_offset, AF_Read));
+                    //Operand base = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                    //Operand oper1 = GetAddress(ctx, &ir_instr->oper1);
+                    //PushLoad(ctx, base, R_(oper1));
+                    //PushLoadAddr(ctx, target, BaseOffsetOperand(base, member_offset, AF_Read));
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                    PushLoadAddr(ctx, target, BaseOffsetOperand(oper1, member_offset, AF_Read));
                 }
                 else
                 {
@@ -2067,9 +2077,10 @@ static void GenerateCode(Codegen_Context *ctx,
                     const Reg *ret_reg = GetReturnRegister(ctx->reg_alloc, data_type, 0);
                     Operand ret_oper = FixedRegOperand(ctx, *ret_reg, data_type, AF_Write);
                     call->oper2 = S_(ret_oper);
-                    PushLoad(ctx,
+                    Instruction *load_rval = PushLoad(ctx,
                         IrOperand(ctx, &ir_instr->target, AF_Write),
                         R_(ret_oper));
+                    load_rval->uses = uses;
                 }
                 ctx->current_arg_count = 0;
             } break;

@@ -7,11 +7,7 @@ nbody
 Translated from Cristoph Bauer's C version
 */
 
-import "io";
-
-//foreign {
-//    sqrt :: (x : f64) : f64;
-//}
+import ":io";
 
 pi := 3.141592653589793d;
 solar_mass := 4.0d * pi * pi;
@@ -26,15 +22,12 @@ Body :: struct
 
 advance :: (body_count : s64, bodies : Body*, dt : f64) : void
 {
-    i : s64 = 0;
-    j : s64 = 0;
-    while (i < body_count)
+    for (i : s64 = 0; i < body_count; i += 1)
     {
-        b1 := bodies[i];
-        j = i + 1;
-        while (j < body_count)
+        b1 := &bodies[i];
+        for (j := i + 1; j < body_count; j += 1)
         {
-            b2 := bodies[j];
+            b2 := &bodies[j];
             dx := b1.x - b2.x;
             dy := b1.y - b2.y;
             dz := b1.z - b2.z;
@@ -47,19 +40,16 @@ advance :: (body_count : s64, bodies : Body*, dt : f64) : void
             b2.vx += dx * b1.mass * mag;
             b2.vy += dy * b1.mass * mag;
             b2.vz += dz * b1.mass * mag;
-
-            j += 1;
+            print("body "); print(i); print(" b2.vz = "); println(b2.vz);
         }
-        i += 1;
     }
-    i = 0;
-    while (i < body_count)
+    for (i := 0; i < body_count; i += 1)
     {
-        b := bodies + i;
+        b := &bodies[i];
         b.x += dt * b.vx;
         b.y += dt * b.vy;
         b.z += dt * b.vz;
-        i += 1;
+        print("body "); print(i); print(" b.z = "); println(b.z);
     }
 }
 
@@ -67,19 +57,11 @@ energy :: (body_count : s64, bodies : Body*) : f64
 {
     result := 0.0d;
 
-    i : s64 = 0;
-    j : s64 = 0;
-    while (i < body_count)
+    for (i : s64 = 0; i < body_count; i += 1)
     {
-        //b1 := bodies + i;
         b1 := bodies[i];
         result += 0.5d * b1.mass * (b1.vx*b1.vx + b1.vy*b1.vy + b1.vz*b1.vz);
-            //print("(outer)Body ");
-            //print(i);
-            //print(": ");
-            //print(result);
-            //println();
-        while (j < body_count)
+        for (j := i + 1; j < body_count; j += 1)
         {
             b2 := bodies[j];
             dx := b1.x - b2.x;
@@ -87,19 +69,7 @@ energy :: (body_count : s64, bodies : Body*) : f64
             dz := b1.z - b2.z;
             distance := sqrt(dx*dx + dy*dy + dz*dz);
             result -= (b1.mass * b2.mass) / distance;
-            //print("(inner)Body ");
-            //print(j);
-            //print(": ");
-            //print(result);
-            //println();
-            j += 1;
         }
-        //print("Body ");
-        //print(i);
-        //print(": ");
-        //print(result);
-        //println();
-        i += 1;
     }
     return result;
 }
@@ -109,13 +79,11 @@ offset_momentum :: (body_count : s64, bodies : Body*) : void
     px : f64 = 0.0d;
     py : f64 = 0.0d;
     pz : f64 = 0.0d;
-    i : s64 = 0;
-    while (i < body_count)
+    for (i : s64 = 0; i < body_count; i += 1)
     {
         px += bodies[i].vx * bodies[i].mass;
         py += bodies[i].vy * bodies[i].mass;
         pz += bodies[i].vz * bodies[i].mass;
-        i += 1;
     }
     bodies[0].vx = -px / solar_mass;
     bodies[0].vy = -py / solar_mass;
@@ -196,65 +164,39 @@ print :: (x : f64, y : f64, z : f64)
 
 print_bodies :: (body_count : s64, bodies : Body*)
 {
-    i := 0;
-    while (i < body_count)
+    for (i := 0; i < body_count; i += 1)
     {
-        //b := bodies[i];
-        //print("Body "); println(i);
-        //print(" p: "); print(b.x, b.y, b.z);
-        //println();
-        //print(" v: "); print(b.vx, b.vy, b.vz);
-        //println();
-        //print(" m: "); print(b.mass);
-        //println();
+        b := bodies[i];
         print("Body "); println(i);
-        print(" p: "); print(bodies[i].x); //, bodies[i].y, bodies[i].z);
+        print(" p: "); print(b.x, b.y, b.z);
         println();
-        //print(" v: "); print(bodies[i].vx, bodies[i].vy, bodies[i].vz);
-        //println();
-        //print(" m: "); print(bodies[i].mass);
-        //println();
-        i += 1;
+        print(" v: "); print(b.vx, b.vy, b.vz);
+        println();
+        print(" m: "); println(b.mass);
     }
 }
 
 main :: (N : s64)
 {
-    N = 5;
+    N = 1;
+    //N = 1000;
     init_bodies();
 
-    print("Body count: ");
-    println(BODY_COUNT);
-    idx := 0;
-    bodies[0].x = 2.0;
-    bodies[0].y = 2.8;
-    print(bodies[idx].x, bodies[idx].y, bodies[idx].z);
-    println();
-    idx += 1;
-    print(bodies[idx].x, bodies[idx].y, bodies[idx].z);
-    println();
-    //print_bodies(BODY_COUNT, bodies);
-    return 0;
-
     offset_momentum(BODY_COUNT, bodies);
-    //return 0;
 
-    print("Body count: ");
-    println(BODY_COUNT);
+    //print_bodies(BODY_COUNT, bodies);
+    //println("---");
 
     e := energy(BODY_COUNT, bodies);
-    print(e); println();
-    return 0;
+    print("energy = "); println(e, 9);
 
-    i : s64 = 0;
-    while (i < N)
+    for (i : s64 = 0; i < N; i += 1)
     {
         advance(BODY_COUNT, bodies, 0.01d);
-        i += 1;
     }
 
     e = energy(BODY_COUNT, bodies);
-    print(e); println();
+    print("energy = "); println(e, 9);
 
     return 0;
 }

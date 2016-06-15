@@ -574,7 +574,11 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     Type *member_type = StripPendingType(member_expr->expr_type);
 
     Name member_name = member_expr->variable_ref.name;
-    s64 member_index = 0;
+    s64 member_index = -1;
+
+    if (TypeIsPointer(base_type))
+        base_type = base_type->base_type;
+    ASSERT(TypeIsStruct(base_type));
     for (; member_index < base_type->struct_type.member_count; member_index++)
     {
         Struct_Member *member = &base_type->struct_type.members[member_index];
@@ -583,6 +587,7 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
             break;
         }
     }
+    ASSERT(member_index >= 0);
 
     Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
     base_res.type = base_res.type->base_type;
@@ -703,31 +708,62 @@ static Ir_Operand GenUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *
 {
     Unary_Op op = expr->unary_expr.op;
     Ast_Expr *oper_expr = expr->unary_expr.expr;
-    Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
-    Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
     switch (op)
     {
         case UN_OP_Positive:
-            PushInstruction(ctx, routine, IR_Mov, target, oper);
-            break;
+            {
+                Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
+                Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
+                PushInstruction(ctx, routine, IR_Mov, target, oper);
+                return target;
+            }
         case UN_OP_Negative:
-            PushInstruction(ctx, routine, IR_Neg, target, oper);
-            break;
+            {
+                Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
+                Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
+                PushInstruction(ctx, routine, IR_Neg, target, oper);
+                return target;
+            }
         case UN_OP_Not:
-            PushInstruction(ctx, routine, IR_Not, target, oper);
-            break;
+            {
+                Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
+                Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
+                PushInstruction(ctx, routine, IR_Not, target, oper);
+                return target;
+            }
         case UN_OP_Complement:
-            PushInstruction(ctx, routine, IR_Compl, target, oper);
-            break;
+            {
+                Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
+                Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
+                PushInstruction(ctx, routine, IR_Compl, target, oper);
+                return target;
+            }
         case UN_OP_Address:
-            ASSERT(TypeIsPointer(target.type));
-            PushInstruction(ctx, routine, IR_Addr, target, oper);
-            break;
+            {
+                //if (expr->type != AST_VariableRef)
+                //{
+                //    Ir_Operand oper = GenRefExpression(ctx, oper_expr, routine);
+                //    return oper;
+                //}
+                //else
+                {
+                    ASSERT(TypeIsPointer(expr->expr_type));
+                    Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
+                    Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
+                    PushInstruction(ctx, routine, IR_Addr, target, oper);
+                    return target;
+                }
+            }
         case UN_OP_Deref:
-            PushInstruction(ctx, routine, IR_Deref, target, oper);
-            break;
+            {
+                Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
+                Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
+                PushInstruction(ctx, routine, IR_Deref, target, oper);
+                return target;
+            }
     }
-    return target;
+    INVALID_CODE_PATH;
+    return NoneOperand();
 }
 
 static Ir_Operand GenRefUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
