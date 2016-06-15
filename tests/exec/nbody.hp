@@ -7,6 +7,9 @@ nbody
 Translated from Cristoph Bauer's C version
 */
 
+// nbody.hp - version that uses direct "references" to Body in advance::().
+// 2016-06-16
+
 import ":io";
 
 pi := 3.141592653589793d;
@@ -24,56 +27,12 @@ advance :: (body_count : s64, bodies : Body*, dt : f64) : void
 {
     for (i : s64 = 0; i < body_count; i += 1)
     {
-        b1 := &bodies[i];
-        for (j := i + 1; j < body_count; j += 1)
-        {
-            b2 := &bodies[j];
-            print("b("); print(i); print(").x="); println(b1.x);
-            print("b("); print(j); print(").x="); println(b2.x);
-            dx := b1.x - b2.x;
-            //print("dx= "); println(dx);
-            dy := b1.y - b2.y;
-            dz := b1.z - b2.z;
-            distance := sqrt(dx*dx + dy*dy + dz*dz);
-            //print("d= "); println(distance, 9);
-            mag := dt / (distance * distance * distance);
-
-            b1.vx -= dx * b2.mass * mag;
-            b1.vy -= dy * b2.mass * mag;
-            b1.vz -= dz * b2.mass * mag;
-            b2.vx += dx * b1.mass * mag;
-            b2.vy += dy * b1.mass * mag;
-            b2.vz += dz * b1.mass * mag;
-            //print("body "); print(i); print(" b2.vz = "); println(b2.vz);
-        }
-    }
-    for (i : s64 = 0; i < body_count; i += 1)
-    {
-        //b := &bodies[i];
-        //b.x += dt * b.vx;
-        //b.y += dt * b.vy;
-        //b.z += dt * b.vz;
-        bodies[i].x += dt * bodies[i].vx;
-        bodies[i].y += dt * bodies[i].vy;
-        bodies[i].z += dt * bodies[i].vz;
-        //print("body "); print(i); print(" b.z = "); println(bodies[i].z);
-    }
-}
-
-advance_ :: (body_count : s64, bodies : Body*, dt : f64) : void
-{
-    for (i : s64 = 0; i < body_count; i += 1)
-    {
         for (j := i + 1; j < body_count; j += 1)
         {
             dx := bodies[i].x - bodies[j].x;
-            print("b("); print(i); print(").x="); println(bodies[i].x);
-            print("b("); print(j); print(").x="); println(bodies[j].x);
-            //print("dx= "); println(dx);
             dy := bodies[i].y - bodies[j].y;
             dz := bodies[i].z - bodies[j].z;
             distance := sqrt(dx*dx + dy*dy + dz*dz);
-            //print("d= "); println(distance, 9);
             mag := dt / (distance * distance * distance);
 
             bodies[i].vx -= dx * bodies[j].mass * mag;
@@ -89,7 +48,6 @@ advance_ :: (body_count : s64, bodies : Body*, dt : f64) : void
         bodies[i].x += dt * bodies[i].vx;
         bodies[i].y += dt * bodies[i].vy;
         bodies[i].z += dt * bodies[i].vz;
-        //print("body "); print(i); print(" b.z = "); println(bodies[i].z);
     }
 }
 
@@ -101,8 +59,6 @@ energy :: (body_count : s64, bodies : Body*) : f64
     {
         b1 := bodies[i];
         vv := (b1.vx*b1.vx + b1.vy*b1.vy + b1.vz*b1.vz);
-        //print(vv);
-        //println();
         result += 0.5d * b1.mass * vv;
         for (j := i + 1; j < body_count; j += 1)
         {
@@ -111,9 +67,7 @@ energy :: (body_count : s64, bodies : Body*) : f64
             dy := b1.y - b2.y;
             dz := b1.z - b2.z;
             distance := sqrt(dx*dx + dy*dy + dz*dz);
-            //print("d="); print(distance); println();
             r := (b1.mass * b2.mass) / distance;
-            //print("r="); print(r); println();
             result -= r;
         }
     }
@@ -224,16 +178,12 @@ print_bodies :: (body_count : s64, bodies : Body*)
 
 main :: ()
 {
-    N := 1;
-    //N := 1000;
+    //N := 1;
+    N := 1000;
     //N := 50000000;
     init_bodies();
 
     offset_momentum(BODY_COUNT, bodies);
-
-    //print_bodies(BODY_COUNT, bodies);
-    //println("---");
-    //return 0;
 
     //print_bodies(BODY_COUNT, bodies);
     e := energy(BODY_COUNT, bodies);
@@ -244,7 +194,6 @@ main :: ()
         advance(BODY_COUNT, bodies, 0.01d);
     }
 
-    //print_bodies(BODY_COUNT, bodies);
     e = energy(BODY_COUNT, bodies);
     /*print("e = ");*/ println(e, 9);
 

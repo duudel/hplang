@@ -158,6 +158,7 @@ static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/exec/module_test.hp",    nullptr,                            42 },
     (Execute_Test){ "tests/exec/modules_test.hp",   nullptr,                            210 },
     (Execute_Test){ "tests/exec/nbody.hp",          "tests/exec/nbody.stdout",          0 },
+    (Execute_Test){ "tests/exec/nbody_p.hp",        "tests/exec/nbody.stdout",          0 },
     (Execute_Test){ "tests/pointer_arith.hp",       nullptr,                            0 },
     (Execute_Test){ "tests/member_access.hp",       nullptr,                            0 },
     (Execute_Test){ "tests/function_var.hp",        nullptr,                            0 },

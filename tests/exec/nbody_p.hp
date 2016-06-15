@@ -7,6 +7,9 @@ nbody
 Translated from Cristoph Bauer's C version
 */
 
+// nbody_p.hp - version that uses pointers to Body in advance::().
+// 2016-06-16
+
 import ":io";
 
 pi := 3.141592653589793d;
@@ -42,7 +45,7 @@ advance :: (body_count : s64, bodies : Body*, dt : f64) : void
             b2.vz += dz * b1.mass * mag;
         }
     }
-    for (i := 0; i < body_count; i += 1)
+    for (i : s64 = 0; i < body_count; i += 1)
     {
         b := &bodies[i];
         b.x += dt * b.vx;
@@ -58,7 +61,8 @@ energy :: (body_count : s64, bodies : Body*) : f64
     for (i : s64 = 0; i < body_count; i += 1)
     {
         b1 := bodies[i];
-        result += 0.5d * b1.mass * (b1.vx*b1.vx + b1.vy*b1.vy + b1.vz*b1.vz);
+        vv := (b1.vx*b1.vx + b1.vy*b1.vy + b1.vz*b1.vz);
+        result += 0.5d * b1.mass * vv;
         for (j := i + 1; j < body_count; j += 1)
         {
             b2 := bodies[j];
@@ -66,7 +70,8 @@ energy :: (body_count : s64, bodies : Body*) : f64
             dy := b1.y - b2.y;
             dz := b1.z - b2.z;
             distance := sqrt(dx*dx + dy*dy + dz*dz);
-            result -= (b1.mass * b2.mass) / distance;
+            r := (b1.mass * b2.mass) / distance;
+            result -= r;
         }
     }
     return result;
@@ -157,14 +162,14 @@ init_bodies :: ()
 
 print :: (x : f64, y : f64, z : f64)
 {
-    print(x); print(", "); print(y); print(", "); print(z);
+    print(x, 9); print(", \t"); print(y, 9); print(", \t"); print(z, 9);
 }
 
 print_bodies :: (body_count : s64, bodies : Body*)
 {
     for (i := 0; i < body_count; i += 1)
     {
-        b := bodies[i];
+        b := &bodies[i];
         print("Body "); println(i);
         print(" p: "); print(b.x, b.y, b.z);
         println();
@@ -176,18 +181,16 @@ print_bodies :: (body_count : s64, bodies : Body*)
 
 main :: ()
 {
-    //N = 1;
-    //N = 1000;
-    N := 50000000;
+    //N := 1;
+    N := 1000;
+    //N := 50000000;
     init_bodies();
 
     offset_momentum(BODY_COUNT, bodies);
 
     //print_bodies(BODY_COUNT, bodies);
-    //println("---");
-
     e := energy(BODY_COUNT, bodies);
-    print("energy = "); println(e, 9);
+    /*print("e = ");*/ println(e, 9);
 
     for (i : s64 = 0; i < N; i += 1)
     {
@@ -195,7 +198,7 @@ main :: ()
     }
 
     e = energy(BODY_COUNT, bodies);
-    print("energy = "); println(e, 9);
+    /*print("e = ");*/ println(e, 9);
 
     return 0;
 }
