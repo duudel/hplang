@@ -1641,7 +1641,6 @@ static void PushOperandUse(Codegen_Context *ctx, Operand_Use **use, const Operan
 static s64 PushArgs(Codegen_Context *ctx,
         Ir_Routine *ir_routine, Ir_Instruction *ir_instr, Operand_Use **uses)
 {
-    s64 arg_index = 0; //arg_count - 1;
     Reg_Seq_Index arg_reg_index = { };
 
     //s64 arg_stack_alloc = //(arg_count > 4 ? arg_count : 4) * 8;
@@ -1667,6 +1666,7 @@ static s64 PushArgs(Codegen_Context *ctx,
         Type *arg_type = arg_instr->target.type;
         Oper_Data_Type arg_data_type = DataTypeFromType(arg_type);
         const Reg *arg_reg = GetArgRegister(ctx->reg_alloc, arg_data_type, &arg_reg_index);
+        s64 arg_sp_offset = GetOffsetFromStackPointer(ctx->reg_alloc, arg_reg_index);
         if (TypeIsStruct(arg_type))
         {
             if (arg_reg)
@@ -1682,7 +1682,7 @@ static s64 PushArgs(Codegen_Context *ctx,
                 Operand temp = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
                 PushLoadAddr(ctx, W_(temp), R_(GetAddress(ctx, &arg_instr->target)));
                 PushLoad(ctx,
-                        BaseOffsetOperand(REG_rsp, arg_index * 8, temp.data_type, AF_Write),
+                        BaseOffsetOperand(REG_rsp, arg_sp_offset, temp.data_type, AF_Write),
                         R_(temp));
                 PushOperandUse(ctx, &use, IrOperand(ctx, &arg_instr->target, AF_Read));
             }
@@ -1696,21 +1696,19 @@ static s64 PushArgs(Codegen_Context *ctx,
                 PushLoad(ctx, arg_target, arg_oper);
                 // NOTE(henrik): Here we spill all arguments that go in the shadow space backed registers
                 // as the reg alloc does not know how to handle them otherwise atm.
-                PushLoad(ctx,
-                        BaseOffsetOperand(REG_rsp, arg_index * 8, arg_oper.data_type, AF_Write),
-                        R_(arg_target));
+                //PushLoad(ctx,
+                //        BaseOffsetOperand(REG_rsp, arg_sp_offset, arg_oper.data_type, AF_Write),
+                //        R_(arg_target));
                 PushOperandUse(ctx, &use, arg_target);
             }
             else
             {
                 Operand arg_oper = IrOperand(ctx, &arg_instr->target, AF_Read);
                 PushLoad(ctx,
-                        BaseOffsetOperand(REG_rsp, arg_index * 8, arg_oper.data_type, AF_Write),
+                        BaseOffsetOperand(REG_rsp, arg_sp_offset, arg_oper.data_type, AF_Write),
                         arg_oper);
             }
         }
-
-        arg_index++;
 
         ASSERT(arg_instr->oper1.oper_type == IR_OPER_Immediate);
         arg_instr_idx = arg_instr->oper1.imm_s64;
@@ -2014,7 +2012,7 @@ static void GenerateCode(Codegen_Context *ctx,
                     idx.data_type = index.data_type;
                     PushLoad(ctx, index, idx);
                     PushInstruction(ctx, OP_imul, RW_(index), ImmOperand(size, AF_Read));
-                    
+
                     Operand base = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
                     //Operand oper1 = GetAddress(ctx, &ir_instr->oper1);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);

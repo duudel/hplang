@@ -108,6 +108,7 @@ const Reg* GetArgRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, Reg_Se
 
 s64 GetArgStackAllocSize(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index);
 s64 GetOffsetFromBasePointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index);
+s64 GetOffsetFromStackPointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index);
 
 } // hplang
 

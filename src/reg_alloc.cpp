@@ -222,11 +222,15 @@ static void AdvanceArgIndex(Reg_Alloc *reg_alloc,
     }
 }
 
+enum {
+    WORD_SIZE = 8
+};
+
 s64 GetArgStackAllocSize(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index)
 {
     s32 stack_arg_count = reg_alloc->shadow_arg_reg_count;
     stack_arg_count += arg_index.stack_arg_count;
-    return stack_arg_count * 8;
+    return stack_arg_count * WORD_SIZE;
 }
 
 s64 GetOffsetFromBasePointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index)
@@ -244,7 +248,25 @@ s64 GetOffsetFromBasePointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index)
     if (stack_slots == 0) return -1;
 
     stack_slots += 2 - 1; // old rbp, return address
-    return stack_slots * 8;
+    return stack_slots * WORD_SIZE;
+}
+
+s64 GetOffsetFromStackPointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index)
+{
+    s64 stack_slots = 0;
+    if (reg_alloc->shadow_arg_reg_count)
+    {
+        stack_slots += arg_index.total_arg_count;
+    }
+    else
+    {
+        stack_slots += arg_index.stack_arg_count;
+    }
+    // NOTE(henrik): Return -1 when there is no local offset for the argument.
+    if (stack_slots == 0) return -1;
+
+    stack_slots -= 1; // old rbp, return address
+    return stack_slots * WORD_SIZE;
 }
 
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc,
