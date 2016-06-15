@@ -28,8 +28,10 @@ advance :: (body_count : s64, bodies : Body*, dt : f64) : void
         for (j := i + 1; j < body_count; j += 1)
         {
             b2 := &bodies[j];
+            print("b("); print(i); print(").x="); println(b1.x);
+            print("b("); print(j); print(").x="); println(b2.x);
             dx := b1.x - b2.x;
-            print("dx= "); println(dx);
+            //print("dx= "); println(dx);
             dy := b1.y - b2.y;
             dz := b1.z - b2.z;
             distance := sqrt(dx*dx + dy*dy + dz*dz);
@@ -65,7 +67,9 @@ advance_ :: (body_count : s64, bodies : Body*, dt : f64) : void
         for (j := i + 1; j < body_count; j += 1)
         {
             dx := bodies[i].x - bodies[j].x;
-            print("dx= "); println(dx);
+            print("b("); print(i); print(").x="); println(bodies[i].x);
+            print("b("); print(j); print(").x="); println(bodies[j].x);
+            //print("dx= "); println(dx);
             dy := bodies[i].y - bodies[j].y;
             dz := bodies[i].z - bodies[j].z;
             distance := sqrt(dx*dx + dy*dy + dz*dz);

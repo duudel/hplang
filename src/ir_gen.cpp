@@ -605,7 +605,10 @@ static Ir_Operand GenRefAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
     Type *member_type = StripPendingType(member_expr->expr_type);
 
     Name member_name = member_expr->variable_ref.name;
-    s64 member_index = 0;
+    s64 member_index = -1;
+    if (TypeIsPointer(base_type))
+        base_type = base_type->base_type;
+    ASSERT(TypeIsStruct(base_type));
     for (; member_index < base_type->struct_type.member_count; member_index++)
     {
         Struct_Member *member = &base_type->struct_type.members[member_index];
@@ -614,6 +617,7 @@ static Ir_Operand GenRefAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
             break;
         }
     }
+    ASSERT(member_index >= 0);
 
     Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
     base_res.type = base_res.type->base_type;
