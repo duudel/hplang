@@ -58,5 +58,9 @@ main :: ()
     print("s3.ival = ");
     println(s3.ival);
 
+    // To test testing suite in case a test fails by signaling.
+    //np := null -> char*;
+    //@np = 'k';
+
     return result;
 }

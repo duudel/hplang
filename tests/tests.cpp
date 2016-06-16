@@ -298,6 +298,8 @@ b32 RunTest(const Succeed_Test &test)
 
 #if defined(HP_WIN)
 const char *test_exe = "out.exe";
+#include <windows.h>
+
 #else
 const char *test_exe = "./out";
 #endif
@@ -400,16 +402,30 @@ b32 RunTest(const Execute_Test &test)
                 }
                 fflush(nullptr);
                 int result = pclose(test_output);
-                //result = (result & 0xff00) >> 8;
-                if (result != test.expected_exit_code)
+#ifdef HP_WIN
+                int exit_code = result;
+#else
+                if (WIFEXITED(result))
                 {
-                    if (result == EOF) fprintf(outfile, "EOF\n");
-                    fprintf(outfile, "TEST ERROR: Executed test's exit code was %d(%x) and not %d(%x)\n\tfor test '%s'\n",
-                            result, result,
-                            test.expected_exit_code, test.expected_exit_code,
-                            test.source_filename);
+                    int exit_code = WEXITSTATUS(result);
+#endif
+                    if (exit_code != test.expected_exit_code)
+                    {
+                        fprintf(outfile, "TEST ERROR: Executed test's exit code was %d(%x) and not %d(%x)\n\tfor test '%s'\n",
+                                result, result,
+                                test.expected_exit_code, test.expected_exit_code,
+                                test.source_filename);
+                        failed = true;
+                    }
+#ifndef HP_WIN
+                }
+                else if (WIFSIGNALED(result))
+                {
+                    int child_signal = WTERMSIG(result);
+                    fprintf(outfile, "\tThe child received signal %d\n", child_signal);
                     failed = true;
                 }
+#endif
             }
         }
     }
