@@ -702,6 +702,16 @@ static Oper_Data_Type DataTypeFromType(Type *type)
 
 static Operand StringConst(Codegen_Context *ctx, String value, Oper_Access_Flags access_flags)
 {
+    for (s64 i = 0; i < ctx->str_consts.count; i++)
+    {
+        String_Const str_const = ctx->str_consts[i];
+        if (str_const.value == value)
+        {
+            Operand str_label = LabelOperand(str_const.label_name, access_flags);
+            str_label.addr_mode = Oper_Addr_Mode::BaseOffset;
+            return str_label;
+        }
+    }
     s64 buf_size = 40;
     char buf[buf_size];
     s64 name_len = snprintf(buf, buf_size, "str@%" PRId64 "", ctx->str_consts.count);
@@ -920,6 +930,19 @@ static inline Instruction* NewInstruction(
 
 static Instruction* LoadFloat32Imm(Codegen_Context *ctx, Operand dest, f32 value)
 {
+    // TODO(henrik): Use hashtable for constant floats and strings
+    for (s64 i = 0; i < ctx->float32_consts.count; i++)
+    {
+        Float32_Const fconst = ctx->float32_consts[i];
+        if (fconst.value == value)
+        {
+            Operand float_label = LabelOperand(fconst.label_name, AF_Read);
+            float_label.data_type = Oper_Data_Type::F32;
+            float_label.addr_mode = Oper_Addr_Mode::BaseOffset;
+            return NewInstruction(ctx, OP_movss, dest, float_label);
+        }
+    }
+
     s64 buf_size = 40;
     char buf[buf_size];
     s64 name_len = snprintf(buf, buf_size, "f32@%" PRId64 "", ctx->float32_consts.count);
@@ -938,6 +961,18 @@ static Instruction* LoadFloat32Imm(Codegen_Context *ctx, Operand dest, f32 value
 
 static Instruction* LoadFloat64Imm(Codegen_Context *ctx, Operand dest, f64 value)
 {
+    for (s64 i = 0; i < ctx->float64_consts.count; i++)
+    {
+        Float64_Const fconst = ctx->float64_consts[i];
+        if (fconst.value == value)
+        {
+            Operand float_label = LabelOperand(fconst.label_name, AF_Read);
+            float_label.data_type = Oper_Data_Type::F64;
+            float_label.addr_mode = Oper_Addr_Mode::BaseOffset;
+            return NewInstruction(ctx, OP_movsd, dest, float_label);
+        }
+    }
+
     s64 buf_size = 40;
     char buf[buf_size];
     s64 name_len = snprintf(buf, buf_size, "f64@%" PRId64 "", ctx->float64_consts.count);
