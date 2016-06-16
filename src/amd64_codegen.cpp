@@ -902,9 +902,15 @@ static inline Instruction* NewInstruction(
         case OP_jmp:
             flags = IF_Branch; break;
         case OP_je:
-            flags = IF_FallsThrough;
-            flags = flags | IF_Branch; break;
         case OP_jne:
+        case OP_jl:
+        case OP_jle:
+        case OP_jg:
+        case OP_jge:
+        case OP_jb:
+        case OP_jbe:
+        case OP_ja:
+        case OP_jae:
             flags = IF_FallsThrough;
             flags = flags | IF_Branch; break;
     }
@@ -1203,7 +1209,9 @@ static void PushLabel(Codegen_Context *ctx, Name name)
     PushInstruction(ctx, OP_LABEL, oper);
 }
 
-static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
+static void GenerateCompare(Codegen_Context *ctx,
+        Ir_Instruction *ir_instr, Ir_Instruction *ir_next_instr,
+        bool *skip_next)
 {
     Amd64_Opcode cmp_op;
     if (ir_instr->oper1.type->tag == TYP_f32)
@@ -1219,6 +1227,50 @@ static void GenerateCompare(Codegen_Context *ctx, Ir_Instruction *ir_instr)
 
     Type *ltype = ir_instr->oper1.type;
     b32 signed_or_float = (TypeIsFloat(ltype) || TypeIsSigned(ltype));
+
+    if (ir_next_instr)
+    {
+        Amd64_Opcode op = OP_nop;
+        switch (ir_next_instr->opcode)
+        {
+        case IR_Jnz:
+            switch (ir_instr->opcode)
+            {
+                case IR_Eq:     op = OP_je; break;
+                case IR_Neq:    op = OP_jne; break;
+                case IR_Lt:     op = signed_or_float ? OP_jl  : OP_jb; break;
+                case IR_Leq:    op = signed_or_float ? OP_jle : OP_jbe; break;
+                case IR_Gt:     op = signed_or_float ? OP_jg  : OP_ja; break;
+                case IR_Geq:    op = signed_or_float ? OP_jge : OP_jae; break;
+                default:
+                    break;
+            }
+            break;
+        case IR_Jz:
+            switch (ir_instr->opcode)
+            {
+                case IR_Eq:     op = OP_jne; break;
+                case IR_Neq:    op = OP_je; break;
+                case IR_Lt:     op = signed_or_float ? OP_jge : OP_jae; break;
+                case IR_Leq:    op = signed_or_float ? OP_jg  : OP_ja; break;
+                case IR_Gt:     op = signed_or_float ? OP_jle : OP_jbe; break;
+                case IR_Geq:    op = signed_or_float ? OP_jl : OP_jb; break;
+                default:
+                    break;
+            }
+            break;
+        default:
+            break;
+        }
+        if (op != OP_nop)
+        {
+            Operand target = LabelOperand(&ir_next_instr->target, AF_Read);
+            PushInstruction(ctx, op, target);
+            *skip_next = true;
+            return;
+        }
+    }
+
     Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
     ASSERT(target.data_type == Oper_Data_Type::BOOL);
     switch (ir_instr->opcode)
@@ -1774,8 +1826,9 @@ static void Copy(Codegen_Context *ctx,
     }
 }
 
-static void GenerateCode(Codegen_Context *ctx,
-        Ir_Routine *routine, Ir_Instruction *ir_instr)
+static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
+        Ir_Instruction *ir_instr, Ir_Instruction *ir_next_instr,
+        bool *skip_next)
 {
     switch (ir_instr->opcode)
     {
@@ -1812,7 +1865,7 @@ static void GenerateCode(Codegen_Context *ctx,
         case IR_Leq:
         case IR_Gt:
         case IR_Geq:
-            GenerateCompare(ctx, ir_instr);
+            GenerateCompare(ctx, ir_instr, ir_next_instr, skip_next);
             break;
 
         case IR_Deref:
@@ -3209,7 +3262,12 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
         Ir_Instruction *ir_instr = &ir_routine->instructions[i];
         if (!ctx->comment)
             ctx->comment = &ir_instr->comment;
-        GenerateCode(ctx, ir_routine, ir_instr);
+        Ir_Instruction *ir_next_instr = nullptr;
+        if (i + 1 < ir_routine->instructions.count)
+            ir_next_instr = &ir_routine->instructions[i + 1];
+        bool skip_next = false;
+        GenerateCode(ctx, ir_routine, ir_instr, ir_next_instr, &skip_next);
+        if (skip_next) i++;
     }
     if (toplevel)
     {

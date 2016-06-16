@@ -84,7 +84,7 @@ void FreeRegAlloc(Reg_Alloc *reg_alloc)
     array::Free(reg_alloc->float_regs.arg_regs);
 }
 
-void ResetRegAlloc(Reg_Alloc *reg_alloc, b32 use_first_callee_saves /*= true*/)
+void ResetRegAlloc(Reg_Alloc *reg_alloc, b32 use_callee_saves_first /*= true*/)
 {
     array::Clear(reg_alloc->spills);
     array::Clear(reg_alloc->free_regs);
@@ -94,7 +94,7 @@ void ResetRegAlloc(Reg_Alloc *reg_alloc, b32 use_first_callee_saves /*= true*/)
 
 //#define USE_CALLER_SAVES_FIRST
 //#ifdef USE_CALLER_SAVES_FIRST
-if (!use_first_callee_saves)
+if (!use_callee_saves_first)
 {
     // Add callee saves to free regs
     for (s64 i = 0; i < reg_alloc->reg_count; i++)
@@ -131,7 +131,7 @@ if (!use_first_callee_saves)
         }
     }
 //#ifndef USE_CALLER_SAVES_FIRST
-if (use_first_callee_saves)
+if (use_callee_saves_first)
 {
     // Add callee saves to free regs
     for (s64 i = 0; i < reg_alloc->reg_count; i++)
