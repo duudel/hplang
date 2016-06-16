@@ -2944,79 +2944,46 @@ static b32 SetRegOperand(Reg_Alloc *reg_alloc, Array<Live_Interval> active, Oper
     if (oper_name.str.size == 0)
         return true;
 
-    for (s64 i = 0; i < active.count; i++)
+    Reg reg = { };
+    if (oper->type == Oper_Type::FixedRegister)
     {
-        if (active[i].name == oper_name)
+        reg = oper->fixed_reg.reg;
+    }
+    else
+    {
+        for (s64 i = 0; i < active.count; i++)
         {
-            Operand reg_oper = RegOperand(active[i].reg, oper->data_type, oper->access_flags);
-            reg_oper.addr_mode = oper->addr_mode;
-            reg_oper.scale_offset = oper->scale_offset;
-            *oper = reg_oper;
-
-            DirtyRegister(reg_alloc, active[i].reg);
-            return true;
+            if (active[i].name == oper_name)
+            {
+                reg = active[i].reg;
+                break;
+            }
         }
+    }
+    if (reg.reg_index != REG_NONE)
+    {
+        Operand reg_oper = RegOperand(reg, oper->data_type, oper->access_flags);
+        reg_oper.addr_mode = oper->addr_mode;
+        reg_oper.scale_offset = oper->scale_offset;
+        *oper = reg_oper;
+
+        DirtyRegister(reg_alloc, reg);
+        return true;
     }
     return false;
 }
 
-static b32 SetOperand(Codegen_Context *ctx,
+static void SetOperand(Codegen_Context *ctx,
         Array<Live_Interval> active,
         Operand *oper, s64 instr_index)
 {
-    if (oper->type == Oper_Type::FixedRegister)
-        return true;
     Name oper_name = GetOperName(*oper);
-    if (SetRegOperand(ctx->reg_alloc, active, oper, oper_name)) return true;
+    if (SetRegOperand(ctx->reg_alloc, active, oper, oper_name)) return;
 
     (void)instr_index;
     s64 offs;
     if (GetLocalOffset(ctx, oper_name, &offs))
     {
-        //Reg free_reg = GetFreeRegister(ctx->reg_alloc, oper->data_type);
-
-#if 0
-        Array<Live_Interval> *active_intervals =
-            (oper->data_type == Oper_Data_Type::F32 ||
-            oper->data_type == Oper_Data_Type::F64) ? &active_f : &active;
-        //if (free_reg.reg_index == REG_NONE)
-        {
-            Live_Interval &active_interval = (*active_intervals)[0];
-            Live_Interval interval = active_interval;
-
-            Spill(interval, instr_index);
-
-            //active_interval.reg = active_interval.reg;
-            active_interval.name = oper_name;
-            Unspill(active_interval, instr_index);
-            SetRegOperand(*active_intervals, oper, oper_name);
-
-            Unspill(interval, instr_index + 1);
-
-            active_interval = interval;
-        }
-        else
-        {
-            Live_Interval interval = { };
-            interval.start = instr_index;
-            interval.end = instr_index + 3;
-            interval.name = oper_name;
-            interval.reg = free_reg;
-            AddToActive(*active_intervals, interval);
-
-            Unspill(interval, instr_index);
-
-            if (!SetRegOperand(*active_intervals, oper, oper_name))
-                INVALID_CODE_PATH;
-
-            //Live_Interval interval = { };
-            //interval.start = ;
-            //interval.reg = free_reg;
-            //interval.name = oper_name;
-            //AddToActive(*active_interval, interval);
-        }
-#endif
-
         *oper = BaseOffsetOperand(REG_rbp, offs, oper->data_type, oper->access_flags);
 #ifdef RA_DEBUG_INFO
 if (ctx->comp_ctx->options.debug_reg_alloc)
@@ -3037,9 +3004,8 @@ if (ctx->comp_ctx->options.debug_reg_alloc)
         fprintf(stderr, " at %" PRId64 "\n", instr_index);
 }
 #endif
-        //INVALID_CODE_PATH;
+        INVALID_CODE_PATH;
     }
-    return false;
 }
 
 static void SpillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active, s64 instr_index)
@@ -3070,19 +3036,6 @@ static void UnspillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active
     }
 }
 
-#if 0
-static void SpillActives(Reg_Alloc *reg_alloc, Array<Live_Interval> active, s64 instr_index)
-{
-    for (s64 i = 0; i < active.count; i++)
-        Spill(reg_alloc, active[i], instr_index);
-}
-static void UnspillActives(Reg_Alloc *reg_alloc, Array<Live_Interval> active, s64 instr_index)
-{
-    for (s64 i = 0; i < active.count; i++)
-        Unspill(reg_alloc, active[i], instr_index);
-}
-#endif
-
 static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
         Array<Live_Interval> &active, s64 instr_i)
 {
@@ -3110,21 +3063,6 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
         instr->opcode = (Opcode)OP_nop;
         instr->oper1 = NoneOperand();
     }
-#if 0
-    else if ((instr->flags & IF_Branch) != 0)
-    {
-        SpillActives(reg_alloc, active, instr_i);
-        Name label_name = instr->oper1.label.name;
-        Label_Instr *label_i = hashtable::Lookup(routine->labels, label_name);
-        ASSERT(label_i);
-        UnspillActives(reg_alloc, active, label_i->instr_index);
-    }
-    else if ((Amd64_Opcode)instr->opcode == OP_LABEL)
-    {
-        //SpillActives(active, instr_i);
-        //UnspillActives(active, instr_i);
-    }
-#endif
     SetOperand(ctx, active, &instr->oper1, instr_i);
     SetOperand(ctx, active, &instr->oper2, instr_i);
     SetOperand(ctx, active, &instr->oper3, instr_i);
@@ -3225,7 +3163,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
     array::Free(inactive);
 
     // TODO(henrik): Implement this more cleanly.
-    for (s64 i = 1; i < REG_COUNT; i++)
+    for (s64 i = REG_NONE + 1; i < REG_COUNT; i++)
     {
         Reg reg = { (u8)i };
         if (IsCalleeSave(reg_alloc, reg) && IsRegisterDirty(reg_alloc, reg))
@@ -3394,7 +3332,6 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
         Operand locals_size_oper = ImmOperand(locals_size, AF_Read);
 
         PushPrologue(ctx, OP_sub, RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write), locals_size_oper);
-        //PushEpilogue(ctx, OP_add, RegOperand(REG_rsp, AF_Write), locals_size_oper);
         PushEpilogue(ctx, OP_mov,
                 RegOperand(REG_rsp, Oper_Data_Type::PTR, AF_Write),
                 RegOperand(REG_rbp, Oper_Data_Type::PTR, AF_Read));
