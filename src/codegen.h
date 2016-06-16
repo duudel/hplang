@@ -119,6 +119,7 @@ enum Instr_Flag_Bits
 {
     IF_FallsThrough = 1,
     IF_Branch       = 2,
+    IF_CommentedOut = 4,
 };
 
 typedef Flag<Instr_Flag_Bits, u8> Instr_Flags;
@@ -159,6 +160,7 @@ struct Routine
 {
     Name name;
     s64 temp_count;
+    u32 flags;
 
     s64 locals_size;
     Array<Local_Offset*> local_offsets;

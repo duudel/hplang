@@ -3060,9 +3060,10 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
         Array<Live_Interval> &live_intervals)
 {
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
-    ResetRegAlloc(reg_alloc);
-
     Routine *routine = ctx->current_routine;
+
+    bool is_leaf = (routine->flags & ROUT_Leaf) != 0;
+    ResetRegAlloc(reg_alloc, !is_leaf);
 
     s32 last_interval_start = 0;
     s32 last_interval_end = 0;
@@ -3157,6 +3158,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
 {
     Routine *routine = ctx->current_routine;
     routine->ir_routine = ir_routine;
+    routine->flags = ir_routine->flags;
 
     bool toplevel = (ir_routine->name.str.size == 0);
     if (toplevel)
@@ -3304,6 +3306,86 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine)
     PushEpilogue(ctx, OP_ret);
 }
 
+static b32 IsMove(Opcode opcode)
+{
+    return ((Amd64_Opcode)opcode == OP_mov ||
+            (Amd64_Opcode)opcode == OP_movss ||
+            (Amd64_Opcode)opcode == OP_movsd);
+}
+
+static b32 IsSameRegister(Operand oper1, Operand oper2)
+{
+    if (oper1.addr_mode != Oper_Addr_Mode::Direct) return false;
+    if (oper2.addr_mode != Oper_Addr_Mode::Direct) return false;
+    Reg r1;
+    if (oper1.type == Oper_Type::Register)
+        r1 = oper1.reg;
+    else if (oper1.type == Oper_Type::FixedRegister)
+        r1 = oper1.fixed_reg.reg;
+    else
+        return false;
+
+    Reg r2;
+    if (oper2.type == Oper_Type::Register)
+        r2 = oper2.reg;
+    else if (oper2.type == Oper_Type::FixedRegister)
+        r2 = oper2.fixed_reg.reg;
+    else
+        return false;
+
+    return r1 == r2;
+}
+
+static b32 IsSame(Operand oper1, Operand oper2)
+{
+    return IsSameRegister(oper1, oper2);
+}
+
+void OptimizeCode(Codegen_Context *ctx, Routine *routine)
+{
+    (void)ctx;
+    for (s64 i = 0; i < routine->instructions.count; i++)
+    {
+        Instruction *instr = routine->instructions[i];
+        if (IsMove(instr->opcode))
+        {
+            if (IsSame(instr->oper1, instr->oper2))
+            {
+                //MakeNop(instr);
+                instr->flags |= IF_CommentedOut;
+            }
+        }
+    }
+    for (s64 i = 0; i < routine->instructions.count - 1; i++)
+    {
+        Instruction *instr_0 = routine->instructions[i];
+        Instruction *instr_1 = routine->instructions[i + 1];
+        if ((Amd64_Opcode)instr_0->opcode == OP_jmp &&
+            (Amd64_Opcode)instr_1->opcode == OP_LABEL)
+        {
+            if (instr_0->oper1.label.name == instr_1->oper1.label.name)
+            {
+                instr_0->flags |= IF_CommentedOut;
+            }
+        }
+        else if (IsMove(instr_0->opcode) &&
+                 (instr_0->opcode == instr_1->opcode))
+        {
+            if (IsSame(instr_0->oper1, instr_1->oper2) &&
+                IsSame(instr_0->oper2, instr_1->oper1))
+            {
+                instr_1->flags |= IF_CommentedOut;
+            }
+            else
+            if (IsSame(instr_0->oper1, instr_1->oper1) &&
+                IsSame(instr_0->oper2, instr_1->oper2))
+            {
+                instr_1->flags |= IF_CommentedOut;
+            }
+        }
+    }
+}
+
 void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
 {
     ctx->routine_count = ir_routines.count;
@@ -3332,6 +3414,11 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
     {
         ctx->current_routine = &ctx->routines[i];
         AllocateRegisters(ctx, ir_routines[i]);
+    }
+
+    for (s64 i = 0; i < ir_routines.count; i++)
+    {
+        OptimizeCode(ctx, &ctx->routines[i]);
     }
 }
 
@@ -3502,6 +3589,10 @@ static s64 PrintOpcode(IoFile *file, Amd64_Opcode opcode)
 static void PrintInstruction(IoFile *file, const Instruction *instr)
 {
     s64 len = 0;
+    if ((instr->flags & IF_CommentedOut) != 0)
+    {
+        len += fprintf((FILE*)file, ";");
+    }
     if ((Amd64_Opcode)instr->opcode == OP_LABEL)
     {
         len += PrintLabel(file, instr->oper1);

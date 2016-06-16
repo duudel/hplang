@@ -117,6 +117,7 @@ static Ir_Routine* PushRoutine(Ir_Gen_Context *ctx, Name name, s64 arg_count)
     Ir_Routine *routine = PushStruct<Ir_Routine>(&ctx->arena);
     *routine = { };
     routine->name = name;
+    routine->flags = ROUT_Leaf; // This will be cleared, if the function calls other functions.
     if (arg_count > 0)
     {
         routine->arg_count = arg_count;
@@ -1112,6 +1113,9 @@ static Ir_Operand GenRefVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Rout
 
 static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
+    // Clear routine leaf flag
+    routine->flags &= ~ROUT_Leaf;
+
     Ir_Operand res = { };
     if (TypeIsVoid(expr->expr_type))
         res = NoneOperand();
@@ -1517,9 +1521,15 @@ static void GenSqrtFunction(Ir_Gen_Context *ctx, Ir_Routine *top_level_routine)
         Name name = x_name;
         routine->args[i] = NewVariableRef(routine, type, name);
     }
+#if 0
     Ir_Operand result = NewTemp(ctx, routine, ftype->function_type.return_type);
     PushInstruction(ctx, routine, IR_Sqrt, result, routine->args[0]);
     PushInstruction(ctx, routine, IR_Return, result);
+#else
+    Ir_Operand arg = routine->args[0];
+    PushInstruction(ctx, routine, IR_Sqrt, arg, arg);
+    PushInstruction(ctx, routine, IR_Return, arg);
+#endif
 }
 
 b32 GenIr(Ir_Gen_Context *ctx)

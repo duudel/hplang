@@ -160,6 +160,11 @@ typedef Array<Ir_Instruction> Ir_Instruction_List;
 
 struct Symbol;
 
+enum Routine_Flags
+{
+    ROUT_Leaf = 1,
+};
+
 struct Ir_Routine
 {
     //Symbol *symbol;
@@ -170,6 +175,8 @@ struct Ir_Routine
 
     Ir_Instruction_List instructions;
     s64 temp_count;
+
+    u32 flags;
 };
 
 typedef Array<Ir_Routine*> Ir_Routine_List;

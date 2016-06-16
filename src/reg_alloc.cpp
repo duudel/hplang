@@ -84,7 +84,7 @@ void FreeRegAlloc(Reg_Alloc *reg_alloc)
     array::Free(reg_alloc->float_regs.arg_regs);
 }
 
-void ResetRegAlloc(Reg_Alloc *reg_alloc)
+void ResetRegAlloc(Reg_Alloc *reg_alloc, b32 use_first_callee_saves /*= true*/)
 {
     array::Clear(reg_alloc->spills);
     array::Clear(reg_alloc->free_regs);
@@ -93,7 +93,9 @@ void ResetRegAlloc(Reg_Alloc *reg_alloc)
     reg_alloc->dirty_regs = 0;
 
 //#define USE_CALLER_SAVES_FIRST
-#ifdef USE_CALLER_SAVES_FIRST
+//#ifdef USE_CALLER_SAVES_FIRST
+if (!use_first_callee_saves)
+{
     // Add callee saves to free regs
     for (s64 i = 0; i < reg_alloc->reg_count; i++)
     {
@@ -110,7 +112,8 @@ void ResetRegAlloc(Reg_Alloc *reg_alloc)
                 array::Push(reg_alloc->free_regs, reg);
         }
     }
-#endif
+}
+//#endif
     // Add caller saves to free regs
     for (s64 i = 0; i < reg_alloc->reg_count; i++)
     {
@@ -127,7 +130,9 @@ void ResetRegAlloc(Reg_Alloc *reg_alloc)
                 array::Push(reg_alloc->free_regs, reg);
         }
     }
-#ifndef USE_CALLER_SAVES_FIRST
+//#ifndef USE_CALLER_SAVES_FIRST
+if (use_first_callee_saves)
+{
     // Add callee saves to free regs
     for (s64 i = 0; i < reg_alloc->reg_count; i++)
     {
@@ -144,7 +149,8 @@ void ResetRegAlloc(Reg_Alloc *reg_alloc)
                 array::Push(reg_alloc->free_regs, reg);
         }
     }
-#endif
+}
+//#endif
 }
 
 void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg)

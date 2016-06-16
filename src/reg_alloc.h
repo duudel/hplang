@@ -90,7 +90,7 @@ void InitRegAlloc(Reg_Alloc *reg_alloc,
 
 void FreeRegAlloc(Reg_Alloc *reg_alloc);
 
-void ResetRegAlloc(Reg_Alloc *reg_alloc);
+void ResetRegAlloc(Reg_Alloc *reg_alloc, b32 use_first_callee_saves = true);
 void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg);
 b32 IsRegisterDirty(Reg_Alloc *reg_alloc, Reg reg);
 
