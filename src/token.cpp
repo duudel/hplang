@@ -29,6 +29,8 @@ static Token_Type_And_String g_token_type_and_str[] = {
 
     {TOK_Identifier,        "identifier"},
 
+    {TOK_Break,             "break"},
+    {TOK_Continue,          "continue"},
     {TOK_Else,              "else"},
     {TOK_For,               "for"},
     {TOK_Foreign,           "foreign"},

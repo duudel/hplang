@@ -1,0 +1,18 @@
+// Test "break" to escape a loop.
+// 2016-06-16
+
+import ":io";
+
+main :: ()
+{
+    j := -80;
+    for (i := 0; i < 100; i += 1)
+    {
+        if (j > i)
+            break;
+        j += i;
+    }
+    println(j);
+    return 0;
+}
+

@@ -69,10 +69,21 @@ enum Lexer_State
     LS_STR_bo,
     LS_STR_boo,
     LS_STR_bool,
+    LS_STR_br,
+    LS_STR_bre,
+    LS_STR_brea,
+    LS_STR_break,
     LS_STR_c,
     LS_STR_ch,
     LS_STR_cha,
     LS_STR_char,
+    LS_STR_co,
+    LS_STR_con,
+    LS_STR_cont,
+    LS_STR_conti,
+    LS_STR_contin,
+    LS_STR_continu,
+    LS_STR_continue,
     LS_STR_e,
     LS_STR_el,
     LS_STR_els,
@@ -479,15 +490,40 @@ static FSM lex_default(FSM fsm, char c)
                 STR_END_CASE();\
         } break
 
-    SINGLE_CASE(LS_STR_b, 'o', LS_STR_bo);
+    #define DOUBLE_CASE(ls, ch1, lsn1, ch2, lsn2)\
+    case ls:\
+        switch (c)\
+        {\
+            case ch1:\
+                fsm.state = lsn1; break;\
+            case ch2:\
+                fsm.state = lsn2; break;\
+            default:\
+                STR_END_CASE();\
+        } break
+
+    DOUBLE_CASE(LS_STR_b, 'o', LS_STR_bo, 'r', LS_STR_br);
     SINGLE_CASE(LS_STR_bo, 'o', LS_STR_boo);
     SINGLE_CASE(LS_STR_boo, 'l', LS_STR_bool);
     case LS_STR_bool: KW_END_CASE(TOK_Type_Bool);
 
-    SINGLE_CASE(LS_STR_c, 'h', LS_STR_ch);
+    SINGLE_CASE(LS_STR_br, 'e', LS_STR_bre);
+    SINGLE_CASE(LS_STR_bre, 'a', LS_STR_brea);
+    SINGLE_CASE(LS_STR_brea, 'k', LS_STR_break);
+    case LS_STR_break: KW_END_CASE(TOK_Break);
+
+    DOUBLE_CASE(LS_STR_c, 'h', LS_STR_ch, 'o', LS_STR_co);
     SINGLE_CASE(LS_STR_ch, 'a', LS_STR_cha);
     SINGLE_CASE(LS_STR_cha, 'r', LS_STR_char);
     case LS_STR_char: KW_END_CASE(TOK_Type_Char);
+
+    SINGLE_CASE(LS_STR_co, 'n', LS_STR_con);
+    SINGLE_CASE(LS_STR_con, 't', LS_STR_cont);
+    SINGLE_CASE(LS_STR_cont, 'i', LS_STR_conti);
+    SINGLE_CASE(LS_STR_conti, 'n', LS_STR_contin);
+    SINGLE_CASE(LS_STR_contin, 'u', LS_STR_continu);
+    SINGLE_CASE(LS_STR_continu, 'e', LS_STR_continue);
+    case LS_STR_continue: KW_END_CASE(TOK_Continue);
 
     SINGLE_CASE(LS_STR_e, 'l', LS_STR_el);
     SINGLE_CASE(LS_STR_el, 's', LS_STR_els);
@@ -915,99 +951,140 @@ static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
             Error(ctx, "Unterminated character lilteral", nullptr);
             return false;
 
-        case LS_CharLitEnd:     return true;
+        case LS_CharLitEnd:
+            return true;
 
-        case LS_Ident:          return true;
+        case LS_Ident:
+            return true;
 
-        case LS_STR_b:          return true;
-        case LS_STR_bo:         return true;
-        case LS_STR_boo:        return true;
-        case LS_STR_bool:       return true;
-        case LS_STR_c:          return true;
-        case LS_STR_ch:         return true;
-        case LS_STR_cha:        return true;
-        case LS_STR_char:       return true;
-        case LS_STR_e:          return true;
-        case LS_STR_el:         return true;
-        case LS_STR_els:        return true;
-        case LS_STR_else:       return true;
-        case LS_STR_f:          return true;
-        case LS_STR_f3:         return true;
-        case LS_STR_f32:        return true;
-        case LS_STR_f6:         return true;
-        case LS_STR_f64:        return true;
-        case LS_STR_fa:         return true;
-        case LS_STR_fal:        return true;
-        case LS_STR_fals:       return true;
-        case LS_STR_false:      return true;
-        case LS_STR_fo:         return true;
-        case LS_STR_for:        return true;
-        case LS_STR_fore:       return true;
-        case LS_STR_forei:      return true;
-        case LS_STR_foreig:     return true;
-        case LS_STR_foreign:    return true;
-        case LS_STR_i:          return true;
-        case LS_STR_if:         return true;
-        case LS_STR_im:         return true;
-        case LS_STR_imp:        return true;
-        case LS_STR_impo:       return true;
-        case LS_STR_impor:      return true;
-        case LS_STR_import:     return true;
-        case LS_STR_n:          return true;
-        case LS_STR_nu:         return true;
-        case LS_STR_nul:        return true;
-        case LS_STR_null:       return true;
-        case LS_STR_r:          return true;
-        case LS_STR_re:         return true;
-        case LS_STR_ret:        return true;
-        case LS_STR_retu:       return true;
-        case LS_STR_retur:      return true;
-        case LS_STR_return:     return true;
-        case LS_STR_s:          return true;
-        case LS_STR_s8:         return true;
-        case LS_STR_s1:         return true;
-        case LS_STR_s16:        return true;
-        case LS_STR_s3:         return true;
-        case LS_STR_s32:        return true;
-        case LS_STR_s6:         return true;
-        case LS_STR_s64:        return true;
-        case LS_STR_st:         return true;
-        case LS_STR_str:        return true;
-        case LS_STR_stri:       return true;
-        case LS_STR_strin:      return true;
-        case LS_STR_string:     return true;
-        case LS_STR_stru:       return true;
-        case LS_STR_struc:      return true;
-        case LS_STR_struct:     return true;
-        case LS_STR_t:          return true;
-        case LS_STR_tr:         return true;
-        case LS_STR_tru:        return true;
-        case LS_STR_true:       return true;
-        case LS_STR_ty:         return true;
-        case LS_STR_typ:        return true;
-        case LS_STR_type:       return true;
-        case LS_STR_typea:      return true;
-        case LS_STR_typeal:     return true;
-        case LS_STR_typeali:    return true;
-        case LS_STR_typealia:   return true;
-        case LS_STR_typealias:  return true;
-        case LS_STR_u:          return true;
-        case LS_STR_u8:         return true;
-        case LS_STR_u1:         return true;
-        case LS_STR_u16:        return true;
-        case LS_STR_u3:         return true;
-        case LS_STR_u32:        return true;
-        case LS_STR_u6:         return true;
-        case LS_STR_u64:        return true;
-        case LS_STR_v:          return true;
-        case LS_STR_vo:         return true;
-        case LS_STR_voi:        return true;
-        case LS_STR_void:       return true;
-        case LS_STR_w:          return true;
-        case LS_STR_wh:         return true;
-        case LS_STR_whi:        return true;
-        case LS_STR_whil:       return true;
-        case LS_STR_while:      return true;
+        case LS_STR_b:
+        case LS_STR_bo:
+        case LS_STR_boo:
+        case LS_STR_bool:
+            return true;
+        case LS_STR_br:
+        case LS_STR_bre:
+        case LS_STR_brea:
+        case LS_STR_break:
+            return true;
+        case LS_STR_c:
+        case LS_STR_ch:
+        case LS_STR_cha:
+        case LS_STR_char:
+            return true;
+        case LS_STR_co:
+        case LS_STR_con:
+        case LS_STR_cont:
+        case LS_STR_conti:
+        case LS_STR_contin:
+        case LS_STR_continu:
+        case LS_STR_continue:
+            return true;
+        case LS_STR_e:
+        case LS_STR_el:
+        case LS_STR_els:
+        case LS_STR_else:
+            return true;
+        case LS_STR_f:
+        case LS_STR_f3:
+        case LS_STR_f32:
+            return true;
+        case LS_STR_f6:         
+        case LS_STR_f64:        
+            return true;
+        case LS_STR_fa:         
+        case LS_STR_fal:        
+        case LS_STR_fals:       
+        case LS_STR_false:      
+            return true;
+        case LS_STR_fo:         
+        case LS_STR_for:        
+            return true;
+        case LS_STR_fore:       
+        case LS_STR_forei:      
+        case LS_STR_foreig:     
+        case LS_STR_foreign:    
+            return true;
+        case LS_STR_i:          
+        case LS_STR_if:     
+            return true;
+        case LS_STR_im:         
+        case LS_STR_imp:        
+        case LS_STR_impo:       
+        case LS_STR_impor:      
+        case LS_STR_import:     
+            return true;
+        case LS_STR_n:          
+        case LS_STR_nu:         
+        case LS_STR_nul:        
+        case LS_STR_null:       
+            return true;
+        case LS_STR_r:          
+        case LS_STR_re:         
+        case LS_STR_ret:        
+        case LS_STR_retu:       
+        case LS_STR_retur:      
+        case LS_STR_return:     
+            return true;
+        case LS_STR_s:          
+        case LS_STR_s8:         
+            return true;
+        case LS_STR_s1:         
+        case LS_STR_s16:        
+            return true;
+        case LS_STR_s3:         
+        case LS_STR_s32:        
+            return true;
+        case LS_STR_s6:         
+        case LS_STR_s64:        
+            return true;
+        case LS_STR_st:         
+        case LS_STR_str:        
+        case LS_STR_stri:       
+        case LS_STR_strin:      
+        case LS_STR_string:     
+            return true;
+        case LS_STR_stru:       
+        case LS_STR_struc:      
+        case LS_STR_struct:     
+            return true;
+        case LS_STR_t:          
+        case LS_STR_tr:         
+        case LS_STR_tru:        
+        case LS_STR_true:       
+            return true;
+        case LS_STR_ty:         
+        case LS_STR_typ:        
+        case LS_STR_type:       
+        case LS_STR_typea:      
+        case LS_STR_typeal:     
+        case LS_STR_typeali:    
+        case LS_STR_typealia:   
+        case LS_STR_typealias:  
+            return true;
+        case LS_STR_u:          
+        case LS_STR_u8:         
+            return true;
+        case LS_STR_u1:         
+        case LS_STR_u16:        
+            return true;
+        case LS_STR_u3:         
+        case LS_STR_u32:        
+            return true;
+        case LS_STR_u6:         
+        case LS_STR_u64:        
+            return true;
+        case LS_STR_v:          
+        case LS_STR_vo:         
+        case LS_STR_voi:        
+        case LS_STR_void:       
+            return true;
+        case LS_STR_w:          
+        case LS_STR_wh:         
+        case LS_STR_whi:        
+        case LS_STR_whil:       
+        case LS_STR_while:      
+            return true;
 
         case LS_Hash:           return true;
         case LS_Colon:          return true;

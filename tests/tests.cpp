@@ -153,6 +153,8 @@ static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/exec/fibo.hp",           "tests/exec/fibo.stdout",           0 },
     (Execute_Test){ "tests/exec/beer.hp",           "tests/exec/beer.stdout",           0 },
     (Execute_Test){ "tests/exec/reg_pressure.hp",   "tests/exec/reg_pressure.stdout",   0 },
+    (Execute_Test){ "tests/exec/break.hp",          "tests/exec/break.stdout",          0 },
+    (Execute_Test){ "tests/exec/continue.hp",       "tests/exec/continue.stdout",       0 },
     (Execute_Test){ "tests/exec/struct_as_arg.hp",  nullptr,                            10 },
     (Execute_Test){ "tests/exec/arg_passing.hp",    "tests/exec/arg_passing.stdout",    120 },
     (Execute_Test){ "tests/exec/module_test.hp",    nullptr,                            42 },

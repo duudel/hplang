@@ -53,10 +53,19 @@ namespace array
     bool Push(Array<T> &arr, const T &x);
 
     template <class T>
+    void Pop(Array<T> &arr);
+
+    template <class T>
     bool Insert(Array<T> &arr, s64 index, const T &x);
 
     template <class T>
     void Set(Array<T> &arr, s64 index, const T &x);
+
+    template <class T>
+    T& Front(Array<T> &arr);
+
+    template <class T>
+    T& Back(Array<T> &arr);
 
     template <class T>
     T At(Array<T> &arr, s64 index);
@@ -137,6 +146,13 @@ namespace array
     }
 
     template <class T>
+    void Pop(Array<T> &arr)
+    {
+        ASSERT(arr.count > 0);
+        arr.count--;
+    }
+
+    template <class T>
     bool Insert(Array<T> &arr, s64 index, const T &x)
     {
         ASSERT(0 <= index && index <= arr.count);
@@ -161,6 +177,20 @@ namespace array
     {
         ASSERT(0 <= index && index < arr.count);
         arr.data[index] = x;
+    }
+
+    template <class T>
+    T& Front(Array<T> &arr)
+    {
+        ASSERT(arr.count > 0);
+        return arr.data[0];
+    }
+
+    template <class T>
+    T& Back(Array<T> &arr)
+    {
+        ASSERT(arr.count > 0);
+        return arr.data[arr.count - 1];
     }
 
     template <class T>

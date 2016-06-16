@@ -26,6 +26,9 @@ struct Sem_Check_Context
     Ast *ast;
     Environment *env;
 
+    s32 breakables;
+    s32 continuables;
+
     // Queue for expressions whose typing could not be checked due to types
     // that were not inferred yet.
     Array<Pending_Expr> pending_exprs;

@@ -1,0 +1,18 @@
+// Test for continue stamtent
+// 2016-06-16
+
+import ":io";
+
+main :: ()
+{
+    j := -50;
+    for (i := 0; i < 100; i += 1)
+    {
+        j += 5;
+        if (j < i)
+            continue;
+        j += i;
+    }
+    println(j);
+    return 0;
+}

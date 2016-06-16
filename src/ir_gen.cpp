@@ -1293,6 +1293,9 @@ static void GenWhileStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routin
     Ir_Operand while_start_label = NewLabel(ctx);
     SetLabelTarget(ctx, routine, while_start_label);
 
+    array::Push(ctx->breakables, while_end_label);
+    array::Push(ctx->continuables, while_start_label);
+
     Ir_Operand cond_res = GenExpression(ctx, node->while_stmt.cond_expr, routine);
     PushJump(ctx, routine, IR_Jz, while_end_label, cond_res);
 
@@ -1301,6 +1304,9 @@ static void GenWhileStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routin
     PushJump(ctx, routine, IR_Jump, while_start_label);
 
     SetLabelTarget(ctx, routine, while_end_label);
+    
+    array::Pop(ctx->breakables);
+    array::Pop(ctx->continuables);
 }
 
 static void GenVariableDecl(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool toplevel);
@@ -1323,6 +1329,9 @@ static void GenForStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
     Ir_Operand for_start_label = NewLabel(ctx);
     SetLabelTarget(ctx, routine, for_start_label);
 
+    array::Push(ctx->breakables, for_end_label);
+    array::Push(ctx->continuables, for_start_label);
+
     Ir_Operand cond_res = GenExpression(ctx, node->for_stmt.cond_expr, routine);
     PushJump(ctx, routine, IR_Jz, for_end_label, cond_res);
 
@@ -1332,6 +1341,9 @@ static void GenForStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
     PushJump(ctx, routine, IR_Jump, for_start_label);
 
     SetLabelTarget(ctx, routine, for_end_label);
+
+    array::Pop(ctx->breakables);
+    array::Pop(ctx->continuables);
 }
 
 static void GenReturnStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
@@ -1344,6 +1356,20 @@ static void GenReturnStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routi
         res_expr = GenExpression(ctx, node->return_stmt.expr, routine);
     }
     PushInstruction(ctx, routine, IR_Return, res_expr);
+}
+
+static void GenBreakStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
+{
+    (void)node;
+    Ir_Operand break_label = array::Back(ctx->breakables);
+    PushInstruction(ctx, routine, IR_Jump, break_label);
+}
+
+static void GenContinueStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
+{
+    (void)node;
+    Ir_Operand cont_label = array::Back(ctx->continuables);
+    PushInstruction(ctx, routine, IR_Jump, cont_label);
 }
 
 static void GenBlockStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
@@ -1479,6 +1505,12 @@ static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool
             break;
         case AST_ReturnStmt:
             GenReturnStmt(ctx, node, routine);
+            break;
+        case AST_BreakStmt:
+            GenBreakStmt(ctx, node, routine);
+            break;
+        case AST_ContinueStmt:
+            GenContinueStmt(ctx, node, routine);
             break;
         case AST_ExpressionStmt:
             ExtractComment(ctx, node->file_loc);

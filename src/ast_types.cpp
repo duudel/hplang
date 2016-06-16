@@ -157,6 +157,10 @@ static void FreeAstNode(Ast_Node *node)
             FreeAstExpr(node->return_stmt.expr);
             break;
 
+        case AST_BreakStmt:
+        case AST_ContinueStmt:
+            break;
+
         case AST_ExpressionStmt:
             FreeAstExpr(node->expr_stmt.expr);
             break;
@@ -596,6 +600,14 @@ static void PrintNode(IoFile *file, Ast_Node *node, s64 level, s64 lev_diff, s64
             fprintf(f, "\n");
             if (node->return_stmt.expr)
                 PrintExpr(file, node->return_stmt.expr, level, 1, parent_level);
+            break;
+        case AST_BreakStmt:
+            fprintf(f, "<break>");
+            fprintf(f, "\n");
+            break;
+        case AST_ContinueStmt:
+            fprintf(f, "<continue>");
+            fprintf(f, "\n");
             break;
         case AST_ExpressionStmt:
             fprintf(f, "<expr_stmt>");

@@ -36,6 +36,8 @@ enum Ast_Node_Type
     AST_ForStmt,
     AST_RangeForStmt,
     AST_ReturnStmt,
+    AST_BreakStmt,
+    AST_ContinueStmt,
     AST_ExpressionStmt,
 };
 
@@ -375,6 +377,12 @@ struct Ast_Return_Stmt
 {
     Ast_Expr *expr;
 };
+
+struct Ast_Break
+{ };
+
+struct Ast_Continue
+{ };
 
 struct Ast_Block_Stmt
 {

@@ -13,6 +13,9 @@ struct Ir_Gen_Context
 {
     Memory_Arena arena;
 
+    Array<Ir_Operand> breakables;
+    Array<Ir_Operand> continuables;
+
     Ir_Routine_List routines;
     Array<Name> foreign_routines;
     Array<Symbol*> global_vars;

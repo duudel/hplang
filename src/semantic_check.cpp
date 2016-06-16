@@ -1740,7 +1740,14 @@ static void CheckWhileStatement(Sem_Check_Context *ctx, Ast_Node *node)
 
     if (!TypeIsNone(cond_type) && !TypeIsBoolean(cond_type))
         Error(ctx, cond_expr->file_loc, "While loop condition must be boolean");
+    
+    ctx->breakables++;
+    ctx->continuables++;
+    
     CheckStatement(ctx, loop_stmt);
+
+    ctx->breakables--;
+    ctx->continuables--;
 }
 
 static void CheckForStatement(Sem_Check_Context *ctx, Ast_Node *node)
@@ -1778,7 +1785,14 @@ static void CheckForStatement(Sem_Check_Context *ctx, Ast_Node *node)
         CheckExpression(ctx, incr_expr, &vt);
     }
 
+    ctx->breakables++;
+    ctx->continuables++;
+
     CheckStatement(ctx, loop_stmt);
+
+    ctx->breakables--;
+    ctx->continuables--;
+
     CloseScope(ctx->env);
 }
 
@@ -1875,6 +1889,24 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
     }
 }
 
+static void CheckBreakStmt(Sem_Check_Context *ctx, Ast_Node *node)
+{
+    ASSERT(ctx->breakables >= 0);
+    if (ctx->breakables == 0)
+    {
+        Error(ctx, node->file_loc, "Stray break statement");
+    }
+}
+
+static void CheckContinueStmt(Sem_Check_Context *ctx, Ast_Node *node)
+{
+    ASSERT(ctx->continuables >= 0);
+    if (ctx->continuables == 0)
+    {
+        Error(ctx, node->file_loc, "Stray continue statement");
+    }
+}
+
 static void CheckBlockStatement(Sem_Check_Context *ctx, Ast_Node *node);
 
 static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
@@ -1899,6 +1931,12 @@ static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node)
             break;
         case AST_ReturnStmt:
             CheckReturnStatement(ctx, node);
+            break;
+        case AST_BreakStmt:
+            CheckBreakStmt(ctx, node);
+            break;
+        case AST_ContinueStmt:
+            CheckContinueStmt(ctx, node);
             break;
         case AST_VariableDecl:
             CheckVariableDecl(ctx, node);

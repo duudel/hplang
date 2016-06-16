@@ -1292,6 +1292,25 @@ static Ast_Node* ParseVarDeclStatement(Parser_Context *ctx)
     return var_decl;
 }
 
+static Ast_Node* ParseBreakOrContinueStatement(Parser_Context *ctx)
+{
+    const Token *break_tok = Accept(ctx, TOK_Break);
+    if (break_tok)
+    {
+        Ast_Node *break_node = PushNode<Ast_Break>(ctx, AST_BreakStmt, break_tok);
+        ExpectAfterLast(ctx, TOK_Semicolon);
+        return break_node;
+    }
+    const Token *cont_tok = Accept(ctx, TOK_Continue);
+    if (cont_tok)
+    {
+        Ast_Node *cont = PushNode<Ast_Continue>(ctx, AST_ContinueStmt, cont_tok);
+        ExpectAfterLast(ctx, TOK_Semicolon);
+        return cont;
+    }
+    return nullptr;
+}
+
 static Ast_Node* ParseExprStatement(Parser_Context *ctx)
 {
     const Token *tok = GetCurrentToken(ctx);
@@ -1312,6 +1331,7 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
     if (!stmt) stmt = ParseWhileStatement(ctx);
     if (!stmt) stmt = ParseForStatement(ctx);
     if (!stmt) stmt = ParseReturnStatement(ctx);
+    if (!stmt) stmt = ParseBreakOrContinueStatement(ctx);
     if (!stmt) stmt = ParseVarDeclStatement(ctx);
     if (!stmt) stmt = ParseExprStatement(ctx);
     return stmt;

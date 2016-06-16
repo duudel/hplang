@@ -24,6 +24,8 @@ enum Token_Type
 
     TOK_Identifier,     // identifier
 
+    TOK_Break,          // break
+    TOK_Continue,       // continue
     TOK_Else,           // else
     TOK_For,            // for
     TOK_Foreign,        // foreign
