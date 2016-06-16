@@ -51,6 +51,9 @@ struct File_Location
     s32 offset_end;     // token file offset end
 };
 
+inline File_Location NoFileLocation()
+{ return { }; }
+
 struct Name
 {
     String str;

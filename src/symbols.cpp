@@ -434,7 +434,7 @@ static void AddBuiltinTypes(Environment *env)
             type->struct_type.name = name;
 
         if (i >= TYP_FIRST_BUILTIN_SYM)
-            AddSymbol(env, info.sym_type, name, type);
+            AddSymbol(env, info.sym_type, name, type, NoFileLocation());
     }
     Type *string_type = GetBuiltinType(TYP_string);
     Struct_Member *members = PushArray<Struct_Member>(&env->arena, 2);
@@ -454,18 +454,18 @@ static void AddBuiltinFunctions(Environment *env)
     Type *hp_alloc_type = PushFunctionType(env, TYP_Function, 1);
     hp_alloc_type->function_type.return_type = GetPointerType(env, GetBuiltinType(TYP_void));
     hp_alloc_type->function_type.parameter_types[0] = GetBuiltinType(TYP_s64);
-    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "hp_alloc"), hp_alloc_type);
+    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "hp_alloc"), hp_alloc_type, NoFileLocation());
 
     Type *c_exit_type = PushFunctionType(env, TYP_Function, 1);
     c_exit_type->function_type.return_type = GetBuiltinType(TYP_void);
     c_exit_type->function_type.parameter_types[0] = GetBuiltinType(TYP_s32);
-    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "exit"), c_exit_type);
+    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "exit"), c_exit_type, NoFileLocation());
 
     Name sqrt_name = PushName(&env->arena, "sqrt");
     Type *sqrt_f64_type = PushFunctionType(env, TYP_Function, 1);
     sqrt_f64_type->function_type.return_type = GetBuiltinType(TYP_f64);
     sqrt_f64_type->function_type.parameter_types[0] = GetBuiltinType(TYP_f64);
-    Symbol *sqrt_sym = AddFunction(env, sqrt_name, sqrt_f64_type);
+    Symbol *sqrt_sym = AddFunction(env, sqrt_name, sqrt_f64_type, NoFileLocation());
     sqrt_sym->flags = SYMF_Intrinsic;
 }
 
@@ -742,7 +742,8 @@ static Name MakeUniqueName(Environment *env, Name name)
     return MakeName(str);
 }
 
-static Symbol* PushSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
+static Symbol* PushSymbol(Environment *env,
+        Symbol_Type sym_type, Name name, Type *type, File_Location define_loc)
 {
     Symbol *symbol = PushStruct<Symbol>(&env->arena);
     *symbol = { };
@@ -750,12 +751,14 @@ static Symbol* PushSymbol(Environment *env, Symbol_Type sym_type, Name name, Typ
     symbol->name = name;
     symbol->unique_name = MakeUniqueName(env, name);
     symbol->type = type;
+    symbol->define_loc = define_loc;
     return symbol;
 }
 
-Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type)
+Symbol* AddSymbol(Environment *env,
+        Symbol_Type sym_type, Name name, Type *type, File_Location define_loc)
 {
-    Symbol *symbol = PushSymbol(env, sym_type, name, type);
+    Symbol *symbol = PushSymbol(env, sym_type, name, type, define_loc);
 
     Scope *scope = env->current;
     PutHash(scope->table, name, symbol);
@@ -871,7 +874,7 @@ static Name MakeUniqueOverloadName(Environment *env, Name base_name, Type *type)
     return MakeName(str);
 }
 
-Symbol* AddFunction(Environment *env, Name name, Type *type)
+Symbol* AddFunction(Environment *env, Name name, Type *type, File_Location define_loc)
 {
     Scope *scope = env->current;
     Symbol *old_symbol = LookupSymbol(scope, name);
@@ -879,7 +882,7 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
     {
         if (old_symbol->sym_type == SYM_Function)
         {
-            Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
+            Symbol *symbol = PushSymbol(env, SYM_Function, name, type, define_loc);
             Symbol *prev = old_symbol;
             while (prev->next_overload)
             {
@@ -893,7 +896,7 @@ Symbol* AddFunction(Environment *env, Name name, Type *type)
     }
     else
     {
-        Symbol *symbol = PushSymbol(env, SYM_Function, name, type);
+        Symbol *symbol = PushSymbol(env, SYM_Function, name, type, define_loc);
         PutHash(scope->table, name, symbol);
         scope->symbol_count++;
         return symbol;

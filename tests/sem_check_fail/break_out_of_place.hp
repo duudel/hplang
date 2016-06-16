@@ -1,0 +1,7 @@
+// Test for break placement outside of breakable control structure.
+// 2016-06-16
+
+main :: ()
+{
+    break; 
+}

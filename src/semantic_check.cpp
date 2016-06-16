@@ -41,6 +41,14 @@ static b32 ContinueChecking(Sem_Check_Context *ctx)
     return ContinueCompiling(ctx->comp_ctx);
 }
 
+static void ShowLocation(Sem_Check_Context *ctx, File_Location file_loc, const char *message)
+{
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "- %s\n", message);
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
+}
+
 static void Error(Sem_Check_Context *ctx, File_Location file_loc, const char *message)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
@@ -545,7 +553,7 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
             {
                 s64 best_score = -1;
                 Symbol *best_overload = nullptr;
-                b32 ambiguous = false;
+                Symbol *ambiguous = nullptr;
                 while (func)
                 {
                     s64 score = CheckFunctionArgs(func->type, arg_count, arg_types);
@@ -553,11 +561,11 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
                     {
                         best_score = score;
                         best_overload = func;
-                        ambiguous = false;
+                        ambiguous = nullptr;
                     }
                     else if (score > 0 && score == best_score)
                     {
-                        ambiguous = true;
+                        ambiguous = func;
                     }
                     func = func->next_overload;
                 }
@@ -569,7 +577,9 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
                 }
                 else if (ambiguous)
                 {
-                    Error(ctx, expr->file_loc, "Function call is ambiguous");
+                    Error(ctx, expr->file_loc, "Function call is ambiguous; atleast two overloads match");
+                    ShowLocation(ctx, best_overload->define_loc, "First overload here:");
+                    ShowLocation(ctx, ambiguous->define_loc, "Second overload here:");
                 }
                 else
                 {
@@ -1704,7 +1714,7 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         if (old_symbol && old_symbol->sym_type == SYM_Parameter)
             ErrorVaribleShadowsParam(ctx, node, name);
     }
-    Symbol *symbol = AddSymbol(ctx->env, SYM_Variable, name, type);
+    Symbol *symbol = AddSymbol(ctx->env, SYM_Variable, name, type, node->file_loc);
     // TODO(henrik): Make checking/marking a variable as global more elegant.
     // Maybe new symbol type SYM_GlobalVariable?
     if (!ctx->env->current->parent)
@@ -2013,7 +2023,7 @@ static void CheckParameters(Sem_Check_Context *ctx, Ast_Node *node, Type *ftype)
         Type *param_type = CheckType(ctx, param->parameter.type);
         ASSERT(param_type);
         Symbol *symbol = AddSymbol(ctx->env, SYM_Parameter,
-                param->parameter.name, param_type);
+                param->parameter.name, param_type, param->file_loc);
         param->parameter.symbol = symbol;
 
         ftype->function_type.parameter_types[i] = param_type;
@@ -2059,7 +2069,7 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 
     // TODO(henrik): Should the names be copied to env->arena?
     Name name = node->function_def.name;
-    Symbol *symbol = AddFunction(ctx->env, name, ftype);
+    Symbol *symbol = AddFunction(ctx->env, name, ftype, node->file_loc);
     if (symbol->sym_type != SYM_Function)
     {
         ErrorDeclaredEarlierAs(ctx, node, name, symbol);
@@ -2080,7 +2090,8 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     {
         if (FunctionTypesAmbiguous(overload->type, symbol->type))
         {
-            Error(ctx, node->file_loc, "Ambiguous function definition");
+            Error(ctx, node->file_loc, "Duplicate function definition");
+            ShowLocation(ctx, overload->define_loc, "Previous definition here");
             break;
         }
         overload = overload->next_overload;
@@ -2135,7 +2146,7 @@ static void CheckTypealias(Sem_Check_Context *ctx, Ast_Node *node)
         ErrorDeclaredEarlierAs(ctx, node, typealias->name, old_symbol);
     }
 
-    AddSymbol(ctx->env, SYM_Typealias, typealias->name, type);
+    AddSymbol(ctx->env, SYM_Typealias, typealias->name, type, node->file_loc);
 }
 
 static void CheckStructMember(Sem_Check_Context *ctx,
@@ -2166,7 +2177,7 @@ static void CheckStruct(Sem_Check_Context *ctx, Ast_Node *node)
         ErrorDeclaredEarlierAs(ctx, node, struct_def->name, old_symbol);
     }
 
-    AddSymbol(ctx->env, SYM_Struct, struct_def->name, type);
+    AddSymbol(ctx->env, SYM_Struct, struct_def->name, type, node->file_loc);
 
     for (s64 i = 0; i < member_count && ContinueChecking(ctx); i++)
     {
@@ -2201,7 +2212,7 @@ static void CheckForeignFunction(Sem_Check_Context *ctx, Ast_Node *node)
         }
         return;
     }
-    AddSymbol(ctx->env, SYM_ForeignFunction, name, ftype);
+    AddSymbol(ctx->env, SYM_ForeignFunction, name, ftype, node->file_loc);
 
     CheckForeignFunctionParameters(ctx, node, ftype);
 }

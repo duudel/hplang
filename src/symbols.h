@@ -161,6 +161,7 @@ struct Symbol
     Name name;
     Name unique_name;
     Type *type;
+    File_Location define_loc;
     u32 flags;
 
     Symbol *next_overload;
@@ -221,8 +222,8 @@ Type* PushPendingType(Environment *env);
 Type* PushFunctionType(Environment *env, Type_Tag tag, s64 param_count);
 Type* GetPointerType(Environment *env, Type *base_type);
 
-Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type);
-Symbol* AddFunction(Environment *env, Name name, Type *type);
+Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type, File_Location define_loc);
+Symbol* AddFunction(Environment *env, Name name, Type *type, File_Location define_loc);
 Symbol* LookupSymbol(Environment *env, Name name);
 Symbol* LookupSymbolInCurrentScope(Environment *env, Name name);
 

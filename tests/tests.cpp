@@ -133,6 +133,7 @@ static Fail_Test fail_tests[] = {
     (Fail_Test){ CP_Checking,   "tests/sem_check_fail/infer_ret_type_from_null.hp",     {4, 1} },
     (Fail_Test){ CP_Checking,   "tests/sem_check_fail/access_non_struct.hp",            {7, 10} },
     (Fail_Test){ CP_Checking,   "tests/sem_check_fail/deref_void_ptr.hp",               {7, 10} },
+    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/break_out_of_place.hp",           {6, 5} },
 };
 
 static Succeed_Test succeed_tests[] = {
