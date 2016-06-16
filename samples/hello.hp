@@ -1,20 +1,15 @@
 // Hello world program
 // 2016-05-25
 
-import "io";
+import ":io";
 
 main :: ()
 {
-    //hp_fprint_int(stdout, 10 / -5);
-    //print("\n");
-    //hp_fprint_int(stdout, -10 / 5);
-    //return 0;
     print("Hello world!\n");
     //hello := "Hello world!\n";
     //print(hello);
     print("A number ");
     print(-105);
-    //hp_fprint_int(stdout, -105);
-    print("\n");
+    println();
     return 0;
 }

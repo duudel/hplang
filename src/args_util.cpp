@@ -37,12 +37,19 @@ void PrintOptions(Arg_Options_Context *ctx)
             len += printf("  --%s", opt->long_name);
             if (opt->long_args)
             {
-                for (int i = 0; ; i++)
+                len += printf(" [");
+                if (opt->long_args[0])
                 {
-                    if (!opt->long_args[i])
-                        break;
-                    len += printf("[%s]", opt->long_args[i]);
+                    int i = 0;
+                    do {
+                        len += printf("%s", opt->long_args[i]);
+                        i++;
+                        if (!opt->long_args[i])
+                            break;
+                        len += printf("|");
+                    } while(true);
                 }
+                len += printf("]");
             }
             else if (opt->accepts_arg)
             {
@@ -73,6 +80,23 @@ void PrintOptions(Arg_Options_Context *ctx)
         print_padding(args_col_len - len);
         printf("%s\n", opt->description);
 
+        if (opt->arg_values)
+        {
+            len = printf("<%s> can be one of ", opt->accepts_arg);
+            len += printf("[");
+            if (opt->arg_values[0])
+            {
+                int i = 0;
+                do {
+                    len += printf("%s", opt->arg_values[i]);
+                    i++;
+                    if (!opt->arg_values[i])
+                        break;
+                    len += printf("|");
+                } while(true);
+            }
+            len += printf("]\n\n");
+        }
         opt++;
     }
 }

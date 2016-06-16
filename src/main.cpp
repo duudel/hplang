@@ -18,7 +18,7 @@ using namespace hplang;
 void PrintUsage(Arg_Options_Context *options_ctx)
 {
     printf("hplang [options] <source>\n");
-    printf("  compile <source> into binary executable\n");
+    printf("  compile <source> into binary executable\n\n");
     printf("options:\n");
     PrintOptions(options_ctx);
 }
@@ -42,13 +42,98 @@ static const char *diag_args[] = {
     nullptr
 };
 
+static const char *target_args[] = {
+    "win64",
+    "win_amd64",
+    "elf64",
+    "linux64",
+    nullptr
+};
+
 static const Arg_Option options[] = {
-    {"output", 'o', nullptr, nullptr, "Sets the output filename", "filename"},
-    {"diagnostic", 'd', diag_args, "MAiR", "Selects the diagnostic options", nullptr},
-    {"help", 'h', nullptr, nullptr, "Shows this help and exits", nullptr},
-    {"version", 'v', nullptr, nullptr, "Prints the version information", nullptr},
+    {"output", 'o', nullptr, nullptr, "Sets the output filename", "filename", nullptr},
+    {"target", 'T', nullptr, nullptr, "Sets the output target", "target", target_args},
+    {"diagnostic", 'd', diag_args, "MAiR", "Selects the diagnostic options", nullptr, nullptr},
+    {"help", 'h', nullptr, nullptr, "Shows this help and exits", nullptr, nullptr},
+    {"version", 'v', nullptr, nullptr, "Prints the version information", nullptr, nullptr},
     { }
 };
+
+static int ParseTargetOption(Arg_Option_Result option_result, Compiler_Options *options)
+{
+    const char *arg = option_result.arg;
+    if (!arg)
+    {
+        printf("No <target> given for -T <target>, aborting...\n");
+        return -1;
+    }
+    if (strcmp(arg, "win64") == 0 ||
+        strcmp(arg, "win_amd64") == 0)
+    {
+        options->target = CGT_AMD64_Windows;
+    }
+    else if (strcmp(arg, "elf64") == 0 ||
+                strcmp(arg, "linux64") == 0)
+    {
+        options->target = CGT_AMD64_Unix;
+    }
+    else
+    {
+        printf("Invalid target \"%s\"\n, aborting...", arg);
+        return -1;
+    }
+    return 0;
+}
+
+static int ParseDiagnosticOption(Arg_Option_Result option_result, Compiler_Options *options)
+{
+    if (option_result.short_args)
+    {
+        const char *p = option_result.short_args;
+        for (; p[0] != '\0'; p++)
+        {
+            switch (p[0])
+            {
+                case 'M':
+                    options->diagnose_memory = true;
+                    break;
+                case 'A':
+                    options->debug_ast = true;
+                    break;
+                case 'i':
+                    options->debug_ir = true;
+                    break;
+                case 'R':
+                    options->debug_reg_alloc = true;
+                    break;
+
+                default:
+                    printf("Unrecognized argument %c for -%c\n",
+                            p[0], option_result.option->short_name);
+                    return -1;
+            }
+        }
+    }
+    else if (option_result.arg)
+    {
+        const char *arg = option_result.arg;
+        if (strcmp(arg, "memory") == 0)
+            options->diagnose_memory = true;
+        else if (strcmp(arg, "ast") == 0)
+            options->debug_ast = true;
+        else if (strcmp(arg, "ir") == 0)
+            options->debug_ir = true;
+        else if (strcmp(arg, "regalloc") == 0)
+            options->debug_reg_alloc = true;
+        else
+        {
+            printf("Unrecognized argument %s for --%s\n",
+                    arg, option_result.option->long_name);
+            return -1;
+        }
+    }
+    return 0;
+}
 
 int main(int argc, char **argv)
 {
@@ -89,53 +174,15 @@ int main(int argc, char **argv)
                 {
                     options.output_filename = option_result.arg;
                 } break;
+                case 'T':
+                {
+                    int result = ParseTargetOption(option_result, &options);
+                    if (result != 0) return result;
+                } break;
                 case 'd':
                 {
-                    if (option_result.short_args)
-                    {
-                        const char *p = option_result.short_args;
-                        for (; p[0] != '\0'; p++)
-                        {
-                            switch (p[0])
-                            {
-                                case 'M':
-                                    options.diagnose_memory = true;
-                                    break;
-                                case 'A':
-                                    options.debug_ast = true;
-                                    break;
-                                case 'i':
-                                    options.debug_ir = true;
-                                    break;
-                                case 'R':
-                                    options.debug_reg_alloc = true;
-                                    break;
-
-                                default:
-                                    printf("Unrecognized argument %c for -%c\n",
-                                            p[0], option_result.option->short_name);
-                                    return -1;
-                            }
-                        }
-                    }
-                    else if (option_result.arg)
-                    {
-                        const char *arg = option_result.arg;
-                        if (strcmp(arg, "memory") == 0)
-                            options.diagnose_memory = true;
-                        else if (strcmp(arg, "ast") == 0)
-                            options.debug_ast = true;
-                        else if (strcmp(arg, "ir") == 0)
-                            options.debug_ir = true;
-                        else if (strcmp(arg, "regalloc") == 0)
-                            options.debug_reg_alloc = true;
-                        else
-                        {
-                            printf("Unrecognized argument %s for --%s\n",
-                                    arg, option_result.option->long_name);
-                            return -1;
-                        }
-                    }
+                    int result = ParseDiagnosticOption(option_result, &options);
+                    if (result != 0) return result;
                 } break;
 
                 case 'h':

@@ -11,6 +11,7 @@ struct Arg_Option
     const char *short_args;
     const char *description;
     const char *accepts_arg;
+    const char **arg_values;
 };
 
 struct Arg_Option_Result

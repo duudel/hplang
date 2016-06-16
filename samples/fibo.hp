@@ -1,8 +1,8 @@
 // hplang - Fibonacci sample
 // 2016-03-31
 
-//io :: import "io";
-import "io";
+//io :: import ":io";
+import ":io";
 
 /*
 FILE :: struct { }

@@ -1,6 +1,6 @@
 // A simple sample program
 
-import "io";
+import ":io";
 
 //foreign {
 //    printf :: (fmt : char*, a1 : char*) : s64;
