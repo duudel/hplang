@@ -3082,7 +3082,7 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
     for (s64 instr_i = interval_start; instr_i <= next_interval_start; instr_i++)
     {
         ExpireOldIntervals(ctx, active, inactive, instr_i);
-        CheckInactiveIntervals(ctx, active, inactive, instr_i);
+        RenewInactiveIntervals(ctx, active, inactive, instr_i);
         ScanInstruction(ctx, routine, active, instr_i);
     }
 }
@@ -3097,7 +3097,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
     ResetRegAlloc(reg_alloc, !is_leaf);
 
     s32 last_interval_start = 0;
-    s32 last_interval_end = 0;
+    //s32 last_interval_end = 0;
     Array<Live_Interval> active = { };
     Array<Live_Interval> inactive = { };
 
@@ -3109,7 +3109,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
             next_interval_start = live_intervals[i + 1].start;
 
         ExpireOldIntervals(ctx, active, inactive, interval.start);
-        CheckInactiveIntervals(ctx, active, inactive, interval.start);
+        RenewInactiveIntervals(ctx, active, inactive, interval.start);
 
         if (interval.reg.reg_index != REG_NONE)
         {
@@ -3119,7 +3119,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
         {
             SpillAtInterval(ctx, active, interval);
         }
-        else //if (!interval.is_spilled)
+        else
         {
             Reg reg = GetFreeRegister(reg_alloc, interval.data_type);
             interval.reg = reg;
@@ -3135,26 +3135,11 @@ static void LinearScanRegAllocation(Codegen_Context *ctx,
                 interval.start, next_interval_start - 1);
 
         last_interval_start = interval.start;
-        if (interval.end > last_interval_end)
-            last_interval_end = interval.end;
+        //if (interval.end > last_interval_end)
+        //    last_interval_end = interval.end;
     }
 
-    for (s64 i = 0; i < active.count; i++)
-    {
-        Live_Interval interval = active[i];
-        if (interval.end > last_interval_end)
-            last_interval_end = interval.end;
-    }
-
-    for (s64 i = 0; i < inactive.count; i++)
-    {
-        Live_Interval interval = inactive[i];
-        if (interval.end > last_interval_end)
-            last_interval_end = interval.end;
-    }
-
-    last_interval_end = routine->instructions.count - 1;
-
+    s64 last_interval_end = routine->instructions.count - 1;
     ScanInstructions(ctx, routine, active, inactive,
             last_interval_start, last_interval_end);
 
@@ -3192,14 +3177,9 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine)
     routine->flags = ir_routine->flags;
 
     bool toplevel = (ir_routine->name.str.size == 0);
-    if (toplevel)
-    {
-        routine->name = PushName(&ctx->arena, "init_");
-    }
-    else
-    {
-        routine->name = ir_routine->name;
-    }
+    routine->name = (toplevel)
+        ? PushName(&ctx->arena, "init_")
+        : ir_routine->name;
 
     // Set local offsets for arguments
     Reg_Seq_Index arg_reg_index = { };
