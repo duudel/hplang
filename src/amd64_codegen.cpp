@@ -1006,7 +1006,6 @@ static Operand LoadImmediates(Codegen_Context *ctx,
         }
         else if (oper.data_type == Oper_Data_Type::F64)
         {
-            //return oper;
             Operand dest = TempFloat64Operand(ctx, AF_Write);
             Instruction *load_const = LoadFloat64Imm(ctx, dest, oper.imm_f64);
             array::Insert(instructions, instr_index, load_const);
@@ -1683,13 +1682,10 @@ static s64 PushArgs(Codegen_Context *ctx,
 {
     Reg_Seq_Index arg_reg_index = { };
 
-    //s64 arg_stack_alloc = //(arg_count > 4 ? arg_count : 4) * 8;
-    //    ArgStackSize(ctx->reg_alloc, arg_count);
-    //arg_stack_alloc = Align(arg_stack_alloc, 16);
+    // NOTE(henrik): The allocated stack space is added to alloc_stack_instr
+    // instruction later.
     Instruction *alloc_stack_instr = PushInstruction(ctx, OP_sub,
             RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write));
-            //,
-            //ImmOperand(arg_stack_alloc, AF_Read));
 
     ASSERT(ir_instr->oper2.oper_type == IR_OPER_Immediate);
     s64 arg_instr_idx = ir_instr->oper2.imm_s64;
@@ -1734,11 +1730,6 @@ static s64 PushArgs(Codegen_Context *ctx,
                 Operand arg_target = FixedRegOperand(ctx, *arg_reg, arg_data_type, AF_Write);
                 Operand arg_oper = IrOperand(ctx, &arg_instr->target, AF_Read);
                 PushLoad(ctx, arg_target, arg_oper);
-                // NOTE(henrik): Here we spill all arguments that go in the shadow space backed registers
-                // as the reg alloc does not know how to handle them otherwise atm.
-                //PushLoad(ctx,
-                //        BaseOffsetOperand(REG_rsp, arg_sp_offset, arg_oper.data_type, AF_Write),
-                //        R_(arg_target));
                 PushOperandUse(ctx, &use, arg_target);
             }
             else
