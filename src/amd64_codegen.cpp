@@ -2905,6 +2905,10 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
     else
     {
         Live_Interval spill = active[spill_i];
+        // NOTE(henrik): This here prevents spilling registers whose live
+        // interval ends after the this instruction.
+        if (spill.end == interval.start)
+            return;
         Spill(ctx->reg_alloc, spill, interval.start);
 
 #ifdef RA_DEBUG_INFO

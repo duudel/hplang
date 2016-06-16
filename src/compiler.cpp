@@ -463,6 +463,8 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
             break;
     }
     const char *gcc_args[] = {
+        //"-O3",
+        //"-flto",
         //"-Wl,--oformat=", gcc_target,
         gcc_target,
         "-Wl,-einit_",
