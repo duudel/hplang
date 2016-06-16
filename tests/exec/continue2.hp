@@ -1,0 +1,19 @@
+// Test for continue in while loop.
+// 2016-06-17
+
+import ":io";
+
+main :: ()
+{
+    j := -5;
+    while (j < 20)
+    {
+        i := j * j - 20;
+        j += 1;
+        if (i < j)
+            continue;
+        j += 8;
+    }
+    println(j);
+    return 0;
+}

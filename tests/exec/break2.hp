@@ -1,0 +1,18 @@
+// Test for break statement in while loop.
+// 2016-06-16
+
+import ":io";
+
+main :: ()
+{
+    j := -5;
+    while (j <= 5)
+    {
+        i := j * j - 5;
+        if (i < j)
+            break;
+        j += 1;
+    }
+    println(j);
+    return 0;
+}
