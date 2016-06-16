@@ -2573,7 +2573,7 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
         }
     }
 
-#if defined(DEBUG_LIVENESS) || defined(RA_DEBUG_INFO)
+#if defined(RA_DEBUG_INFO)
 if (ctx->comp_ctx->options.debug_reg_alloc)
 {
     fprintf(stderr, "\n--Live in/out-- ");
@@ -2582,7 +2582,6 @@ if (ctx->comp_ctx->options.debug_reg_alloc)
     for (s64 instr_i = 0; instr_i < live_sets.count; instr_i++)
     {
         Live_Sets sets = live_sets[instr_i];
-        //fprintf(stderr, "instr %" PRId64 ":\n", instr_i);
         fprintf(stderr, "instr %" PRId64 ": ", instr_i);
         PrintInstruction((IoFile*)stderr, instructions[instr_i]);
         fprintf(stderr, "   in: ");
@@ -2642,6 +2641,7 @@ static void InsertSpills(Codegen_Context *ctx)
 {
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
     Array<Spill_Info> &spills = reg_alloc->spills;
+    // Sort spills
     for (s64 i = 0; i < spills.count - 1; i++)
     {
         for (s64 j = i + 1; j < spills.count; j++)
@@ -2730,27 +2730,6 @@ static void Unspill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
     array::Push(reg_alloc->spills, spill_info);
 }
 
-static void RemoveFromFreeRegs(Array<Reg> &free_regs, Reg reg)
-{
-    for (s64 i = 0; i < free_regs.count; i++)
-    {
-        if (free_regs[i] == reg)
-        {
-            array::EraseBySwap(free_regs, i);
-            return;
-        }
-    }
-    INVALID_CODE_PATH;
-}
-
-static void RemoveFromFreeRegs(Codegen_Context *ctx, Reg reg)
-{
-    if (IsFloatRegister(ctx->reg_alloc, reg))
-        RemoveFromFreeRegs(ctx->reg_alloc->free_float_regs, reg);
-    else
-        RemoveFromFreeRegs(ctx->reg_alloc->free_regs, reg);
-}
-
 static bool MaybeRemoveFromFreeRegs(Array<Reg> &free_regs, Reg reg)
 {
     for (s64 i = 0; i < free_regs.count; i++)
@@ -2772,37 +2751,46 @@ static bool MaybeRemoveFromFreeRegs(Codegen_Context *ctx, Reg reg)
         return MaybeRemoveFromFreeRegs(ctx->reg_alloc->free_regs, reg);
 }
 
+static void RemoveFromFreeRegs(Codegen_Context *ctx, Reg reg)
+{
+    ASSERT(MaybeRemoveFromFreeRegs(ctx, reg) == true);
+}
+
+// Adds live interval "inteval" to the set "active". The set is kept sorted
+// by ascending iterval end.
 static void AddToActive(Array<Live_Interval> &active, Live_Interval interval)
 {
     s64 index = 0;
     for (; index < active.count; index++)
     {
         ASSERT(active[index].reg != interval.reg);
-        if (interval.end < active[index].end)
+        if (interval.end <= active[index].end)
             break;
     }
     array::Insert(active, index, interval);
 }
 
+// Adds live interval "inteval" to the set "unhandled". The set is kept sorted
+// by ascending iterval start.
 static void AddToUnhandled(Array<Live_Interval> &unhandled, Live_Interval interval)
 {
-    for (s64 i = 0; i < unhandled.count; i++)
+    s64 index = 0;
+    for (; index < unhandled.count; index++)
     {
-        if (unhandled[i].start >= interval.start)
-        {
-            array::Insert(unhandled, i, interval);
-            return;
-        }
+        if (interval.start <= unhandled[index].start)
+            break;
     }
-    array::Push(unhandled, interval);
+    array::Insert(unhandled, index, interval);
 }
 
+// Remove expired intervals from "active" set and add the inteval's next, if it
+// has one, to the "inactive" set.
 static void ExpireOldIntervals(Codegen_Context *ctx,
         Array<Live_Interval> &active,
         Array<Live_Interval> &inactive,
         s64 instr_index)
 {
-    for (s64 i = 0; i < active.count; ) //i++)
+    for (s64 i = 0; i < active.count; )
     {
         Live_Interval active_interval = active[i];
         if (active_interval.end >= instr_index)
@@ -2833,7 +2821,10 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
     }
 }
 
-static void CheckInactiveIntervals(Codegen_Context *ctx,
+// Remove intervals that have expired from the "inactive" set, and move
+// intervals that overlap current instruction index "instr_index" from the
+// "inactive" to the "active" set.
+static void RenewInactiveIntervals(Codegen_Context *ctx,
         Array<Live_Interval> &active,
         Array<Live_Interval> &inactive,
         s64 instr_index)
@@ -2849,7 +2840,6 @@ static void CheckInactiveIntervals(Codegen_Context *ctx,
         if (inactive_interval.start <= instr_index)
         {
             array::Erase(inactive, i);
-            //RemoveFromFreeRegs(ctx, inactive_interval.reg);
             if (!MaybeRemoveFromFreeRegs(ctx, inactive_interval.reg))
             {
                 Reg free_reg = GetFreeRegister(ctx->reg_alloc, inactive_interval.data_type);
@@ -2863,6 +2853,8 @@ static void CheckInactiveIntervals(Codegen_Context *ctx,
     }
 }
 
+// Spill either "interval" or the last interval in the "active" set, depending
+// on which expires earlier.
 static void SpillAtInterval(Codegen_Context *ctx, Array<Live_Interval> &active, Live_Interval interval)
 {
     s64 spill_i = active.count-1;
@@ -2884,6 +2876,9 @@ static void SpillAtInterval(Codegen_Context *ctx, Array<Live_Interval> &active, 
     }
 }
 
+// Spill interval from "active" set that has the fixed register of "interval"
+// allocated. If the register is not currently allocated, then allocate it for
+// the "interval".
 static void SpillFixedRegAtInterval(Codegen_Context *ctx,
         Array<Live_Interval> &unhandled,
         Array<Live_Interval> &active, Live_Interval interval)
@@ -2904,6 +2899,15 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
     }
     else
     {
+        // TODO(henrik): We could allocate a new register for the active
+        // interval, if there was any free registers. This could be a bit
+        // hairy, if some of the free registers are going to be needed soon,
+        // e.g. in case of a function call argument registers. Could
+        // potentially lead to: active has arg_reg0 allocated, new fixed
+        // interval needs arg_reg0, active allocates new free reg which by
+        // chance is arg_reg1.  Soon new fixed interval needs arg_reg1, and so
+        // on...
+
         Live_Interval spill = active[spill_i];
         // NOTE(henrik): This here prevents spilling registers whose live
         // interval ends after the this instruction.
@@ -2931,7 +2935,6 @@ if (ctx->comp_ctx->options.debug_reg_alloc)
 
         spill.start = interval.end + 1;
         if (spill.end > spill.start)
-        //if (spill.end >= spill.start)
         {
             Unspill(ctx->reg_alloc, spill, spill.start);
             AddToUnhandled(unhandled, spill);
@@ -3012,8 +3015,7 @@ static void SpillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active, 
 {
     for (s64 i = 0; i < active.count; i++)
     {
-        if (!active[i].is_fixed &&
-                IsCallerSave(reg_alloc, active[i].reg))
+        if (!active[i].is_fixed && IsCallerSave(reg_alloc, active[i].reg))
         {
             Live_Interval interval = active[i];
             interval.name = reg_save_names[interval.reg.reg_index];
@@ -3026,8 +3028,7 @@ static void UnspillCallerSaves(Reg_Alloc *reg_alloc, Array<Live_Interval> active
 {
     for (s64 i = 0; i < active.count; i++)
     {
-        if (!active[i].is_fixed &&
-                IsCallerSave(reg_alloc, active[i].reg))
+        if (!active[i].is_fixed && IsCallerSave(reg_alloc, active[i].reg))
         {
             Live_Interval interval = active[i];
             interval.name = reg_save_names[interval.reg.reg_index];
