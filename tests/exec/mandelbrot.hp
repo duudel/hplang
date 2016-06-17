@@ -8,10 +8,7 @@ import ":io";
 
 putc :: (c : u8)
 {
-    //c = c > 120 ? 120->u8 : c;
-    //c = (c > 0 && c < 32) ? (120 - c)->u8 : c;
     hp_fwrite(stdout, 1, &c);
-    //print("("); print(c); print(")");
 }
 
 main :: ()
@@ -32,9 +29,7 @@ main :: ()
     print(" ");
     println(h);
 
-    //w_mod_8 := w % 8;
-
-    putted := 0;
+    //putted := 0;
     for (y := 0.0; y < h -> f64; y += 1.0)
     {
         for (x := 0.0; x < w -> f64; x += 1.0)
@@ -44,9 +39,7 @@ main :: ()
             Ci = (2.0*y/h - 1.0);
 
             for (i : s64 = 0; (i < iter) && (Tr+Ti <= limit*limit); i += 1)
-            //for (i : s64 = 0; i < iter; i += 1)
             {
-                //if (Tr+Ti > limit*limit) break;
                 Zi = 2.0*Zr*Zi + Ci;
                 Zr = Tr - Ti + Cr;
                 Tr = Zr * Zr;
@@ -59,16 +52,12 @@ main :: ()
 
             bit_num += 1;
 
-            //print(y);
-            //print(", ");
-            //println(x);
-
             if (bit_num == 8)
             {
                 putc(byte_acc);
                 byte_acc = 0 -> u8;
                 bit_num = 0;
-                putted += 1;
+                //putted += 1;
             }
             else if (x == w-1)
             {
@@ -78,10 +67,7 @@ main :: ()
                 bit_num = 0;
             }
         }
-        //println();
     }
-    //print("putted ");
-    //println(putted);
     return 0;
 }
 

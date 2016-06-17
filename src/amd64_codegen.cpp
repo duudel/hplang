@@ -1397,7 +1397,7 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                     PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
                 Amd64_Opcode mul_op = (ltype->tag == TYP_f32) ? OP_mulss : OP_mulsd;
                 PushInstruction(ctx, mul_op,
-                        IrOperand(ctx, &ir_instr->target, AF_Write),
+                        IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
                         IrOperand(ctx, &ir_instr->oper2, AF_Read));
             }
             else if (is_signed)
@@ -1433,7 +1433,7 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
                     PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
                 Amd64_Opcode div_op = (ltype->tag == TYP_f32) ? OP_divss : OP_divsd;
                 PushInstruction(ctx, div_op,
-                        IrOperand(ctx, &ir_instr->target, AF_Write),
+                        IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
                         IrOperand(ctx, &ir_instr->oper2, AF_Read));
             }
             else
@@ -1646,14 +1646,9 @@ static s64 GetLocalOffset(Codegen_Context *ctx, Name name, Oper_Data_Type data_t
 
     offs = PushStruct<Local_Offset>(&ctx->arena);
 
-    //routine->locals_size += GetAlignedSize(ir_oper->type);
-#if 0
-    routine->locals_size += 8;
-    routine->locals_size = Align(routine->locals_size, 8);
-#else
     routine->locals_size += GetSize(data_type);
     routine->locals_size = Align(routine->locals_size, GetAlign(data_type));
-#endif
+
     offs->name = name;
     offs->offset = -routine->locals_size;
 
@@ -2825,21 +2820,16 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
         if (active_interval.next)
         {
             Live_Interval next = *active_interval.next;
-            next.name = active_interval.name;
+            //next.name = active_interval.name;
             next.reg = active_interval.reg;
-            next.data_type = active_interval.data_type;
+            //next.data_type = active_interval.data_type;
 
             AddToUnhandled(inactive, next);
 
-            // TODO(henrik): Investigate: why were we spilling here? Was it really needed?
-            // NOTE(henrik): Disabled, as it caused subtle bugs.
-            if (false && next.start > instr_index)
-            {
-                fprintf(stderr, "<<Insert spill of ");
-                PrintName((IoFile*)stderr, next.name);
-                fprintf(stderr, ">>\n");
-                Spill(ctx->reg_alloc, next, instr_index-1);
-            }
+            if ((ctx->current_routine->instructions[active_interval.end]->flags & IF_Branch) != 0)
+                Spill(ctx->reg_alloc, active_interval, active_interval.end);
+            else
+                Spill(ctx->reg_alloc, active_interval, active_interval.end+1);
         }
 
         ReleaseRegister(ctx->reg_alloc, active_interval.reg, active_interval.data_type);
@@ -2859,6 +2849,7 @@ static void RenewInactiveIntervals(Codegen_Context *ctx,
         Live_Interval inactive_interval = inactive[i];
         if (inactive_interval.end < instr_index)
         {
+            INVALID_CODE_PATH;
             array::Erase(inactive, i);
             continue;
         }
@@ -2867,12 +2858,18 @@ static void RenewInactiveIntervals(Codegen_Context *ctx,
             array::Erase(inactive, i);
             if (!MaybeRemoveFromFreeRegs(ctx, inactive_interval.reg))
             {
-                Reg free_reg = GetFreeRegister(ctx->reg_alloc, inactive_interval.data_type);
-                inactive_interval.reg = free_reg;
+                if (!HasFreeRegisters(ctx->reg_alloc, inactive_interval.data_type))
+                {
+                    continue;
+                }
+                else
+                {
+                    Reg free_reg = GetFreeRegister(ctx->reg_alloc, inactive_interval.data_type);
+                    inactive_interval.reg = free_reg;
+                }
             }
             AddToActive(active, inactive_interval);
-            if (inactive_interval.start > instr_index)
-                Unspill(ctx->reg_alloc, inactive_interval, instr_index+1);
+            Unspill(ctx->reg_alloc, inactive_interval, inactive_interval.start);
         }
         i++;
     }
@@ -3079,7 +3076,7 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
             Name oper_name = GetOperName(instr->oper1);
             if (interval.name == oper_name)
             {
-                Spill(ctx->reg_alloc, interval, instr_i);
+                Spill(reg_alloc, interval, instr_i);
                 array::Erase(active, i);
                 ReleaseRegister(reg_alloc, interval.reg, interval.data_type);
                 break;
@@ -3088,6 +3085,49 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
         instr->opcode = (Opcode)OP_nop;
         instr->oper1 = NoneOperand();
     }
+#if 1
+    else if ((instr->flags & IF_Branch) != 0)
+    {
+        for (s64 i = 0; i < active.count; i++)
+        {
+            if (active[i].is_fixed) continue;
+            if (active[i].is_spilled) continue;
+            Spill(reg_alloc, active[i], instr_i);
+        }
+#if 0
+        ASSERT(instr->oper1.type == Oper_Type::Label);
+        Name label_name = instr->oper1.label.name;
+        const Label_Instr *li = hashtable::Lookup(routine->labels, label_name);
+        ASSERT(li != nullptr);
+        if (li->instr)
+        {
+            s64 label_instr_i = li->instr_index;
+            for (s64 i = 0; i < active.count; i++)
+            {
+                Unspill(reg_alloc, active[i], label_instr_i);
+            }
+        }
+#endif
+    }
+    else if ((Amd64_Opcode)instr->opcode == OP_LABEL)
+    {
+        Instruction *prev_instr = (instr_i > 0) ?
+            routine->instructions[instr_i-1] : nullptr;
+        if (prev_instr && (prev_instr->flags & IF_FallsThrough) != 0)
+        for (s64 i = 0; i < active.count; i++)
+        {
+            if (active[i].is_fixed) continue;
+            if (active[i].is_spilled) continue;
+            Spill(reg_alloc, active[i], instr_i);
+        }
+        for (s64 i = 0; i < active.count; i++)
+        {
+            if (active[i].is_fixed) continue;
+            if (active[i].is_spilled) continue;
+            Unspill(reg_alloc, active[i], instr_i+1);
+        }
+    }
+#endif
     SetOperand(ctx, active, &instr->oper1, instr_i);
     SetOperand(ctx, active, &instr->oper2, instr_i);
     SetOperand(ctx, active, &instr->oper3, instr_i);
@@ -3542,19 +3582,19 @@ static s64 PrintOperand(IoFile *file,
                 case Oper_Data_Type::BOOL:
                 case Oper_Data_Type::U8:
                 case Oper_Data_Type::S8:
-                    fprintf((FILE*)file, "byte "); break;
+                    len += fprintf((FILE*)file, "byte "); break;
                 case Oper_Data_Type::U16:
                 case Oper_Data_Type::S16:
-                    fprintf((FILE*)file, "word "); break;
+                    len += fprintf((FILE*)file, "word "); break;
                 case Oper_Data_Type::U32:
                 case Oper_Data_Type::S32:
                 case Oper_Data_Type::F32:
-                    fprintf((FILE*)file, "dword "); break;
+                    len += fprintf((FILE*)file, "dword "); break;
                 case Oper_Data_Type::U64:
                 case Oper_Data_Type::S64:
                 case Oper_Data_Type::F64:
                 case Oper_Data_Type::PTR:
-                    fprintf((FILE*)file, "qword "); break;
+                    len += fprintf((FILE*)file, "qword "); break;
             }
         }
         len += fprintf((FILE*)file, "[");
