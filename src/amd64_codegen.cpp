@@ -1221,8 +1221,7 @@ static void GenerateCompare(Codegen_Context *ctx,
             IrOperand(ctx, &ir_instr->oper2, AF_Read));
 
     Type *ltype = ir_instr->oper1.type;
-    //b32 signed_or_float = (TypeIsFloat(ltype) || TypeIsSigned(ltype));
-    b32 signed_or_float = (false || TypeIsSigned(ltype));
+    b32 is_signed = TypeIsSigned(ltype);
 
     if (ir_next_instr)
     {
@@ -1234,10 +1233,10 @@ static void GenerateCompare(Codegen_Context *ctx,
             {
                 case IR_Eq:     op = OP_je; break;
                 case IR_Neq:    op = OP_jne; break;
-                case IR_Lt:     op = signed_or_float ? OP_jl  : OP_jb; break;
-                case IR_Leq:    op = signed_or_float ? OP_jle : OP_jbe; break;
-                case IR_Gt:     op = signed_or_float ? OP_jg  : OP_ja; break;
-                case IR_Geq:    op = signed_or_float ? OP_jge : OP_jae; break;
+                case IR_Lt:     op = is_signed ? OP_jl  : OP_jb; break;
+                case IR_Leq:    op = is_signed ? OP_jle : OP_jbe; break;
+                case IR_Gt:     op = is_signed ? OP_jg  : OP_ja; break;
+                case IR_Geq:    op = is_signed ? OP_jge : OP_jae; break;
                 default:
                     break;
             }
@@ -1247,10 +1246,10 @@ static void GenerateCompare(Codegen_Context *ctx,
             {
                 case IR_Eq:     op = OP_jne; break;
                 case IR_Neq:    op = OP_je; break;
-                case IR_Lt:     op = signed_or_float ? OP_jge : OP_jae; break;
-                case IR_Leq:    op = signed_or_float ? OP_jg  : OP_ja; break;
-                case IR_Gt:     op = signed_or_float ? OP_jle : OP_jbe; break;
-                case IR_Geq:    op = signed_or_float ? OP_jl : OP_jb; break;
+                case IR_Lt:     op = is_signed ? OP_jge : OP_jae; break;
+                case IR_Leq:    op = is_signed ? OP_jg  : OP_ja; break;
+                case IR_Gt:     op = is_signed ? OP_jle : OP_jbe; break;
+                case IR_Geq:    op = is_signed ? OP_jl : OP_jb; break;
                 default:
                     break;
             }
@@ -1294,7 +1293,7 @@ static void GenerateCompare(Codegen_Context *ctx,
             PushInstruction(ctx, OP_mov, target, ImmOperand(false, AF_Read));
             Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
             PushInstruction(ctx, OP_mov, temp, ImmOperand(true, AF_Read));
-            Amd64_Opcode mov_op = signed_or_float ? OP_cmovl : OP_cmovb;
+            Amd64_Opcode mov_op = is_signed ? OP_cmovl : OP_cmovb;
             target.data_type = temp.data_type = Oper_Data_Type::U16;
             PushInstruction(ctx, mov_op, RW_(target), R_(temp));
             break;
@@ -1304,7 +1303,7 @@ static void GenerateCompare(Codegen_Context *ctx,
             PushInstruction(ctx, OP_mov, target, ImmOperand(false, AF_Read));
             Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
             PushInstruction(ctx, OP_mov, temp, ImmOperand(true, AF_Read));
-            Amd64_Opcode mov_op = signed_or_float ? OP_cmovle : OP_cmovbe;
+            Amd64_Opcode mov_op = is_signed ? OP_cmovle : OP_cmovbe;
             target.data_type = temp.data_type = Oper_Data_Type::U16;
             PushInstruction(ctx, mov_op, RW_(target), R_(temp));
             break;
@@ -1313,7 +1312,7 @@ static void GenerateCompare(Codegen_Context *ctx,
         {
             // cmovg is not valid opcode for 64 bit registers/memory operands
             // => reverse the result of cmovle.
-            if (signed_or_float)
+            if (is_signed)
             {
                 PushInstruction(ctx, OP_mov, target, ImmOperand(true, AF_Read));
                 Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
@@ -1336,7 +1335,7 @@ static void GenerateCompare(Codegen_Context *ctx,
             PushInstruction(ctx, OP_mov, target, ImmOperand(false, AF_Read));
             Operand temp = TempOperand(ctx, Oper_Data_Type::BOOL, AF_Write);
             PushInstruction(ctx, OP_mov, temp, ImmOperand(true, AF_Read));
-            Amd64_Opcode mov_op = signed_or_float ? OP_cmovge : OP_cmovae;
+            Amd64_Opcode mov_op = is_signed ? OP_cmovge : OP_cmovae;
             target.data_type = temp.data_type = Oper_Data_Type::U16;
             PushInstruction(ctx, mov_op, RW_(target), R_(temp));
             break;

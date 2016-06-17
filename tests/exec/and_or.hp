@@ -1,0 +1,19 @@
+// Tests && and || operators
+// 2016-06-17
+
+main :: ()
+{
+    b1 := true && false;
+    b2 := false || true;
+
+    if b1   return -1;
+    if !b2  return -2;
+
+    b1 = (5 > 0) && (6 < 4);
+    b2 = (-2 < -10) || (2 > -2);
+
+    if b1   return -3;
+    if !b2  return -4;
+
+    return 0;
+}

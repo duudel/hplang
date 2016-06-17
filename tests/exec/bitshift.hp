@@ -1,0 +1,28 @@
+// Tests << and >> bitshift operators.
+// 2016-06-17
+
+main :: ()
+{
+    n := 3;
+    x : u32 = 1u;
+
+    if ((x << n) != 8) return -1;
+    if ((x << 1) != 2) return -2;
+
+    x = 15u;
+
+    if ((x >> n) != 1) return -3;
+    if ((x >> 1) != 7) return -4;
+
+    y := -1;
+
+    if ((y << n) != -8) return -5;
+    if ((y << 1) != -2) return -6;
+    
+    y = -15;
+
+    if ((y >> n) != -2) return -7;
+    if ((y >> 1) != -8) return -8;
+
+    return 0; 
+}

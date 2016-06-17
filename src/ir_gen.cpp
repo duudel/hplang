@@ -809,7 +809,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
                 PushInstruction(ctx, routine, IR_Mov, target, loper);
                 PushJump(ctx, routine, IR_Jz, and_end, loper);
 
-                Ir_Operand roper = GenExpression(ctx, left, routine);
+                Ir_Operand roper = GenExpression(ctx, right, routine);
                 PushInstruction(ctx, routine, IR_Mov, target, roper);
 
                 SetLabelTarget(ctx, routine, and_end);
@@ -824,7 +824,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
                 PushInstruction(ctx, routine, IR_Mov, target, loper);
                 PushJump(ctx, routine, IR_Jnz, or_end, loper);
 
-                Ir_Operand roper = GenExpression(ctx, left, routine);
+                Ir_Operand roper = GenExpression(ctx, right, routine);
                 PushInstruction(ctx, routine, IR_Mov, target, roper);
 
                 SetLabelTarget(ctx, routine, or_end);
