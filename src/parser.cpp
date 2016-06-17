@@ -109,6 +109,8 @@ static void ErrorBinaryExprRHS(Parser_Context *ctx, const Token *token, Binary_O
         case BIN_OP_Multiply:   op_str = "*"; break;
         case BIN_OP_Divide:     op_str = "/"; break;
         case BIN_OP_Modulo:     op_str = "%"; break;
+        case BIN_OP_LeftShift:  op_str = "<<"; break;
+        case BIN_OP_RightShift: op_str = ">>"; break;
         case BIN_OP_BitAnd:     op_str = "&"; break;
         case BIN_OP_BitOr:      op_str = "|"; break;
         case BIN_OP_BitXor:     op_str = "^"; break;
@@ -142,7 +144,9 @@ static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Assi
         case AS_OP_SubtractAssign:     op_str = "-="; break;
         case AS_OP_MultiplyAssign:     op_str = "*="; break;
         case AS_OP_DivideAssign:       op_str = "/="; break;
-        case AS_OP_ModuloAssign:       op_str = "%="; break;
+        case AS_OP_ModuloAssign:       op_str = "%%="; break;
+        case AS_OP_LeftShiftAssign:    op_str = "<<="; break;
+        case AS_OP_RightShiftAssign:   op_str = ">>="; break;
         case AS_OP_BitAndAssign:       op_str = "&="; break;
         case AS_OP_BitOrAssign:        op_str = "|="; break;
         case AS_OP_BitXorAssign:       op_str = "^="; break;
@@ -871,47 +875,23 @@ static Ast_Expr* ParseAddSubExpr(Parser_Context *ctx)
     return expr;
 }
 
-static Ast_Expr* ParseRangeExpr(Parser_Context *ctx)
+static Ast_Expr* ParseShiftExpr(Parser_Context *ctx)
 {
+    TRACE(ParseShiftExpr);
     Ast_Expr *expr = ParseAddSubExpr(ctx);
-    if (!expr) return nullptr;
-
-    if (ContinueParsing(ctx))
-    {
-        const Token *op_token = Accept(ctx, TOK_PeriodPeriod);
-        if (!op_token) return expr;
-
-        Ast_Expr *bin_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
-        bin_expr->binary_expr.op = BIN_OP_Range;
-        bin_expr->binary_expr.left = expr;
-        bin_expr->binary_expr.right = ParseAddSubExpr(ctx);
-
-        if (!bin_expr->binary_expr.right)
-            ErrorBinaryExprRHS(ctx, op_token, BIN_OP_Range);
-
-        expr = bin_expr;
-    }
-    return expr;
-}
-
-static Ast_Expr* ParseLogicalExpr(Parser_Context *ctx)
-{
-    //Ast_Expr *expr = ParseShiftExpr(ctx);
-    //Ast_Expr *expr = ParseAddSubExpr(ctx);
-    Ast_Expr *expr = ParseRangeExpr(ctx);
     if (!expr) return nullptr;
 
     while (ContinueParsing(ctx))
     {
-        const Token *op_token = Accept(ctx, TOK_AmpAmp);
-        if (!op_token) op_token = Accept(ctx, TOK_PipePipe);
+        const Token *op_token = Accept(ctx, TOK_LtLt);
+        if (!op_token) op_token = Accept(ctx, TOK_GtGt);
         if (!op_token) break;
 
         Binary_Op op;
         switch (op_token->type)
         {
-            case TOK_AmpAmp:    op = BIN_OP_And; break;
-            case TOK_PipePipe:  op = BIN_OP_Or; break;
+            case TOK_LtLt:      op = BIN_OP_LeftShift; break;
+            case TOK_GtGt:      op = BIN_OP_RightShift; break;
             default: INVALID_CODE_PATH;
         }
 
@@ -928,9 +908,32 @@ static Ast_Expr* ParseLogicalExpr(Parser_Context *ctx)
     return expr;
 }
 
+static Ast_Expr* ParseRangeExpr(Parser_Context *ctx)
+{
+    Ast_Expr *expr = ParseShiftExpr(ctx);
+    if (!expr) return nullptr;
+
+    if (ContinueParsing(ctx))
+    {
+        const Token *op_token = Accept(ctx, TOK_PeriodPeriod);
+        if (!op_token) return expr;
+
+        Ast_Expr *bin_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
+        bin_expr->binary_expr.op = BIN_OP_Range;
+        bin_expr->binary_expr.left = expr;
+        bin_expr->binary_expr.right = ParseShiftExpr(ctx);
+
+        if (!bin_expr->binary_expr.right)
+            ErrorBinaryExprRHS(ctx, op_token, BIN_OP_Range);
+
+        expr = bin_expr;
+    }
+    return expr;
+}
+
 static Ast_Expr* ParseComparisonExpr(Parser_Context *ctx)
 {
-    Ast_Expr *expr = ParseLogicalExpr(ctx);
+    Ast_Expr *expr = ParseRangeExpr(ctx);
     if (!expr) return nullptr;
 
     while (ContinueParsing(ctx))
@@ -958,7 +961,39 @@ static Ast_Expr* ParseComparisonExpr(Parser_Context *ctx)
         Ast_Expr *bin_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
         bin_expr->binary_expr.op = op;
         bin_expr->binary_expr.left = expr;
-        bin_expr->binary_expr.right = ParseLogicalExpr(ctx);
+        bin_expr->binary_expr.right = ParseShiftExpr(ctx);
+
+        if (!bin_expr->binary_expr.right)
+            ErrorBinaryExprRHS(ctx, op_token, op);
+
+        expr = bin_expr;
+    }
+    return expr;
+}
+
+static Ast_Expr* ParseLogicalExpr(Parser_Context *ctx)
+{
+    Ast_Expr *expr = ParseComparisonExpr(ctx);
+    if (!expr) return nullptr;
+
+    while (ContinueParsing(ctx))
+    {
+        const Token *op_token = Accept(ctx, TOK_AmpAmp);
+        if (!op_token) op_token = Accept(ctx, TOK_PipePipe);
+        if (!op_token) break;
+
+        Binary_Op op;
+        switch (op_token->type)
+        {
+            case TOK_AmpAmp:    op = BIN_OP_And; break;
+            case TOK_PipePipe:  op = BIN_OP_Or; break;
+            default: INVALID_CODE_PATH;
+        }
+
+        Ast_Expr *bin_expr = PushExpr<Ast_Binary_Expr>(ctx, AST_BinaryExpr, op_token);
+        bin_expr->binary_expr.op = op;
+        bin_expr->binary_expr.left = expr;
+        bin_expr->binary_expr.right = ParseComparisonExpr(ctx);
 
         if (!bin_expr->binary_expr.right)
             ErrorBinaryExprRHS(ctx, op_token, op);
@@ -970,19 +1005,19 @@ static Ast_Expr* ParseComparisonExpr(Parser_Context *ctx)
 
 static Ast_Expr* ParseTernaryExpr(Parser_Context *ctx)
 {
-    Ast_Expr *expr = ParseComparisonExpr(ctx);
+    Ast_Expr *expr = ParseLogicalExpr(ctx);
     if (!expr) return nullptr;
 
     const Token *qmark_tok = Accept(ctx, TOK_QuestionMark);
     if (!qmark_tok) return expr;
 
-    Ast_Expr *true_expr = ParseComparisonExpr(ctx);
+    Ast_Expr *true_expr = ParseLogicalExpr(ctx);
     if (!true_expr)
         Error(ctx, qmark_tok, "Expecting expression after ternary ?");
 
     const Token *colon_tok = ExpectAfterLast(ctx, TOK_Colon);
 
-    Ast_Expr *false_expr = ParseComparisonExpr(ctx);
+    Ast_Expr *false_expr = ParseLogicalExpr(ctx);
     if (!false_expr)
         Error(ctx, colon_tok, "Expecting expression after ternary :");
 
@@ -1007,6 +1042,8 @@ static Ast_Expr* ParseAssignmentExpr(Parser_Context *ctx)
         if (!op_token) op_token = Accept(ctx, TOK_StarEq);
         if (!op_token) op_token = Accept(ctx, TOK_SlashEq);
         if (!op_token) op_token = Accept(ctx, TOK_PercentEq);
+        if (!op_token) op_token = Accept(ctx, TOK_LtLtEq);
+        if (!op_token) op_token = Accept(ctx, TOK_GtGtEq);
         if (!op_token) op_token = Accept(ctx, TOK_AmpEq);
         if (!op_token) op_token = Accept(ctx, TOK_PipeEq);
         if (!op_token) op_token = Accept(ctx, TOK_HatEq);
@@ -1021,6 +1058,8 @@ static Ast_Expr* ParseAssignmentExpr(Parser_Context *ctx)
             case TOK_StarEq:    op = AS_OP_MultiplyAssign; break;
             case TOK_SlashEq:   op = AS_OP_DivideAssign; break;
             case TOK_PercentEq: op = AS_OP_ModuloAssign; break;
+            case TOK_LtLtEq:    op = AS_OP_LeftShiftAssign; break;
+            case TOK_GtGtEq:    op = AS_OP_RightShiftAssign; break;
             case TOK_AmpEq:     op = AS_OP_BitAndAssign; break;
             case TOK_PipeEq:    op = AS_OP_BitOrAssign; break;
             case TOK_HatEq:     op = AS_OP_BitXorAssign; break;
@@ -1045,13 +1084,15 @@ static Ast_Expr* ParseExpression(Parser_Context *ctx)
     TRACE(ParseExpression);
     /*
      * operator precedence (LR: left to right, RL: right to left)
-     * RL: = += -= *= /=        assignment
-     * LR: == != < > <= >=      comparison
-     * LR: && ||                logical and/or
-     * LR: >> <<                bit shift
-     * LR: + - & | ^            add, sub, bit and/or/xor
-     * LR: * / %                mult, div, mod
-     * LR: + - ~                unary pos/neg, bit complement
+     * RL: = += -= *= /= <<= >>=    assignment
+     * LR: ?:                       ternary
+     * LR: && ||                    logical and/or
+     * LR: == != < > <= >=          comparison
+     * LR: ..                       range expression
+     * LR: << >>                    bit shift
+     * LR: + - & | ^                add, sub, bit and/or/xor
+     * LR: * / %                    mult, div, mod
+     * LR: + - ~ !                  unary pos/neg, bit complement, logical not
      */
     Ast_Expr *expr = ParseAssignmentExpr(ctx);
     TRACE(ParseExpression_end);
@@ -1238,15 +1279,40 @@ static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
         return nullptr;
 
     const Token *peek = PeekNextToken(ctx);
-    if (peek->type != TOK_Colon && peek->type != TOK_ColonEq)
+    if (peek->type != TOK_Comma &&
+        peek->type != TOK_Colon &&
+        peek->type != TOK_ColonEq)
+    {
         return nullptr;
+    }
 
     Accept(ctx, TOK_Identifier);
 
     Ast_Node *var_decl = PushNode<Ast_Variable_Decl>(ctx, AST_VariableDecl, ident_tok);
-    Name name = PushName(&ctx->ast->arena,
-            ident_tok->value, ident_tok->value_end);
-    var_decl->variable_decl.name = name;
+    Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
+    var_decl->variable_decl.names.name = name;
+    var_decl->variable_decl.names.file_loc = ident_tok->file_loc;
+    var_decl->variable_decl.names.symbol = nullptr;
+    var_decl->variable_decl.names.next = nullptr;
+
+    Ast_Variable_Decl_Names *prev = &var_decl->variable_decl.names;
+    while (Accept(ctx, TOK_Comma))
+    {
+        ident_tok = Accept(ctx, TOK_Identifier);
+        if (!ident_tok)
+        {
+            Error(ctx, "Expecting variable name after comma");
+            break;
+        }
+        Ast_Variable_Decl_Names *next = PushStruct<Ast_Variable_Decl_Names>(&ctx->ast->arena);
+        next->name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
+        next->file_loc = ident_tok->file_loc;
+        next->symbol = nullptr;
+        next->next = nullptr;
+
+        prev->next = next;
+        prev = next;
+    }
 
     Ast_Node *type = nullptr;
     Ast_Expr *init_expr = nullptr;

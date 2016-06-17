@@ -75,6 +75,9 @@ enum Binary_Op
     BIN_OP_Divide,
     BIN_OP_Modulo,
 
+    BIN_OP_LeftShift,
+    BIN_OP_RightShift,
+
     BIN_OP_BitAnd,
     BIN_OP_BitOr,
     BIN_OP_BitXor,
@@ -114,6 +117,9 @@ enum Assignment_Op
     AS_OP_MultiplyAssign,
     AS_OP_DivideAssign,
     AS_OP_ModuloAssign,
+
+    AS_OP_LeftShiftAssign,
+    AS_OP_RightShiftAssign,
 
     AS_OP_BitAndAssign,
     AS_OP_BitOrAssign,
@@ -333,13 +339,22 @@ struct Ast_Struct_Member
     Ast_Node *type; // NOTE(henrik): type can not be null
 };
 
-struct Ast_Variable_Decl
+struct Ast_Variable_Decl_Names
 {
     Name name;
+    File_Location file_loc;
+    Symbol *symbol;
+    Ast_Variable_Decl_Names *next;
+};
+
+struct Ast_Variable_Decl
+{
+    //Name name;
+    Ast_Variable_Decl_Names names;
     Ast_Node *type;         // NOTE(henrik): type can be null (type will be inferred)
     Ast_Expr *init_expr;    // NOTE(henrik): init_expr can be null
 
-    Symbol *symbol;
+    //Symbol *symbol;
 };
 
 struct Ast_If_Stmt

@@ -195,11 +195,19 @@ enum Lexer_State
     LS_Minus,           // -
     LS_Star,            // *
     LS_Slash,           // /
+    LS_Percent,         // %
+
+    LS_LtLt,            // <<
+    LS_GtGt,            // >>
 
     LS_PlusEq,          // +=
     LS_MinusEq,         // -=
     LS_StarEq,          // *=
     LS_SlashEq,         // /=
+    LS_PercentEq,       // %=
+    
+    LS_LtLtEq,          // <<=
+    LS_GtGtEq,          // >>=
 
     LS_Ampersand,       // &
     LS_AmpAmp,          // &&
@@ -315,6 +323,7 @@ static FSM lex_default(FSM fsm, char c)
             case '-': fsm.state = LS_Minus; break;
             case '*': fsm.state = LS_Star; break;
             case '/': fsm.state = LS_Slash; break;
+            case '%': fsm.state = LS_Percent; break;
             case '&': fsm.state = LS_Ampersand; break;
             case '|': fsm.state = LS_Pipe; break;
             case '^': fsm.state = LS_Hat; break;
@@ -763,21 +772,41 @@ static FSM lex_default(FSM fsm, char c)
         switch (c)
         {
             case '=': fsm.state = LS_LessEq; break;
+            case '<': fsm.state = LS_LtLt; break;
             default:
                 fsm.token_type = TOK_Less;
                 fsm.emit = true;
         } break;
     EMIT_CASE(LS_LessEq, TOK_LessEq);
+    case LS_LtLt:
+        switch (c)
+        {
+            case '=': fsm.state = LS_LtLtEq; break;
+            default:
+                fsm.token_type = TOK_LtLt;
+                fsm.emit = true;
+        } break;
+    EMIT_CASE(LS_LtLtEq, TOK_LtLtEq);
 
     case LS_Greater:
         switch (c)
         {
             case '=': fsm.state = LS_GreaterEq; break;
+            case '>': fsm.state = LS_GtGt; break;
             default:
                 fsm.token_type = TOK_Greater;
                 fsm.emit = true;
         } break;
     EMIT_CASE(LS_GreaterEq, TOK_GreaterEq);
+    case LS_GtGt:
+        switch (c)
+        {
+            case '=': fsm.state = LS_GtGtEq; break;
+            default:
+                fsm.token_type = TOK_GtGt;
+                fsm.emit = true;
+        } break;
+    EMIT_CASE(LS_GtGtEq, TOK_GtGtEq);
 
     case LS_Plus:
         switch (c)
@@ -822,6 +851,16 @@ static FSM lex_default(FSM fsm, char c)
                 fsm.emit = true;
         } break;
     EMIT_CASE(LS_SlashEq, TOK_SlashEq);
+
+    case LS_Percent:
+        switch (c)
+        {
+            case '=': fsm.state = LS_PercentEq; break;
+            default:
+                fsm.token_type = TOK_Percent;
+                fsm.emit = true;
+        } break;
+    EMIT_CASE(LS_PercentEq, TOK_PercentEq);
 
     case LS_Ampersand:
         switch (c)
@@ -1115,11 +1154,19 @@ static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
         case LS_Minus:          return true;
         case LS_Star:           return true;
         case LS_Slash:          return true;
+        case LS_Percent:        return true;
+        
+        case LS_LtLt:           return true;
+        case LS_GtGt:           return true;
 
         case LS_PlusEq:         return true;
         case LS_MinusEq:        return true;
         case LS_StarEq:         return true;
         case LS_SlashEq:        return true;
+        case LS_PercentEq:      return true;
+
+        case LS_LtLtEq:         return true;
+        case LS_GtGtEq:         return true;
 
         case LS_Ampersand:      return true;
         case LS_AmpAmp:         return true;

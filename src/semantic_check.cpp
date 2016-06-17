@@ -177,13 +177,13 @@ static void ErrorUndefinedReference(Sem_Check_Context *ctx, File_Location file_l
 }
 
 static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
-        Ast_Node *node, Name name, Symbol *symbol)
+        File_Location file_loc, Symbol *symbol)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
-    AddError(err_ctx, node->file_loc);
-    PrintFileLocation(err_ctx->file, node->file_loc);
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
     fprintf((FILE*)err_ctx->file, "'");
-    PrintString(err_ctx->file, name.str);
+    PrintString(err_ctx->file, symbol->name.str);
 
     const char *sym_type = "";
     switch (symbol->sym_type)
@@ -200,19 +200,19 @@ static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
     }
     fprintf((FILE*)err_ctx->file, "' was declared as %s earlier\n", sym_type);
 
-    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
 static void ErrorVaribleShadowsParam(Sem_Check_Context *ctx,
-        Ast_Node *node, Name name)
+        File_Location file_loc, Name name)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
-    AddError(err_ctx, node->file_loc);
-    PrintFileLocation(err_ctx->file, node->file_loc);
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
     fprintf((FILE*)err_ctx->file, "Variable '");
     PrintString(err_ctx->file, name.str);
     fprintf((FILE*)err_ctx->file, "' shadows a parameter with the same name\n");
-    PrintSourceLineAndArrow(ctx->comp_ctx, node->file_loc);
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
 static void ErrorInvalidSubscriptOf(Sem_Check_Context *ctx,
@@ -1289,12 +1289,31 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
-                ErrorBinaryOperands(ctx, expr->file_loc, "\%", ltype, rtype);
+                ErrorBinaryOperands(ctx, expr->file_loc, "%", ltype, rtype);
                 return GetBuiltinType(TYP_none);
             }
             else if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
             {
-                ErrorBinaryOperands(ctx, expr->file_loc, "\%", ltype, rtype);
+                ErrorBinaryOperands(ctx, expr->file_loc, "%", ltype, rtype);
+                return GetBuiltinType(TYP_none);
+            }
+            return type;
+        } break;
+
+    case BIN_OP_LeftShift:
+        {
+            if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, "<<", ltype, rtype);
+                return GetBuiltinType(TYP_none);
+            }
+            return type;
+        } break;
+    case BIN_OP_RightShift:
+        {
+            if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
+            {
+                ErrorBinaryOperands(ctx, expr->file_loc, ">>", ltype, rtype);
                 return GetBuiltinType(TYP_none);
             }
             return type;
@@ -1538,7 +1557,20 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_T
             // TODO(henrik): Should modulo work for floats too?
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
-            ErrorBinaryOperands(ctx, expr->file_loc, "%=", ltype, rtype);
+            ErrorBinaryOperands(ctx, expr->file_loc, "%%=", ltype, rtype);
+        } break;
+
+    case AS_OP_LeftShiftAssign:
+        {
+            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                return ltype;
+            ErrorBinaryOperands(ctx, expr->file_loc, "<<=", ltype, rtype);
+        } break;
+    case AS_OP_RightShiftAssign:
+        {
+            if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
+                return ltype;
+            ErrorBinaryOperands(ctx, expr->file_loc, ">>=", ltype, rtype);
         } break;
 
     case AS_OP_BitAndAssign:
@@ -1702,11 +1734,12 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         }
     }
 
+#if 0
     Name name = node->variable_decl.name;
     Symbol *old_symbol = LookupSymbolInCurrentScope(ctx->env, name);
     if (old_symbol)
     {
-        ErrorDeclaredEarlierAs(ctx, node, name, old_symbol);
+        ErrorDeclaredEarlierAs(ctx, node->file_loc, old_symbol);
     }
     else
     {
@@ -1720,6 +1753,33 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
     if (!ctx->env->current->parent)
         symbol->flags |= SYMF_Global;
     node->variable_decl.symbol = symbol;
+#else
+    u32 sym_flags = 0;
+    if (!ctx->env->current->parent)
+        sym_flags |= SYMF_Global;
+    Ast_Variable_Decl_Names *names = &node->variable_decl.names;
+    while (names)
+    {
+        Symbol *old_symbol = LookupSymbolInCurrentScope(ctx->env, names->name);
+        if (old_symbol)
+        {
+            ErrorDeclaredEarlierAs(ctx, names->file_loc, old_symbol);
+        }
+        else
+        {
+            old_symbol = LookupSymbol(ctx->env, names->name);
+            if (old_symbol && old_symbol->sym_type == SYM_Parameter)
+                ErrorVaribleShadowsParam(ctx, names->file_loc, names->name);
+        }
+        
+        Symbol *symbol = AddSymbol(ctx->env, SYM_Variable,
+                names->name, type, names->file_loc);
+        symbol->flags |= sym_flags;
+        names->symbol = symbol;
+
+        names = names->next;
+    }
+#endif
 }
 
 static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node);
@@ -2072,7 +2132,7 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     Symbol *symbol = AddFunction(ctx->env, name, ftype, node->file_loc);
     if (symbol->sym_type != SYM_Function)
     {
-        ErrorDeclaredEarlierAs(ctx, node, name, symbol);
+        ErrorDeclaredEarlierAs(ctx, node->file_loc, symbol);
     }
 
     node->function_def.symbol = symbol;
@@ -2143,7 +2203,7 @@ static void CheckTypealias(Sem_Check_Context *ctx, Ast_Node *node)
     Symbol *old_symbol = LookupSymbolInCurrentScope(ctx->env, typealias->name);
     if (old_symbol)
     {
-        ErrorDeclaredEarlierAs(ctx, node, typealias->name, old_symbol);
+        ErrorDeclaredEarlierAs(ctx, node->file_loc, old_symbol);
     }
 
     AddSymbol(ctx->env, SYM_Typealias, typealias->name, type, node->file_loc);
@@ -2174,7 +2234,7 @@ static void CheckStruct(Sem_Check_Context *ctx, Ast_Node *node)
     Symbol *old_symbol = LookupSymbolInCurrentScope(ctx->env, struct_def->name);
     if (old_symbol)
     {
-        ErrorDeclaredEarlierAs(ctx, node, struct_def->name, old_symbol);
+        ErrorDeclaredEarlierAs(ctx, node->file_loc, old_symbol);
     }
 
     AddSymbol(ctx->env, SYM_Struct, struct_def->name, type, node->file_loc);
@@ -2208,7 +2268,7 @@ static void CheckForeignFunction(Sem_Check_Context *ctx, Ast_Node *node)
         }
         else
         {
-            ErrorDeclaredEarlierAs(ctx, node, name, old_symbol);
+            ErrorDeclaredEarlierAs(ctx, node->file_loc, old_symbol);
         }
         return;
     }

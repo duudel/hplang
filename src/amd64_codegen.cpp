@@ -16,25 +16,29 @@ namespace hplang
 // debug info to stderr.
 #define RA_DEBUG_INFO
 
-enum { Opcode_Mod_Shift = 3 };
+enum { Opcode_Mod_Shift = 7 };
 
 enum Opcode_Mod
 {
-    NO_MOD = 0,
-    O1_REG = 0x01,
-    O1_MEM = 0x02,
-    O1_RM = O1_REG | O1_MEM,
-    O1_IMM = 0x04,
+    NO_MOD  = 0,
+    O1_REG  = 0x01,
+    O1_MEM  = 0x02,
+    O1_RM   = O1_REG | O1_MEM,
+    O1_IMM  = 0x04,
+    //O1_W8   = 0x08,
+    //O1_W16  = 0x10,
+    //O1_W32  = 0x20,
+    //O1_W64  = 0x40,
 
-    O2_REG = 0x08,
-    O2_MEM = 0x10,
+    O2_REG = (O1_REG << Opcode_Mod_Shift),
+    O2_MEM = (O1_MEM << Opcode_Mod_Shift),
     O2_RM = O2_REG | O2_MEM,
-    O2_IMM = 0x20,
+    O2_IMM = (O1_IMM << Opcode_Mod_Shift),
 
-    O3_REG = 0x0040,
-    O3_MEM = 0x0080,
+    O3_REG = (O2_REG << Opcode_Mod_Shift),
+    O3_MEM = (O2_MEM << Opcode_Mod_Shift),
     O3_RM = O3_REG | O3_MEM,
-    O3_IMM = 0x0100,
+    O3_IMM = (O2_IMM << Opcode_Mod_Shift),
 };
 
 // Disabled or non-valid instruction opcode
@@ -99,6 +103,10 @@ enum Opcode_Mod
     PASTE_OP(xor,       O1_REG | O2_RM | O2_IMM)\
     PASTE_OP(neg,       O1_REG)\
     PASTE_OP(not,       O1_REG)\
+    PASTE_OP(sal,       O1_REG | O2_REG | O2_IMM)\
+    PASTE_OP(shl,       O1_REG | O2_REG | O2_IMM)\
+    PASTE_OP(sar,       O1_REG | O2_REG | O2_IMM)\
+    PASTE_OP(shr,       O1_REG | O2_REG | O2_IMM)\
     \
     PASTE_OP(addss,     O1_REG | O2_REG)\
     PASTE_OP(subss,     O1_REG | O2_REG)\
@@ -131,7 +139,7 @@ enum Amd64_Opcode
 #undef PASTE_OP
 
 #define PASTE_OP(x, mods) mods,
-static u8 opcode_flags[] = {
+static u32 opcode_flags[] = {
     OPCODES
 };
 #undef PASTE_OP
@@ -989,7 +997,7 @@ static Operand LoadImmediates(Codegen_Context *ctx,
 {
     if ((oper.access_flags & AF_Shadow) != 0) return oper;
 
-    u8 opflags = opcode_flags[opcode];
+    u32 opflags = opcode_flags[opcode];
     u8 opshift = oper_idx * Opcode_Mod_Shift;
     if (oper.type == Oper_Type::Immediate)
     {
@@ -1213,7 +1221,8 @@ static void GenerateCompare(Codegen_Context *ctx,
             IrOperand(ctx, &ir_instr->oper2, AF_Read));
 
     Type *ltype = ir_instr->oper1.type;
-    b32 signed_or_float = (TypeIsFloat(ltype) || TypeIsSigned(ltype));
+    //b32 signed_or_float = (TypeIsFloat(ltype) || TypeIsSigned(ltype));
+    b32 signed_or_float = (false || TypeIsSigned(ltype));
 
     if (ir_next_instr)
     {
@@ -1451,30 +1460,53 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
         } break;
     case IR_Mod:
         {
-            if (is_float)
-            {
-                INVALID_CODE_PATH;
-            }
+            ASSERT(!is_float);
+            Amd64_Opcode div_op = (is_signed) ? OP_idiv : OP_div;
+            Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+            Operand oper2 = IrOperand(ctx, &ir_instr->oper2, AF_Read);
+            Operand rax = FixedRegOperand(ctx, REG_rax, oper1.data_type, AF_Read);
+            Operand rdx = FixedRegOperand(ctx, REG_rdx, oper1.data_type, AF_Read);
+            Operand temp = TempOperand(ctx, oper2.data_type, AF_Write);
+            PushLoad(ctx, W_(rax), oper1);
+            if (is_signed)
+                PushInstruction(ctx, OP_cqo, S_(W_(rdx))); // Sign extend rax to rdx:rax
             else
-            {
-                Amd64_Opcode div_op = (is_signed) ? OP_idiv : OP_div;
-                Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                Operand oper2 = IrOperand(ctx, &ir_instr->oper2, AF_Read);
-                Operand rax = FixedRegOperand(ctx, REG_rax, oper1.data_type, AF_Read);
-                Operand rdx = FixedRegOperand(ctx, REG_rdx, oper1.data_type, AF_Read);
-                Operand temp = TempOperand(ctx, oper2.data_type, AF_Write);
-                PushLoad(ctx, W_(rax), oper1);
-                if (is_signed)
-                    PushInstruction(ctx, OP_cqo, S_(W_(rdx))); // Sign extend rax to rdx:rax
-                else
-                    PushZeroReg(ctx, rdx);
-                PushLoad(ctx, temp, oper2);
-                PushInstruction(ctx, div_op, R_(temp), S_(RW_(rax)), S_(RW_(rdx)));
-                if (ir_instr->target == ir_instr->oper1)
-                    PushLoad(ctx, RW_(oper1), R_(rdx));
-                else
-                    PushLoad(ctx, IrOperand(ctx, &ir_instr->target, AF_Write), R_(rdx));
-            }
+                PushZeroReg(ctx, rdx);
+            PushLoad(ctx, temp, oper2);
+            PushInstruction(ctx, div_op, R_(temp), S_(RW_(rax)), S_(RW_(rdx)));
+            if (ir_instr->target == ir_instr->oper1)
+                PushLoad(ctx, RW_(oper1), R_(rdx));
+            else
+                PushLoad(ctx, IrOperand(ctx, &ir_instr->target, AF_Write), R_(rdx));
+        } break;
+
+    case IR_LShift:
+        {
+            ASSERT(!is_float);
+            Amd64_Opcode shift_op = (is_signed) ? OP_sal : OP_shl;
+            if (ir_instr->target != ir_instr->oper1)
+                PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+            Operand oper2 = IrOperand(ctx, &ir_instr->oper2, AF_Read);
+            Operand rcx = FixedRegOperand(ctx, REG_rcx, oper2.data_type, AF_Read);
+            PushLoad(ctx, W_(rcx), oper2);
+            rcx.data_type = Oper_Data_Type::U8;
+            PushInstruction(ctx, shift_op,
+                    IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
+                    R_(rcx));
+        } break;
+    case IR_RShift:
+        {
+            ASSERT(!is_float);
+            Amd64_Opcode shift_op = (is_signed) ? OP_sar : OP_shr;
+            if (ir_instr->target != ir_instr->oper1)
+                PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+            Operand oper2 = IrOperand(ctx, &ir_instr->oper2, AF_Read);
+            Operand rcx = FixedRegOperand(ctx, REG_rcx, oper2.data_type, AF_Read);
+            PushLoad(ctx, W_(rcx), oper2);
+            rcx.data_type = Oper_Data_Type::U8;
+            PushInstruction(ctx, shift_op,
+                    IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
+                    R_(rcx));
         } break;
 
     case IR_Sqrt:
@@ -1828,6 +1860,8 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
         case IR_Mul:
         case IR_Div:
         case IR_Mod:
+        case IR_LShift:
+        case IR_RShift:
         case IR_And:
         case IR_Or:
         case IR_Xor:
@@ -1938,12 +1972,33 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
                 {
                     Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
-                    PushLoad(ctx, temp, oper1);
-                    PushInstruction(ctx, OP_movzx, target, R_(temp));
+                    if (GetSize(oper1.data_type) == 4)
+                    {
+                        PushZeroReg(ctx, temp);
+                        PushLoad(ctx, temp, oper1);
+                        temp.data_type = target.data_type;
+                        PushInstruction(ctx, OP_mov, target, R_(temp));
+                    }
+                    else
+                    {
+                        PushLoad(ctx, temp, oper1);
+                        PushInstruction(ctx, OP_movzx, target, R_(temp));
+                    }
                 }
                 else
                 {
-                    PushInstruction(ctx, OP_movzx, target, oper1);
+                    if (GetSize(oper1.data_type) == 4)
+                    {
+                        Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                        PushZeroReg(ctx, temp);
+                        PushLoad(ctx, temp, oper1);
+                        temp.data_type = target.data_type;
+                        PushInstruction(ctx, OP_mov, target, R_(temp));
+                    }
+                    else
+                    {
+                        PushInstruction(ctx, OP_movzx, target, oper1);
+                    }
                 }
             } break;
         case IR_Load:
@@ -2143,24 +2198,52 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
             break;
 
         case IR_S_TO_F32:
-            PushInstruction(ctx, OP_cvtsi2ss,
-                    IrOperand(ctx, &ir_instr->target, AF_Write),
-                    IrOperand(ctx, &ir_instr->oper1, AF_Read));
+            {
+                Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                if (GetSize(source.data_type) < 4)
+                {
+                    source.data_type = Oper_Data_Type::S32;
+                }
+                PushInstruction(ctx, OP_cvtsi2ss,
+                        IrOperand(ctx, &ir_instr->target, AF_Write),
+                        source);
+            }
             break;
         case IR_S_TO_F64:
-            PushInstruction(ctx, OP_cvtsi2sd,
-                    IrOperand(ctx, &ir_instr->target, AF_Write),
-                    IrOperand(ctx, &ir_instr->oper1, AF_Read));
+            {
+                Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                if (GetSize(source.data_type) < 4)
+                {
+                    source.data_type = Oper_Data_Type::S32;
+                }
+                PushInstruction(ctx, OP_cvtsi2sd,
+                        IrOperand(ctx, &ir_instr->target, AF_Write),
+                        source);
+            }
             break;
         case IR_F32_TO_S:
-            PushInstruction(ctx, OP_cvtss2si,
-                    IrOperand(ctx, &ir_instr->target, AF_Write),
-                    IrOperand(ctx, &ir_instr->oper1, AF_Read));
+            {
+                Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                if (GetSize(target.data_type) < 4)
+                {
+                    target.data_type = Oper_Data_Type::S32;
+                }
+                PushInstruction(ctx, OP_cvtss2si,
+                        target,
+                        IrOperand(ctx, &ir_instr->oper1, AF_Read));
+            }
             break;
         case IR_F64_TO_S:
-            PushInstruction(ctx, OP_cvtsd2si,
-                    IrOperand(ctx, &ir_instr->target, AF_Write),
-                    IrOperand(ctx, &ir_instr->oper1, AF_Read));
+            {
+                Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                if (GetSize(target.data_type) < 4)
+                {
+                    target.data_type = Oper_Data_Type::S32;
+                }
+                PushInstruction(ctx, OP_cvtsd2si,
+                        target,
+                        IrOperand(ctx, &ir_instr->oper1, AF_Read));
+            }
             break;
         case IR_F32_TO_F64:
             PushInstruction(ctx, OP_cvtss2sd,

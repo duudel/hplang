@@ -82,12 +82,18 @@ enum Token_Type
     TOK_Slash,          // /
     TOK_Percent,        // %
 
+    TOK_LtLt,           // <<
+    TOK_GtGt,           // >>
+
     TOK_Eq,             // =
     TOK_PlusEq,         // +=
     TOK_MinusEq,        // -=
     TOK_StarEq,         // *=
     TOK_SlashEq,        // /=
     TOK_PercentEq,      // /=
+
+    TOK_LtLtEq,         // <<=
+    TOK_GtGtEq,         // >>=
 
     TOK_Ampersand,      // &
     TOK_Pipe,           // |

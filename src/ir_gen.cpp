@@ -854,6 +854,12 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         case BIN_OP_Modulo:
             PushInstruction(ctx, routine, IR_Mod, target, loper, roper);
             break;
+        case BIN_OP_LeftShift:
+            PushInstruction(ctx, routine, IR_LShift, target, loper, roper);
+            break;
+        case BIN_OP_RightShift:
+            PushInstruction(ctx, routine, IR_RShift, target, loper, roper);
+            break;
         case BIN_OP_BitAnd:
             PushInstruction(ctx, routine, IR_And, target, loper, roper);
             break;
@@ -985,6 +991,34 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
             else
             {
                 PushInstruction(ctx, routine, IR_Mod, loper, loper, roper);
+            }
+        } break;
+    case AS_OP_LeftShiftAssign:
+        {
+            if (left->type != AST_VariableRef)
+            {
+                Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
+                PushInstruction(ctx, routine, IR_Load, temp, loper);
+                PushInstruction(ctx, routine, IR_LShift, temp, temp, roper);
+                PushInstruction(ctx, routine, IR_Store, loper, temp);
+            }
+            else
+            {
+                PushInstruction(ctx, routine, IR_LShift, loper, loper, roper);
+            }
+        } break;
+    case AS_OP_RightShiftAssign:
+        {
+            if (left->type != AST_VariableRef)
+            {
+                Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
+                PushInstruction(ctx, routine, IR_Load, temp, loper);
+                PushInstruction(ctx, routine, IR_RShift, temp, temp, roper);
+                PushInstruction(ctx, routine, IR_Store, loper, temp);
+            }
+            else
+            {
+                PushInstruction(ctx, routine, IR_RShift, loper, loper, roper);
             }
         } break;
     case AS_OP_BitAndAssign:
@@ -1407,21 +1441,31 @@ static void GenVariableDecl(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *rou
 {
     ExtractComment(ctx, node->file_loc);
 
-    Symbol *symbol = node->variable_decl.symbol;
     Ast_Expr *init_expr = node->variable_decl.init_expr;
-
-    Ir_Operand var_oper = (toplevel)
-        ? NewGlobalVariableRef(routine, symbol->type, symbol->unique_name)
-        : NewVariableRef(routine, symbol->type, symbol->unique_name);
-    PushInstruction(ctx, routine, IR_VarDecl, var_oper);
-
+    Ir_Operand init_res; 
     if (init_expr)
     {
-        Ir_Operand init_res = GenExpression(ctx, init_expr, routine);
-        PushInstruction(ctx, routine, IR_Mov, var_oper, init_res);
+        init_res = GenExpression(ctx, init_expr, routine);
     }
 
-    if (toplevel) AddGlobalVariable(ctx, symbol);
+    Ast_Variable_Decl_Names *names = &node->variable_decl.names;
+    while (names)
+    {
+        Symbol *symbol = names->symbol;
+        Ir_Operand var_oper = (toplevel)
+            ? NewGlobalVariableRef(routine, symbol->type, symbol->unique_name)
+            : NewVariableRef(routine, symbol->type, symbol->unique_name);
+        PushInstruction(ctx, routine, IR_VarDecl, var_oper);
+
+        if (init_expr)
+        {
+            PushInstruction(ctx, routine, IR_Mov, var_oper, init_res);
+        }
+
+        if (toplevel) AddGlobalVariable(ctx, symbol);
+
+        names = names->next;
+    }
 }
 
 static void GenForeignBlock(Ir_Gen_Context *ctx, Ast_Node *node)

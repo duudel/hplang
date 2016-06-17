@@ -260,15 +260,17 @@ static void PrintOp(IoFile *file, Assignment_Op op)
     FILE *f = (FILE*)file;
     switch (op)
     {
-        case AS_OP_Assign:          fprintf(f, "="); break;
-        case AS_OP_AddAssign:       fprintf(f, "+="); break;
-        case AS_OP_SubtractAssign:  fprintf(f, "-="); break;
-        case AS_OP_MultiplyAssign:  fprintf(f, "*="); break;
-        case AS_OP_DivideAssign:    fprintf(f, "/="); break;
-        case AS_OP_ModuloAssign:    fprintf(f, "%%="); break;
-        case AS_OP_BitAndAssign:    fprintf(f, "&="); break;
-        case AS_OP_BitOrAssign:     fprintf(f, "|="); break;
-        case AS_OP_BitXorAssign:    fprintf(f, "^="); break;
+        case AS_OP_Assign:              fprintf(f, "="); break;
+        case AS_OP_AddAssign:           fprintf(f, "+="); break;
+        case AS_OP_SubtractAssign:      fprintf(f, "-="); break;
+        case AS_OP_MultiplyAssign:      fprintf(f, "*="); break;
+        case AS_OP_DivideAssign:        fprintf(f, "/="); break;
+        case AS_OP_ModuloAssign:        fprintf(f, "%%="); break;
+        case AS_OP_LeftShiftAssign:     fprintf(f, "<<="); break;
+        case AS_OP_RightShiftAssign:    fprintf(f, ">>="); break;
+        case AS_OP_BitAndAssign:        fprintf(f, "&="); break;
+        case AS_OP_BitOrAssign:         fprintf(f, "|="); break;
+        case AS_OP_BitXorAssign:        fprintf(f, "^="); break;
     }
 }
 
@@ -282,6 +284,8 @@ static void PrintOp(IoFile *file, Binary_Op op)
         case BIN_OP_Multiply:   fprintf(f, "*"); break;
         case BIN_OP_Divide:     fprintf(f, "/"); break;
         case BIN_OP_Modulo:     fprintf(f, "%%"); break;
+        case BIN_OP_LeftShift:  fprintf(f, "<<"); break;
+        case BIN_OP_RightShift: fprintf(f, ">>"); break;
         case BIN_OP_BitAnd:     fprintf(f, "&"); break;
         case BIN_OP_BitOr:      fprintf(f, "|"); break;
         case BIN_OP_BitXor:     fprintf(f, "^"); break;
@@ -438,22 +442,30 @@ static void PrintNode(IoFile *file, Ast_Node *node, s64 level, s64 lev_diff, s64
             fprintf(f, "\n");
             break;
         case AST_VariableDecl:
-            fprintf(f, "<var_decl> ");
-            PrintName(file, node->variable_decl.name);
-            fprintf(f, "\n");
-            if (node->variable_decl.type)
             {
-                PrintPadding(file, level + 1, level, parent_level);
-                fprintf(f, "type:\n");
-                PrintNode(file, node->variable_decl.type, level, 2, parent_level);
-            }
-            if (node->variable_decl.init_expr)
-            {
-                PrintPadding(file, level + 1, level, parent_level);
-                fprintf(f, "init expr:\n");
-                PrintExpr(file, node->variable_decl.init_expr, level, 2, parent_level);
-            }
-            break;
+                fprintf(f, "<var_decl> ");
+                PrintName(file, node->variable_decl.names.name);
+                Ast_Variable_Decl_Names *names = node->variable_decl.names.next;
+                while (names)
+                {
+                    fprintf(f, ", ");
+                    PrintName(file, names->name);
+                    names = names->next;
+                }
+                fprintf(f, "\n");
+                if (node->variable_decl.type)
+                {
+                    PrintPadding(file, level + 1, level, parent_level);
+                    fprintf(f, "type:\n");
+                    PrintNode(file, node->variable_decl.type, level, 2, parent_level);
+                }
+                if (node->variable_decl.init_expr)
+                {
+                    PrintPadding(file, level + 1, level, parent_level);
+                    fprintf(f, "init expr:\n");
+                    PrintExpr(file, node->variable_decl.init_expr, level, 2, parent_level);
+                }
+            } break;
         case AST_FunctionDef:
             fprintf(f, "<func_def> ");
             PrintName(file, node->function_def.name);

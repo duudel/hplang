@@ -26,6 +26,8 @@ namespace hplang
     PASTE_IR(IR_Mul)\
     PASTE_IR(IR_Div)\
     PASTE_IR(IR_Mod)\
+    PASTE_IR(IR_LShift)\
+    PASTE_IR(IR_RShift)\
     \
     PASTE_IR(IR_Eq)\
     PASTE_IR(IR_Neq)\
