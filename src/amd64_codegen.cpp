@@ -3565,6 +3565,18 @@ void OptimizeCode(Codegen_Context *ctx, Routine *routine)
     }
 }
 
+static s64 CountInstructions(Routine *routine)
+{
+    s64 count = 0;
+    for (s64 i = 0; i < routine->instructions.count; i++)
+    {
+        Instruction *instr = routine->instructions[i];
+        if ((instr->flags & IF_CommentedOut) == 0)
+            count++;
+    }
+    return count;
+}
+
 void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
 {
     ctx->routine_count = ir_routines.count;
@@ -3602,9 +3614,30 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
     
     FreeLiveSets(live_sets);
 
+    s64 instruction_count = 0;
+    if (ctx->comp_ctx->options.profile_instr_count)
+    {
+        for (s64 i = 0; i < ir_routines.count; i++)
+        {
+            instruction_count += CountInstructions(&ctx->routines[i]);
+        }
+    }
+
     for (s64 i = 0; i < ir_routines.count; i++)
     {
         OptimizeCode(ctx, &ctx->routines[i]);
+    }
+    
+    if (ctx->comp_ctx->options.profile_instr_count)
+    {
+        s64 opt_instruction_count = 0;
+        for (s64 i = 0; i < ir_routines.count; i++)
+        {
+            opt_instruction_count += CountInstructions(&ctx->routines[i]);
+        }
+
+        fprintf(stdout, "    instruction count: %" PRId64 "\n", instruction_count);
+        fprintf(stdout, "opt instruction count: %" PRId64 "\n", opt_instruction_count);
     }
 }
 

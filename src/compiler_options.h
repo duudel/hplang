@@ -29,6 +29,8 @@ struct Compiler_Options
     b32 debug_ast;
     b32 debug_ir;
     b32 debug_reg_alloc;
+
+    b32 profile_instr_count;
 };
 
 Compiler_Options DefaultCompilerOptions();

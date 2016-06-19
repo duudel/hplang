@@ -34,14 +34,6 @@ void PrintVersion()
     printf("Copyright (c) 2016 Henrik Paananen\n");
 }
 
-static const char *diag_args[] = {
-    "memory",
-    "ast",
-    "ir",
-    "regalloc",
-    nullptr
-};
-
 static const char *target_args[] = {
     "win64",
     "win_amd64",
@@ -50,10 +42,24 @@ static const char *target_args[] = {
     nullptr
 };
 
+static const char *diag_args[] = {
+    "memory",
+    "ast",
+    "ir",
+    "regalloc",
+    nullptr
+};
+
+static const char *profile_args[] = {
+    "instrcount",
+    nullptr
+};
+
 static const Arg_Option options[] = {
     {"output", 'o', nullptr, nullptr, "Sets the output filename", "filename", nullptr},
     {"target", 'T', nullptr, nullptr, "Sets the output target", "target", target_args},
     {"diagnostic", 'd', diag_args, "MAiR", "Selects the diagnostic options", nullptr, nullptr},
+    {"profile", 'p', profile_args, "i", "Selects profiling options", nullptr, nullptr},
     {"help", 'h', nullptr, nullptr, "Shows this help and exits", nullptr, nullptr},
     {"version", 'v', nullptr, nullptr, "Prints the version information", nullptr, nullptr},
     { }
@@ -135,6 +141,41 @@ static int ParseDiagnosticOption(Arg_Option_Result option_result, Compiler_Optio
     return 0;
 }
 
+static int ParseProfilingOption(Arg_Option_Result option_result, Compiler_Options *options)
+{
+    if (option_result.short_args)
+    {
+        const char *p = option_result.short_args;
+        for (; p[0] != '\0'; p++)
+        {
+            switch (p[0])
+            {
+                case 'i':
+                    options->profile_instr_count = true;
+                    break;
+
+                default:
+                    printf("Unrecognized argument %c for -%c\n",
+                            p[0], option_result.option->short_name);
+                    return -1;
+            }
+        }
+    }
+    else if (option_result.arg)
+    {
+        const char *arg = option_result.arg;
+        if (strcmp(arg, "instrcount") == 0)
+            options->profile_instr_count = true;
+        else
+        {
+            printf("Unrecognized argument %s for --%s\n",
+                    arg, option_result.option->long_name);
+            return -1;
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
 #if 0
@@ -182,6 +223,11 @@ int main(int argc, char **argv)
                 case 'd':
                 {
                     int result = ParseDiagnosticOption(option_result, &options);
+                    if (result != 0) return result;
+                } break;
+                case 'p':
+                {
+                    int result = ParseProfilingOption(option_result, &options);
                     if (result != 0) return result;
                 } break;
 
