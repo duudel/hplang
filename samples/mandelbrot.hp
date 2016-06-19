@@ -8,10 +8,10 @@ import ":io";
 
 putc :: (c : u8)
 {
-    //c = c > 120 ? 120->u8 : c;
-    //c = (c > 0 && c < 32) ? (120 - c)->u8 : c;
+    if (c == 0) c = 32 -> u8;
+    if (c < 32) c = (120 - c) -> u8;
+    if (c > 120) c = (32 + (c - 120)) -> u8;
     hp_fwrite(stdout, 1, &c);
-    //print("("); print(c); print(")");
 }
 
 main :: ()
@@ -25,16 +25,11 @@ main :: ()
 
     Zr, Zi, Cr, Ci, Tr, Ti : f64;
 
-    w = h = 200;
+    w = 600;
+    h = 40;
 
-    println("P4");
-    print(w);
-    print(" ");
-    println(h);
+    print(w); print(" "); println(h);
 
-    //w_mod_8 := w % 8;
-
-    //putted := 0;
     for (y := 0.0; y < h -> f64; y += 1.0)
     {
         for (x := 0.0; x < w -> f64; x += 1.0)
@@ -62,7 +57,6 @@ main :: ()
                 putc(byte_acc);
                 byte_acc = 0 -> u8;
                 bit_num = 0;
-                //putted += 1;
             }
             else if (x == w-1)
             {
@@ -72,6 +66,7 @@ main :: ()
                 bit_num = 0;
             }
         }
+        println();
     }
     return 0;
 }

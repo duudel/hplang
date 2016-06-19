@@ -2321,7 +2321,7 @@ struct Cfg_Edge
 };
 
 
-b32 SetAddSpilled(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type)
+static b32 SetAddSpilled(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type)
 {
     for (s64 i = 0; i < set.count; i++)
     {
@@ -2336,7 +2336,7 @@ b32 SetAddSpilled(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_typ
     return true;
 }
 
-b32 SetAddArg(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type, Reg fixed_reg = { })
+static b32 SetAddArg(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type, Reg fixed_reg = { })
 {
     for (s64 i = 0; i < set.count; i++)
     {
@@ -2351,7 +2351,7 @@ b32 SetAddArg(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type, R
     return true;
 }
 
-b32 SetAdd(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type, Reg fixed_reg = { })
+static b32 SetAdd(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type, Reg fixed_reg = { })
 {
     for (s64 i = 0; i < set.count; i++)
     {
@@ -2365,7 +2365,7 @@ b32 SetAdd(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type, Reg 
     return true;
 }
 
-b32 SetUnion(Array<Name_Data_Type> &a, const Array<Name_Data_Type> &b)
+static b32 SetUnion(Array<Name_Data_Type> &a, const Array<Name_Data_Type> &b)
 {
     b32 any_new = false;
     for (s64 i = 0; i < b.count; i++)
@@ -2376,7 +2376,7 @@ b32 SetUnion(Array<Name_Data_Type> &a, const Array<Name_Data_Type> &b)
     return any_new;
 }
 
-b32 SetUnion(Array<Name_Data_Type> &a, const Array<Name_Data_Type> &b, Name *exclude_names, s64 exclude_count)
+static b32 SetUnion(Array<Name_Data_Type> &a, const Array<Name_Data_Type> &b, Name *exclude_names, s64 exclude_count)
 {
     b32 any_new = false;
     for (s64 i = 0; i < b.count; i++)
@@ -3234,7 +3234,7 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
     Instruction *instr = routine->instructions[instr_i];
     if ((Amd64_Opcode)instr->opcode == OP_call)
     {
-        SpillCallerSaves(reg_alloc, active, instr_i - 1);
+        SpillCallerSaves(reg_alloc, active, instr_i);
         UnspillCallerSaves(reg_alloc, active, instr_i + 1);
     }
     else if ((Amd64_Opcode)instr->opcode == OP_SPILL)
