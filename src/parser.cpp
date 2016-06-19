@@ -9,15 +9,6 @@
 #include <cstdio>
 #include <cerrno>
 
-#if 0
-#define TRACE(x) {fprintf(stderr, "%s\n", #x); fflush(stderr);}
-#define TRACE_x(x) {fprintf(stderr, "%s : %d:%d\n", #x,\
-        GetCurrentToken(ctx)->file_loc.line,\
-        GetCurrentToken(ctx)->file_loc.column); fflush(stderr);}
-#else
-#define TRACE(x)
-#endif
-
 namespace hplang
 {
 
@@ -267,7 +258,6 @@ static Ast_Expr* PushExpr(Parser_Context *ctx,
 
 static Ast_Node* ParseType(Parser_Context *ctx)
 {
-    TRACE(ParseType);
     Ast_Node *type_node = nullptr;
     const Token *token = GetCurrentToken(ctx);
     switch (token->type)
@@ -601,13 +591,11 @@ static Ast_Expr* ParseLiteralExpr(Parser_Context *ctx)
         literal->string_literal.value = ConvertString(ctx, token->value, token->value_end);
         return literal;
     }
-    TRACE(ParseLiteralExpr_not_literal);
     return nullptr;
 }
 
 static Ast_Expr* ParsePrefixOperator(Parser_Context *ctx)
 {
-    TRACE(ParsePrefixOperator);
     const Token *op_token = Accept(ctx, TOK_Plus);
     if (!op_token) op_token = Accept(ctx, TOK_Minus);
     if (!op_token) op_token = Accept(ctx, TOK_Tilde);
@@ -638,7 +626,6 @@ static Ast_Expr* ParseExpression(Parser_Context *ctx);
 
 static void ParseFunctionArgs(Parser_Context *ctx, Ast_Function_Call *function_call)
 {
-    TRACE(ParseFunctionArgs);
     Ast_Expr *arg = ParseExpression(ctx);
     if (arg)
     {
@@ -658,7 +645,6 @@ static void ParseFunctionArgs(Parser_Context *ctx, Ast_Function_Call *function_c
 
 static Ast_Expr* ParsePostfixOperator(Parser_Context *ctx, Ast_Expr *factor)
 {
-    TRACE(ParsePostfixOperator);
     const Token *op_token = Accept(ctx, TOK_Period);
     if (op_token)
     {
@@ -727,7 +713,6 @@ static Ast_Expr* ParsePostfixOperator(Parser_Context *ctx, Ast_Expr *factor)
 
 static Ast_Expr* ParseFactorExpr(Parser_Context *ctx)
 {
-    TRACE(ParseFactor);
     Ast_Expr *pre_op = ParsePrefixOperator(ctx);
 
     Ast_Expr *factor = ParseLiteralExpr(ctx);
@@ -737,7 +722,6 @@ static Ast_Expr* ParseFactorExpr(Parser_Context *ctx)
         const Token *ident_tok = Accept(ctx, TOK_Identifier);
         if (ident_tok)
         {
-            TRACE(ParseFactor_identifier);
             Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
             factor = PushExpr<Ast_Variable_Ref>(ctx, AST_VariableRef, ident_tok);
             factor->variable_ref.name = name;
@@ -749,7 +733,6 @@ static Ast_Expr* ParseFactorExpr(Parser_Context *ctx)
         const Token *parent_tok = Accept(ctx, TOK_OpenParent);
         if (parent_tok)
         {
-            TRACE(ParseFactor_parent);
             factor = ParseExpression(ctx);
             if (!factor)
             {
@@ -792,18 +775,15 @@ static Ast_Expr* ParseFactorExpr(Parser_Context *ctx)
 
     if (pre_op)
     {
-        TRACE(ParseFactor_pre_op);
         pre_op->unary_expr.expr = factor;
         factor = pre_op;
     }
 
-    TRACE(ParseFactor_end);
     return factor;
 }
 
 static Ast_Expr* ParseMultDivExpr(Parser_Context *ctx)
 {
-    TRACE(ParseMultDivExpr);
     Ast_Expr *expr = ParseFactorExpr(ctx);
     if (!expr) return nullptr;
 
@@ -838,7 +818,6 @@ static Ast_Expr* ParseMultDivExpr(Parser_Context *ctx)
 
 static Ast_Expr* ParseAddSubExpr(Parser_Context *ctx)
 {
-    TRACE(ParseAddSubExpr);
     Ast_Expr *expr = ParseMultDivExpr(ctx);
     if (!expr) return nullptr;
 
@@ -877,7 +856,6 @@ static Ast_Expr* ParseAddSubExpr(Parser_Context *ctx)
 
 static Ast_Expr* ParseShiftExpr(Parser_Context *ctx)
 {
-    TRACE(ParseShiftExpr);
     Ast_Expr *expr = ParseAddSubExpr(ctx);
     if (!expr) return nullptr;
 
@@ -1081,7 +1059,6 @@ static Ast_Expr* ParseAssignmentExpr(Parser_Context *ctx)
 
 static Ast_Expr* ParseExpression(Parser_Context *ctx)
 {
-    TRACE(ParseExpression);
     /*
      * operator precedence (LR: left to right, RL: right to left)
      * RL: = += -= *= /= <<= >>=    assignment
@@ -1095,7 +1072,6 @@ static Ast_Expr* ParseExpression(Parser_Context *ctx)
      * LR: + - ~ !                  unary pos/neg, bit complement, logical not
      */
     Ast_Expr *expr = ParseAssignmentExpr(ctx);
-    TRACE(ParseExpression_end);
     return expr;
 }
 
@@ -1105,7 +1081,6 @@ static Ast_Node* ParseStatement(Parser_Context *ctx);
 
 static Ast_Node* ParseBlockStatement(Parser_Context *ctx)
 {
-    TRACE(ParseBlockStatement);
     const Token *block_tok = Accept(ctx, TOK_OpenBlock);
     if (!block_tok) return nullptr;
 
@@ -1130,7 +1105,6 @@ static Ast_Node* ParseBlockStatement(Parser_Context *ctx)
 
 static Ast_Node* ParseIfStatement(Parser_Context *ctx)
 {
-    TRACE(ParseIfStatement);
     const Token *if_tok = Accept(ctx, TOK_If);
     if (!if_tok) return nullptr;
 
@@ -1143,9 +1117,7 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx)
     }
     Ast_Node *then_stmt = ParseStatement(ctx);
     if (!then_stmt)
-    {
         Error(ctx, "Expecting statement after if");
-    }
 
     Ast_Node *else_stmt = nullptr;
     if (Accept(ctx, TOK_Else))
@@ -1164,7 +1136,6 @@ static Ast_Node* ParseIfStatement(Parser_Context *ctx)
 
 static Ast_Node* ParseWhileStatement(Parser_Context *ctx)
 {
-    TRACE(ParseWhileStatement);
     const Token *while_tok = Accept(ctx, TOK_While);
     if (!while_tok) return nullptr;
 
@@ -1180,9 +1151,7 @@ static Ast_Node* ParseWhileStatement(Parser_Context *ctx)
 
     Ast_Node *loop_stmt = ParseStatement(ctx);
     if (!loop_stmt)
-    {
         Error(ctx, "Expecting statement after while");
-    }
 
     while_node->while_stmt.cond_expr = cond_expr;
     while_node->while_stmt.loop_stmt = loop_stmt;
@@ -1192,7 +1161,6 @@ static Ast_Node* ParseWhileStatement(Parser_Context *ctx)
 
 static Ast_Node* ParseForStatement(Parser_Context *ctx)
 {
-    TRACE(ParseForStatement);
     const Token *for_tok = Accept(ctx, TOK_For);
     if (!for_tok) return nullptr;
 
@@ -1261,7 +1229,6 @@ static Ast_Node* ParseForStatement(Parser_Context *ctx)
 
 static Ast_Node* ParseReturnStatement(Parser_Context *ctx)
 {
-    TRACE(ParseReturnStatement);
     const Token *return_tok = Accept(ctx, TOK_Return);
     if (!return_tok) return nullptr;
 
@@ -1292,8 +1259,6 @@ static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
     Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
     var_decl->variable_decl.names.name = name;
     var_decl->variable_decl.names.file_loc = ident_tok->file_loc;
-    var_decl->variable_decl.names.symbol = nullptr;
-    var_decl->variable_decl.names.next = nullptr;
 
     Ast_Variable_Decl_Names *prev = &var_decl->variable_decl.names;
     while (Accept(ctx, TOK_Comma))
@@ -1305,10 +1270,9 @@ static Ast_Node* ParseVarDeclExpr(Parser_Context *ctx)
             break;
         }
         Ast_Variable_Decl_Names *next = PushStruct<Ast_Variable_Decl_Names>(&ctx->ast->arena);
+        *next = { };
         next->name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
         next->file_loc = ident_tok->file_loc;
-        next->symbol = nullptr;
-        next->next = nullptr;
 
         prev->next = next;
         prev = next;
@@ -1391,7 +1355,6 @@ static Ast_Node* ParseExprStatement(Parser_Context *ctx)
 
 static Ast_Node* ParseStatement(Parser_Context *ctx)
 {
-    TRACE(ParseStatement);
     Ast_Node *stmt = ParseBlockStatement(ctx);
     if (!stmt) stmt = ParseIfStatement(ctx);
     if (!stmt) stmt = ParseWhileStatement(ctx);
@@ -1405,7 +1368,6 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
 
 static void ParseParameters(Parser_Context *ctx, Ast_Node_List *parameters)
 {
-    TRACE(ParseParameters);
     bool first = true;
     do
     {
@@ -1437,7 +1399,6 @@ static void ParseParameters(Parser_Context *ctx, Ast_Node_List *parameters)
 
 static Ast_Node* ParseFunction(Parser_Context *ctx, const Token *ident_tok)
 {
-    TRACE(ParseFunction);
     if (!Accept(ctx, TOK_OpenParent)) return nullptr;
 
     Ast_Node *func_def = PushNode<Ast_Function_Def>(ctx, AST_FunctionDef, ident_tok);
@@ -1577,7 +1538,6 @@ static Ast_Node* ParseGlobalImport(Parser_Context *ctx)
 
 static Ast_Node* ParseForeignFunction(Parser_Context *ctx, const Token *ident_tok)
 {
-    TRACE(ParseForeignFunction);
     if (!Accept(ctx, TOK_OpenParent)) return nullptr;
 
     Ast_Node *func_decl = PushNode<Ast_Function_Decl>(ctx, AST_FunctionDecl, ident_tok);
@@ -1611,8 +1571,6 @@ static Ast_Node* ParseForeignFunction(Parser_Context *ctx, const Token *ident_to
 
 static Ast_Node* ParseForeignStmt(Parser_Context *ctx)
 {
-    TRACE(ParseForeignStmt);
-
     const Token *token = GetCurrentToken(ctx);
     if (token->type != TOK_Identifier)
         return nullptr;
@@ -1653,8 +1611,6 @@ static Ast_Node* ParseForeignBlock(Parser_Context *ctx)
 
 static Ast_Node* ParseTopLevelNamedStmt(Parser_Context *ctx)
 {
-    TRACE(ParseTopLevelIdentifier);
-
     const Token *token = GetCurrentToken(ctx);
     if (token->type != TOK_Identifier)
         return nullptr;
@@ -1673,15 +1629,8 @@ static Ast_Node* ParseTopLevelNamedStmt(Parser_Context *ctx)
     return stmt;
 }
 
-// Parses the following top level statements:
-// import "module_name";
-// name :: import "module_name";
-// func_name :: (...) { ... }
-// struct_name :: struct { ... }    (not implemented yet)
-// enum_name :: enum { ... }        (not implemented yet)
 static Ast_Node* ParseTopLevelStmt(Parser_Context *ctx)
 {
-    TRACE(ParseTopLevelStmt);
     Ast_Node *stmt = ParseGlobalImport(ctx);
     if (!stmt) stmt = ParseForeignBlock(ctx);
     if (!stmt) stmt = ParseVarDeclStatement(ctx);
