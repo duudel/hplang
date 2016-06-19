@@ -187,16 +187,15 @@ main :: ()
 
     //print_bodies(BODY_COUNT, bodies);
     e := energy(BODY_COUNT, bodies);
-    /*print("e = ");*/ println(e, 9);
-
+    println(e, 9);
+    
     for (i : s64 = 0; i < N; i += 1)
     {
         advance(BODY_COUNT, bodies, 0.01d);
     }
 
     e = energy(BODY_COUNT, bodies);
-    /*print("e = ");*/ println(e, 9);
-
+    println(e, 9);
     return 0;
 }
 

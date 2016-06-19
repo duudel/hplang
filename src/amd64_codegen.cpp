@@ -12,9 +12,8 @@
 namespace hplang
 {
 
-// NOTE(henrik): When RA_DEBUG_INFO is defined, prints some register allocator
-// debug info to stderr.
-#define RA_DEBUG_INFO
+#define RA_DEBUG(ctx, x) \
+        if ((ctx)->comp_ctx->options.debug_reg_alloc) x
 
 enum { Opcode_Mod_Shift = 7 };
 
@@ -2291,11 +2290,20 @@ struct Name_Data_Type
     b32 spilled;
     b32 arg;
 };
+
 struct Live_Sets
 {
     Array<Name_Data_Type> live_in;
     Array<Name_Data_Type> live_out;
 };
+
+struct Cfg_Edge
+{
+    s64 instr_index;
+    s64 branch_instr_index;
+    b32 falls_through;
+};
+
 
 b32 SetAddSpilled(Array<Name_Data_Type> &set, Name name, Oper_Data_Type data_type)
 {
@@ -2425,12 +2433,14 @@ static b32 AddOper(Array<Name_Data_Type> &set, Operand oper, Oper_Access_Flags a
 
 static void PrintInstruction(IoFile *file, const Instruction *instr);
 
-void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
-        Routine *routine, Array<Live_Interval*> &live_intervals)
+static void ComputeLiveness(Codegen_Context *ctx,
+        Ir_Routine *ir_routine, Routine *routine, 
+        Array<Live_Interval*> &live_intervals,
+        Array<Live_Sets> &live_sets,
+        Array<Cfg_Edge> &cfg_edges)
 {
     Instruction_List &instructions = routine->instructions;
 
-    Array<Live_Sets> live_sets = { };
     array::Resize(live_sets, instructions.count);
     for (s64 i = 0; i < live_sets.count; i++)
     {
@@ -2528,6 +2538,30 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
         }
     }
 
+    // Collect CFG edges
+    for (s64 current_I = 0; current_I < live_sets.count; current_I++)
+    {
+        Instruction *instr = instructions[current_I];
+        if ((instr->flags & IF_Branch) != 0)
+        {
+            ASSERT(instr->oper1.type == Oper_Type::Label);
+            Name label_name = instr->oper1.label.name;
+            const Label_Instr *li = hashtable::Lookup(routine->labels, label_name);
+            ASSERT(li != nullptr);
+            s64 label_instr_index = -1;
+            if (li->instr)
+            {
+                label_instr_index = li->instr_index;
+            }
+
+            Cfg_Edge edge = { };
+            edge.instr_index = current_I;
+            edge.branch_instr_index = label_instr_index;
+            edge.falls_through = (instr->flags & IF_FallsThrough) != 0;
+            array::Push(cfg_edges, edge);
+        }
+    }
+
     // Reduce liveness information to coarse live intervals
     for (s64 current_I = 0; current_I < live_sets.count; current_I++)
     {
@@ -2594,59 +2628,59 @@ void ComputeLiveness(Codegen_Context *ctx, Ir_Routine *ir_routine,
         }
     }
 
-#if defined(RA_DEBUG_INFO)
-if (ctx->comp_ctx->options.debug_reg_alloc)
-{
-    fprintf(stderr, "\n--Live in/out-- ");
-    PrintName((IoFile*)stderr, routine->name);
-    fprintf(stderr, "\n");
-    for (s64 instr_i = 0; instr_i < live_sets.count; instr_i++)
-    {
-        Live_Sets sets = live_sets[instr_i];
-        fprintf(stderr, "instr %" PRId64 ": ", instr_i);
-        PrintInstruction((IoFile*)stderr, instructions[instr_i]);
-        fprintf(stderr, "   in: ");
-        for (s64 i = 0; i < sets.live_in.count; i++)
-        {
-            Name name = sets.live_in[i].name;
-            PrintName((IoFile*)stderr, name);
-            fprintf(stderr, ", ");
-        }
-        fprintf(stderr, "\n  out: ");
-        for (s64 i = 0; i < sets.live_out.count; i++)
-        {
-            Name name = sets.live_out[i].name;
-            PrintName((IoFile*)stderr, name);
-            fprintf(stderr, ", ");
-        }
+    RA_DEBUG(ctx, {
+        fprintf(stderr, "\n--Live in/out-- ");
+        PrintName((IoFile*)stderr, routine->name);
         fprintf(stderr, "\n");
-        fprintf(stderr, "\n");
-    }
-    fprintf(stderr, "--Live in/out end--\n");
-
-    fprintf(stderr, "\n--Live intervals-- ");
-    PrintName((IoFile*)stderr, routine->name);
-    fprintf(stderr, "\n");
-    for (s64 i = 0; i < live_intervals.count; i++)
-    {
-        Live_Interval *interval = live_intervals[i];
-        if (!interval) continue;
-
-        const char *indent = "";
-        PrintName((IoFile*)stderr, interval->name);
-        do
+        for (s64 instr_i = 0; instr_i < live_sets.count; instr_i++)
         {
-            fprintf(stderr, "%s: \t[%d,%d] %d %s\n", indent,
-                    interval->start, interval->end, (s32)interval->data_type,
-                    (interval->is_spilled) ? "(spilled)" : "");
-            indent = "\t";
-            interval = interval->next;
-        } while (interval);
-    }
-    fprintf(stderr, "--Live intervals end--\n");
+            Live_Sets sets = live_sets[instr_i];
+            fprintf(stderr, "instr %" PRId64 ": ", instr_i);
+            PrintInstruction((IoFile*)stderr, instructions[instr_i]);
+            fprintf(stderr, "   in: ");
+            for (s64 i = 0; i < sets.live_in.count; i++)
+            {
+                Name name = sets.live_in[i].name;
+                PrintName((IoFile*)stderr, name);
+                fprintf(stderr, ", ");
+            }
+            fprintf(stderr, "\n  out: ");
+            for (s64 i = 0; i < sets.live_out.count; i++)
+            {
+                Name name = sets.live_out[i].name;
+                PrintName((IoFile*)stderr, name);
+                fprintf(stderr, ", ");
+            }
+            fprintf(stderr, "\n");
+            //fprintf(stderr, "\n");
+        }
+        fprintf(stderr, "--Live in/out end--\n");
+
+        fprintf(stderr, "\n--Live intervals-- ");
+        PrintName((IoFile*)stderr, routine->name);
+        fprintf(stderr, "\n");
+        for (s64 i = 0; i < live_intervals.count; i++)
+        {
+            Live_Interval *interval = live_intervals[i];
+            if (!interval) continue;
+
+            const char *indent = "";
+            PrintName((IoFile*)stderr, interval->name);
+            do
+            {
+                fprintf(stderr, "%s: \t[%d,%d] %d %s\n", indent,
+                        interval->start, interval->end, (s32)interval->data_type,
+                        (interval->is_spilled) ? "(spilled)" : "");
+                indent = "\t";
+                interval = interval->next;
+            } while (interval);
+        }
+        fprintf(stderr, "--Live intervals end--\n\n");
+    })
 }
-#endif
 
+static void FreeLiveSets(Array<Live_Sets> &live_sets)
+{
     for (s64 i = 0; i < live_sets.count; i++)
     {
         array::Free(live_sets[i].live_in);
@@ -2689,15 +2723,29 @@ static void InsertSpills(Codegen_Context *ctx, Routine *routine)
         char buf[128];
         String spill_name = spill_info.spill.name.str;
 
-        if (spill_info.is_spill)
+        if (spill_info.is_move)
         {
-            if (ctx->comp_ctx->options.debug_reg_alloc)
+            s64 size = snprintf(buf, sizeof(buf), "Fix consistency of ");
+            String s = PushString(&ctx->arena, buf, size);
+            String s2 = PushString(&ctx->arena, spill_name.data, spill_name.size);
+            s.size += s2.size;
+
+            comment.start = s.data;
+            comment.end = s.data + s.size;
+
+            InsertLoad(ctx, routine->instructions, index,
+                    RegOperand(spill_info.target, spill_info.spill.data_type, AF_Write),
+                    RegOperand(spill_info.spill.reg, spill_info.spill.data_type, AF_Read));
+        }
+        else if (spill_info.is_spill)
+        {
+            RA_DEBUG(ctx, 
             {
                 fprintf(stderr, "Insert spill of ");
                 PrintName((IoFile*)stderr, spill_info.spill.name);
                 fprintf(stderr, " before instr %" PRId64 "", index);
                 fprintf(stderr, " data_type = %" PRId64 "\n", (s64)spill_info.spill.data_type);
-            }
+            })
 
             s64 size = snprintf(buf, sizeof(buf), "spill ");
             String s = PushString(&ctx->arena, buf, size);
@@ -2749,6 +2797,108 @@ static void Unspill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
     spill_info.is_spill = false;
     array::Push(reg_alloc->spills, spill_info);
 }
+
+static void InsertMove(Reg_Alloc *reg_alloc, Live_Interval interval, Reg target, s64 instr_index)
+{
+    if (instr_index < 0) return;
+    ASSERT(instr_index >= 0);
+    Spill_Info spill_info = { };
+    spill_info.spill = interval;
+    spill_info.target = target;
+    spill_info.instr_index = instr_index;
+    spill_info.is_move = true;
+    array::Push(reg_alloc->spills, spill_info);
+}
+
+b32 IsLive(Live_Sets live_sets, Name name)
+{
+    for (s64 i = 0; i < live_sets.live_in.count; i++)
+    {
+        if (live_sets.live_in[0].name == name) return true;
+    }
+    for (s64 i = 0; i < live_sets.live_out.count; i++)
+    {
+        if (live_sets.live_out[0].name == name) return true;
+    }
+    return false;
+}
+
+static void CfgEdgeResolution(Codegen_Context *ctx,
+        Array<Live_Interval> &live_intervals,
+        Array<Live_Sets> &live_sets,
+        Array<Cfg_Edge> &cfg_edges)
+{
+    (void)live_sets;
+    for (s64 ei = 0; ei < cfg_edges.count; ei++)
+    {
+        Cfg_Edge edge = cfg_edges[ei];
+        for (s64 i = 0; i < live_intervals.count; i++)
+        {
+            Live_Interval li = live_intervals[i];
+
+            // If the live interval intersects with the edge..
+            if (li.start <= edge.instr_index &&
+                edge.instr_index <= li.end)
+            {
+                // ..find a conflicting interval (i.e. having the same name,
+                // thus representing the same virtual register, but with
+                // different register) at the branch target.
+                s64 index = -1;
+                for (s64 j = 0; j < live_intervals.count; j++)
+                {
+                    Live_Interval lj = live_intervals[j];
+                    if (lj.start <= edge.branch_instr_index &&
+                        edge.branch_instr_index <= lj.end)
+                    {
+                        if (li.name == lj.name)
+                        {
+                            if (li.reg != lj.reg)
+                            {
+                                index = j;
+                            }
+                            break;
+                        }
+                    }
+                }
+                // No confilicting interval found, continue to next interval.
+                if (index == -1) continue; 
+
+                // Check if there are other intervals using the register at the
+                // branch point.
+                s64 active_index = -1;
+                Live_Interval interval = live_intervals[index];
+                for (s64 j = 0; j < live_intervals.count; j++)
+                {
+                    Live_Interval lj = live_intervals[j];
+                    if (lj.start <= edge.instr_index &&
+                        edge.instr_index <= lj.end)
+                    {
+                        if (interval.reg == lj.reg)
+                        {
+                            active_index = j;
+                            break;
+                        }
+                    }
+                }
+                // If the register was in use.. 
+                if (active_index != -1)
+                {
+                    // ..use spilling to make sure that no value is
+                    // overwritten.
+                    Spill(ctx->reg_alloc, li, edge.instr_index - 1);
+                    li.reg = interval.reg;
+                    Unspill(ctx->reg_alloc, li, edge.instr_index);
+                }
+                else
+                {
+                    // Otherwise we can do just a straight copy.
+                    InsertMove(ctx->reg_alloc, li, interval.reg, edge.instr_index);
+                }
+            }
+        }
+    }
+}
+
 
 static bool MaybeRemoveFromFreeRegs(Array<Reg> &free_regs, Reg reg)
 {
@@ -2808,6 +2958,7 @@ static void AddToUnhandled(Array<Live_Interval> &unhandled, Live_Interval interv
 static void ExpireOldIntervals(Codegen_Context *ctx,
         Array<Live_Interval> &active,
         Array<Live_Interval> &inactive,
+        Array<Live_Interval> &handled,
         s64 instr_index)
 {
     for (s64 i = 0; i < active.count; )
@@ -2816,20 +2967,20 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
         if (active_interval.end >= instr_index)
             return;
         array::Erase(active, i);
+        //array::Push(handled, active_interval);
+        AddToUnhandled(handled, active_interval);
 
         if (active_interval.next)
         {
             Live_Interval next = *active_interval.next;
-            //next.name = active_interval.name;
             next.reg = active_interval.reg;
-            //next.data_type = active_interval.data_type;
 
             AddToUnhandled(inactive, next);
 
-            if ((ctx->current_routine->instructions[active_interval.end]->flags & IF_Branch) != 0)
-                Spill(ctx->reg_alloc, active_interval, active_interval.end);
-            else
-                Spill(ctx->reg_alloc, active_interval, active_interval.end+1);
+            //if ((ctx->current_routine->instructions[active_interval.end]->flags & IF_Branch) != 0)
+            //    Spill(ctx->reg_alloc, active_interval, active_interval.end);
+            //else
+            //    Spill(ctx->reg_alloc, active_interval, active_interval.end+1);
         }
 
         ReleaseRegister(ctx->reg_alloc, active_interval.reg, active_interval.data_type);
@@ -2869,7 +3020,7 @@ static void RenewInactiveIntervals(Codegen_Context *ctx,
                 }
             }
             AddToActive(active, inactive_interval);
-            Unspill(ctx->reg_alloc, inactive_interval, inactive_interval.start);
+            //Unspill(ctx->reg_alloc, inactive_interval, inactive_interval.start);
         }
         i++;
     }
@@ -2937,18 +3088,16 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
             return;
         Spill(ctx->reg_alloc, spill, interval.start);
 
-#ifdef RA_DEBUG_INFO
-if (ctx->comp_ctx->options.debug_reg_alloc)
-{
-        fprintf(stderr, "Spilled ");
-        PrintName((IoFile*)stderr, spill.name);
-        fprintf(stderr, " in reg %s at instr %d\n",
-                GetRegNameStr(spill.reg), interval.start);
+        RA_DEBUG(ctx,
+        {
+            fprintf(stderr, "Spilled ");
+            PrintName((IoFile*)stderr, spill.name);
+            fprintf(stderr, " in reg %s at instr %d\n",
+                    GetRegNameStr(spill.reg), interval.start);
 
-        s64 offs = GetLocalOffset(ctx, spill.name, spill.data_type);
-        fprintf(stderr, " at offset %" PRId64 "\n", offs);
-}
-#endif
+            s64 offs = GetLocalOffset(ctx, spill.name, spill.data_type);
+            fprintf(stderr, " at offset %" PRId64 "\n", offs);
+        })
 
         GetLocalOffset(ctx, spill.name, spill.data_type);
         array::Erase(active, spill_i);
@@ -3009,25 +3158,22 @@ static void SetOperand(Codegen_Context *ctx,
     if (GetLocalOffset(ctx, oper_name, &offs))
     {
         *oper = BaseOffsetOperand(REG_rbp, offs, oper->data_type, oper->access_flags);
-#ifdef RA_DEBUG_INFO
-if (ctx->comp_ctx->options.debug_reg_alloc)
-{
-        fprintf(stderr, "Local offset %" PRId64 " for ", offs);
-        PrintName((IoFile*)stderr, oper_name);
-        fprintf(stderr, " at %" PRId64 "\n", instr_index);
-}
-#endif
+
+        RA_DEBUG(ctx,
+        {
+            fprintf(stderr, "Local offset %" PRId64 " for ", offs);
+            PrintName((IoFile*)stderr, oper_name);
+            fprintf(stderr, " at %" PRId64 "\n", instr_index);
+        })
     }
     else
     {
-#ifdef RA_DEBUG_INFO
-if (ctx->comp_ctx->options.debug_reg_alloc)
-{
-        fprintf(stderr, "No local offset for ");
-        PrintName((IoFile*)stderr, oper_name);
-        fprintf(stderr, " at %" PRId64 "\n", instr_index);
-}
-#endif
+        RA_DEBUG(ctx, 
+        {
+            fprintf(stderr, "No local offset for ");
+            PrintName((IoFile*)stderr, oper_name);
+            fprintf(stderr, " at %" PRId64 "\n", instr_index);
+        })
         INVALID_CODE_PATH;
     }
 }
@@ -3085,7 +3231,7 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
         instr->opcode = (Opcode)OP_nop;
         instr->oper1 = NoneOperand();
     }
-#if 1
+#if 0
     else if ((instr->flags & IF_Branch) != 0)
     {
         for (s64 i = 0; i < active.count; i++)
@@ -3133,26 +3279,48 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
     SetOperand(ctx, active, &instr->oper3, instr_i);
 }
 
+static void PrintIntervals(Array<Live_Interval> intervals)
+{
+    for (s64 i = 0; i < intervals.count; i++)
+    {
+        Live_Interval li = intervals[i];
+        PrintName((IoFile*)stderr, li.name);
+        fprintf(stderr, "=%s", GetRegNameStr(li.reg));
+        fprintf(stderr, ", ");
+    }
+    fprintf(stderr, "\n");
+}
+
 static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
-        Array<Live_Interval> &active, Array<Live_Interval> &inactive,
+        Array<Live_Interval> &active,
+        Array<Live_Interval> &inactive,
+        Array<Live_Interval> &handled,
         s64 interval_start, s64 next_interval_start)
 {
-    if (ctx->comp_ctx->options.debug_reg_alloc)
-    {
+    RA_DEBUG(ctx,
         fprintf(stderr, "Scanning instructions in live interval [%" PRId64 ",%" PRId64 "]\n",
-            interval_start, next_interval_start);
-    }
+                interval_start, next_interval_start);
+    )
 
     for (s64 instr_i = interval_start; instr_i <= next_interval_start; instr_i++)
     {
-        ExpireOldIntervals(ctx, active, inactive, instr_i);
+        ExpireOldIntervals(ctx, active, inactive, handled, instr_i);
         RenewInactiveIntervals(ctx, active, inactive, instr_i);
+
+        RA_DEBUG(ctx,
+        {
+            fprintf(stderr, "%d\ta:", (s32)instr_i);
+            PrintIntervals(active);
+            fprintf(stderr, "\ti:");
+            PrintIntervals(inactive);
+        })
+        
         ScanInstruction(ctx, routine, active, instr_i);
     }
 }
 
 static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
-        Array<Live_Interval> &live_intervals)
+        Array<Live_Interval> &live_intervals, Array<Live_Interval> &handled)
 {
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
 
@@ -3171,7 +3339,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
         if (i + 1 < live_intervals.count)
             next_interval_start = live_intervals[i + 1].start;
 
-        ExpireOldIntervals(ctx, active, inactive, interval.start);
+        ExpireOldIntervals(ctx, active, inactive, handled, interval.start);
         RenewInactiveIntervals(ctx, active, inactive, interval.start);
 
         if (interval.reg.reg_index != REG_NONE)
@@ -3194,7 +3362,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
             }
         }
 
-        ScanInstructions(ctx, routine, active, inactive,
+        ScanInstructions(ctx, routine, active, inactive, handled,
                 interval.start, next_interval_start - 1);
 
         last_interval_start = interval.start;
@@ -3203,10 +3371,8 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
     }
 
     s64 last_interval_end = routine->instructions.count - 1;
-    ScanInstructions(ctx, routine, active, inactive,
+    ScanInstructions(ctx, routine, active, inactive, handled,
             last_interval_start, last_interval_end);
-
-    InsertSpills(ctx, routine);
 
     array::Free(active);
     array::Free(inactive);
@@ -3315,13 +3481,18 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine, Rout
 {
     CollectLabelInstructions(ctx, routine);
 
-    Array<Live_Interval*> live_interval_set = { };
-    ComputeLiveness(ctx, ir_routine, routine, live_interval_set);
+    Array<Cfg_Edge> cfg_edges = { };
+    Array<Live_Sets> live_sets = { };
 
+    Array<Live_Interval*> live_interval_set = { };
+    ComputeLiveness(ctx, ir_routine, routine,
+            live_interval_set, live_sets, cfg_edges);
+
+    // Sort the intervals in the singly linked list of every interval.
     for (s64 i = 0; i < live_interval_set.count; i++)
     {
         Live_Interval **interval = &live_interval_set[i];
-        if (!(*interval)->next) continue;
+        //if (!(*interval)->next) continue;
 
         bool done = false;
         while (!done)
@@ -3365,9 +3536,16 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine, Rout
     }
     array::Free(live_interval_set);
 
-    LinearScanRegAllocation(ctx, routine, live_intervals);
+    Array<Live_Interval> final_intervals = { };
+    LinearScanRegAllocation(ctx, routine, live_intervals, final_intervals);
+
+    CfgEdgeResolution(ctx, final_intervals, live_sets, cfg_edges);
+
+    InsertSpills(ctx, routine);
 
     array::Free(live_intervals);
+    array::Free(cfg_edges);
+    FreeLiveSets(live_sets);
 
     s64 locals_size = routine->locals_size;
     if (locals_size > 0)
@@ -3478,7 +3656,7 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
         GenerateCode(ctx, ir_routines[i], routine);
     }
 
-    if (ctx->comp_ctx->options.debug_reg_alloc)
+    RA_DEBUG(ctx,
     {
         // Output generated code before register allocation for debugging.
         IoFile *f = ctx->code_out;
@@ -3489,7 +3667,7 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
 
         fclose(tfile);
         ctx->code_out = f;
-    }
+    })
 
     for (s64 i = 0; i < ir_routines.count; i++)
     {

@@ -41,6 +41,10 @@ struct Spill_Info
 {
     Live_Interval spill;
     s32 instr_index;
+
+    Reg target;
+    b32 is_move;  // true, if this is actually a move to target register.
+
     b32 is_spill; // true, if this is a spill, otherwise this is an unspill.
 };
 

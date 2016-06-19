@@ -74,6 +74,7 @@ inline void SeekToEnd(File_Location *file_loc)
 inline bool operator == (const String &a, const String &b)
 {
     if (a.size != b.size) return false;
+    if (a.data == b.data) return true;
     for (s64 i = 0; i < a.size; i++)
     {
         if (a.data[i] != b.data[i])
