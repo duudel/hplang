@@ -1405,17 +1405,15 @@ static Ast_Node* ParseStatement(Parser_Context *ctx)
 
 static void ParseParameters(Parser_Context *ctx, Ast_Node_List *parameters)
 {
-    // TODO(henrik): Fix the bug where the parsers allows an extra comma after parameters.
     TRACE(ParseParameters);
+    bool first = true;
     do
     {
-        const Token *token = GetCurrentToken(ctx);
-        if (token->type == TOK_Identifier)
+        const Token *ident_tok = Accept(ctx, TOK_Identifier);
+        if (ident_tok)
         {
-            GetNextToken(ctx);
-            Ast_Node *param_node = PushNode<Ast_Parameter>(ctx, AST_Parameter, token);
-            Name name = PushName(&ctx->ast->arena,
-                    token->value, token->value_end);
+            Ast_Node *param_node = PushNode<Ast_Parameter>(ctx, AST_Parameter, ident_tok);
+            Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
             param_node->parameter.name = name;
 
             Expect(ctx, TOK_Colon);
@@ -1423,14 +1421,16 @@ static void ParseParameters(Parser_Context *ctx, Ast_Node_List *parameters)
             param_node->parameter.type = type_node;
 
             PushNodeList(parameters, param_node);
+            first = false;
         }
-        else if (token->type == TOK_CloseParent)
+        else if (first)
         {
             break;
         }
         else
         {
-            Error(ctx, token, "Expecting parameter name");
+            Error(ctx, "Expecting parameter name");
+            break;
         }
     } while (Accept(ctx, TOK_Comma) && ContinueParsing(ctx));
 }

@@ -1,0 +1,6 @@
+// Test that where extra comma in parameter list should result in compiler error.
+// 2016-06-20
+
+main :: (s : string, y : s64, )
+{
+}

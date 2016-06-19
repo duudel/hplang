@@ -121,6 +121,7 @@ static Fail_Test fail_tests[] = {
     (Fail_Test){ CP_Lexing,     "tests/lexer_fail/non_ending_mlc.hp",                   {6, 5} },
     (Fail_Test){ CP_Parsing,    "tests/parser_fail/token_test.hp",                      {1, 1} },
     (Fail_Test){ CP_Parsing,    "tests/parser_fail/if_paren_test.hp",                   {8, 23} },
+    (Fail_Test){ CP_Parsing,    "tests/parser_fail/extra_comma_in_params.hp",           {4, 31} },
     (Fail_Test){ CP_Checking,   "tests/sem_check_fail/infer_var_type_from_null.hp",     {4, 1} },
     (Fail_Test){ CP_Checking,   "tests/sem_check_fail/dup_func_param.hp",               {4, 39} },
     (Fail_Test){ CP_Checking,   "tests/sem_check_fail/dup_variable.hp",                 {7, 5} },
@@ -191,7 +192,7 @@ static b32 CheckErrorLocation(Compiler_Context *compiler_ctx, Line_Col fail_loca
 
 b32 RunTest(const Fail_Test &test)
 {
-    fprintf(outfile, "Running test '%s'\n", test.source_filename);
+    //fprintf(outfile, "Running test '%s'\n", test.source_filename);
 
     b32 failed = false;
     Compiler_Context compiler_ctx = NewCompilerContext();
@@ -209,7 +210,7 @@ b32 RunTest(const Fail_Test &test)
         case CP_Lexing:
             if (compiler_ctx.result != RES_FAIL_Lexing)
             {
-                fprintf(outfile, "TEST ERROR: Was expecting lexing failure at %d:%d\n",
+                fprintf(outfile, "TEST ERROR: Was expecting lexing failure at %d:%d, but the lexing was successful\n",
                         test.fail_location.line, test.fail_location.column);
                 failed = true;
             }
@@ -222,7 +223,7 @@ b32 RunTest(const Fail_Test &test)
         case CP_Parsing:
             if (compiler_ctx.result != RES_FAIL_Parsing)
             {
-                fprintf(outfile, "TEST ERROR: Was expecting parsing failure at %d:%d\n",
+                fprintf(outfile, "TEST ERROR: Was expecting parsing failure at %d:%d, but the parsing was successful\n",
                         test.fail_location.line, test.fail_location.column);
                 failed = true;
             }
@@ -235,7 +236,7 @@ b32 RunTest(const Fail_Test &test)
         case CP_Checking:
             if (compiler_ctx.result != RES_FAIL_SemanticCheck)
             {
-                fprintf(outfile, "TEST ERROR: Was expecting semantic check failure at %d:%d\n",
+                fprintf(outfile, "TEST ERROR: Was expecting semantic check failure at %d:%d, but the semantic check was successful\n",
                         test.fail_location.line, test.fail_location.column);
                 failed = true;
             }
@@ -262,14 +263,16 @@ b32 RunTest(const Fail_Test &test)
 
     FreeCompilerContext(&compiler_ctx);
 
-    fprintf(outfile, "----\n"); fflush(outfile);
+    if (failed)
+    {
+        fprintf(outfile, "Test '%s' failed\n", test.source_filename);
+        fprintf(outfile, "----\n"); fflush(outfile);
+    }
     return !failed;
 }
 
 b32 RunTest(const Succeed_Test &test)
 {
-    fprintf(outfile, "Running test '%s'\n", test.source_filename);
-
     b32 failed = false;
     Compiler_Context compiler_ctx = NewCompilerContext();
     compiler_ctx.options.stop_after = test.stop_after;
@@ -300,7 +303,11 @@ b32 RunTest(const Succeed_Test &test)
 
     FreeCompilerContext(&compiler_ctx);
 
-    fprintf(outfile, "----\n"); fflush(outfile);
+    if (failed)
+    {
+        fprintf(outfile, "Test '%s' failed\n", test.source_filename);
+        fprintf(outfile, "----\n"); fflush(outfile);
+    }
     return !failed;
 }
 
@@ -314,9 +321,6 @@ const char *test_exe = "./out";
 
 b32 RunTest(const Execute_Test &test)
 {
-    fprintf(outfile, "Running test '%s'\n", test.source_filename);
-    fflush(outfile);
-
     b32 failed = false;
     Compiler_Context compiler_ctx = NewCompilerContext();
 
@@ -446,7 +450,11 @@ b32 RunTest(const Execute_Test &test)
 
     FreeCompilerContext(&compiler_ctx);
 
-    fprintf(outfile, "----\n"); fflush(outfile);
+    if (failed)
+    {
+        fprintf(outfile, "Test '%s' failed\n", test.source_filename);
+        fprintf(outfile, "----\n"); fflush(outfile);
+    }
     return !failed;
 }
 
