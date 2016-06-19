@@ -68,89 +68,63 @@ void InitRegAlloc(Reg_Alloc *reg_alloc,
     ReorderIndexedRegs(reg_alloc->float_regs.return_regs, reg_info);
     ReorderIndexedRegs(reg_alloc->float_regs.arg_regs, reg_info);
 
-    array::Reserve(reg_alloc->free_regs, general_reg_count);
-    array::Reserve(reg_alloc->free_float_regs, float_reg_count);
+    array::Reserve(reg_alloc->general_regs.free_regs, general_reg_count);
+    array::Reserve(reg_alloc->float_regs.free_regs, float_reg_count);
 }
 
 void FreeRegAlloc(Reg_Alloc *reg_alloc)
 {
-    array::Free(reg_alloc->free_regs);
-    array::Free(reg_alloc->free_float_regs);
     array::Free(reg_alloc->spills);
 
     array::Free(reg_alloc->general_regs.return_regs);
     array::Free(reg_alloc->general_regs.arg_regs);
+    array::Free(reg_alloc->general_regs.free_regs);
     array::Free(reg_alloc->float_regs.return_regs);
     array::Free(reg_alloc->float_regs.arg_regs);
+    array::Free(reg_alloc->float_regs.free_regs);
+}
+
+static void AppendFreeRegs(Reg_Alloc *reg_alloc, u8 reg_flag_mask, u8 reg_flag_result)
+{
+    for (s64 i = 0; i < reg_alloc->reg_count; i++)
+    {
+        Reg_Info reg_info = reg_alloc->reg_info[i];
+        if ((reg_info.reg_flags & RF_NonAllocable) != 0)
+            continue;
+
+        if ((reg_info.reg_flags & reg_flag_mask) == reg_flag_result)
+        {
+            Reg reg = { reg_info.reg_index };
+            if ((reg_info.reg_flags & RF_Float) != 0)
+                array::Push(reg_alloc->float_regs.free_regs, reg);
+            else
+                array::Push(reg_alloc->general_regs.free_regs, reg);
+        }
+    }
 }
 
 void ResetRegAlloc(Reg_Alloc *reg_alloc, b32 use_callee_saves_first /*= true*/)
 {
     array::Clear(reg_alloc->spills);
-    array::Clear(reg_alloc->free_regs);
-    array::Clear(reg_alloc->free_float_regs);
+    array::Clear(reg_alloc->general_regs.free_regs);
+    array::Clear(reg_alloc->float_regs.free_regs);
 
     reg_alloc->dirty_regs = 0;
 
-//#define USE_CALLER_SAVES_FIRST
-//#ifdef USE_CALLER_SAVES_FIRST
-if (!use_callee_saves_first)
-{
-    // Add callee saves to free regs
-    for (s64 i = 0; i < reg_alloc->reg_count; i++)
+    if (use_callee_saves_first)
     {
-        Reg_Info reg_info = reg_alloc->reg_info[i];
-        if ((reg_info.reg_flags & RF_NonAllocable) != 0)
-            continue;
-
-        if ((reg_info.reg_flags & RF_CallerSave) == 0)
-        {
-            Reg reg = { reg_info.reg_index };
-            if ((reg_info.reg_flags & RF_Float) != 0)
-                array::Push(reg_alloc->free_float_regs, reg);
-            else
-                array::Push(reg_alloc->free_regs, reg);
-        }
+        // Add caller saves to free regs
+        AppendFreeRegs(reg_alloc, RF_CallerSave, RF_CallerSave);
+        // Add callee saves to free regs
+        AppendFreeRegs(reg_alloc, RF_CallerSave, 0);
     }
-}
-//#endif
-    // Add caller saves to free regs
-    for (s64 i = 0; i < reg_alloc->reg_count; i++)
+    else
     {
-        Reg_Info reg_info = reg_alloc->reg_info[i];
-        if ((reg_info.reg_flags & RF_NonAllocable) != 0)
-            continue;
-
-        if ((reg_info.reg_flags & RF_CallerSave) != 0)
-        {
-            Reg reg = { reg_info.reg_index };
-            if ((reg_info.reg_flags & RF_Float) != 0)
-                array::Push(reg_alloc->free_float_regs, reg);
-            else
-                array::Push(reg_alloc->free_regs, reg);
-        }
+        // Add callee saves to free regs
+        AppendFreeRegs(reg_alloc, RF_CallerSave, 0);
+        // Add caller saves to free regs
+        AppendFreeRegs(reg_alloc, RF_CallerSave, RF_CallerSave);
     }
-//#ifndef USE_CALLER_SAVES_FIRST
-if (use_callee_saves_first)
-{
-    // Add callee saves to free regs
-    for (s64 i = 0; i < reg_alloc->reg_count; i++)
-    {
-        Reg_Info reg_info = reg_alloc->reg_info[i];
-        if ((reg_info.reg_flags & RF_NonAllocable) != 0)
-            continue;
-
-        if ((reg_info.reg_flags & RF_CallerSave) == 0)
-        {
-            Reg reg = { reg_info.reg_index };
-            if ((reg_info.reg_flags & RF_Float) != 0)
-                array::Push(reg_alloc->free_float_regs, reg);
-            else
-                array::Push(reg_alloc->free_regs, reg);
-        }
-    }
-}
-//#endif
 }
 
 void DirtyRegister(Reg_Alloc *reg_alloc, Reg reg)
@@ -304,45 +278,124 @@ const Reg* GetArgRegister(Reg_Alloc *reg_alloc,
 b32 HasFreeRegisters(Reg_Alloc *reg_alloc, Oper_Data_Type data_type)
 {
     if (DataTypeIsFloat(data_type))
-        return reg_alloc->free_float_regs.count > 0;
-    return reg_alloc->free_regs.count > 0;
+        return reg_alloc->float_regs.free_regs.count > 0;
+    return reg_alloc->general_regs.free_regs.count > 0;
 }
 
 static Reg GetFreeGeneralRegister(Reg_Alloc *reg_alloc)
 {
-    if (reg_alloc->free_regs.count == 0)
+    if (reg_alloc->general_regs.free_regs.count == 0)
     {
         return { };
     }
-    Reg reg = array::At(reg_alloc->free_regs, reg_alloc->free_regs.count - 1);
-    reg_alloc->free_regs.count--;
+    Reg reg = array::Back(reg_alloc->general_regs.free_regs);
+    array::Pop(reg_alloc->general_regs.free_regs);
     return reg;
 }
 
 static Reg GetFreeFloatRegister(Reg_Alloc *reg_alloc)
 {
-    if (reg_alloc->free_float_regs.count == 0)
+    if (reg_alloc->float_regs.free_regs.count == 0)
     {
         return { };
     }
-    Reg reg = array::At(reg_alloc->free_float_regs, reg_alloc->free_float_regs.count - 1);
-    reg_alloc->free_float_regs.count--;
+    Reg reg = array::Back(reg_alloc->float_regs.free_regs);
+    array::Pop(reg_alloc->float_regs.free_regs);
     return reg;
 }
 
-Reg GetFreeRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type)
+Reg AllocateFreeRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type)
 {
     if (DataTypeIsFloat(data_type))
         return GetFreeFloatRegister(reg_alloc);
-    return GetFreeGeneralRegister(reg_alloc);
+    else
+        return GetFreeGeneralRegister(reg_alloc);
+}
+
+static bool TryRemoveFromFreeRegs(Array<Reg> &free_regs, Reg reg)
+{
+    for (s64 i = 0; i < free_regs.count; i++)
+    {
+        if (free_regs[i] == reg)
+        {
+            array::EraseBySwap(free_regs, i);
+            return true;
+        }
+    }
+    return false;
+}
+
+void AllocateRegister(Reg_Alloc *reg_alloc, Reg reg, Oper_Data_Type data_type)
+{
+    ASSERT(TryAllocateRegister(reg_alloc, reg, data_type) == true);
+}
+
+b32 TryAllocateRegister(Reg_Alloc *reg_alloc, Reg reg, Oper_Data_Type data_type)
+{
+    if (DataTypeIsFloat(data_type))
+    {
+        ASSERT(IsFloatRegister(reg_alloc, reg));
+        return TryRemoveFromFreeRegs(reg_alloc->float_regs.free_regs, reg);
+    }
+    else
+    {
+        ASSERT(!IsFloatRegister(reg_alloc, reg));
+        return TryRemoveFromFreeRegs(reg_alloc->general_regs.free_regs, reg);
+    }
 }
 
 void ReleaseRegister(Reg_Alloc *reg_alloc, Reg reg, Oper_Data_Type data_type)
 {
     if (DataTypeIsFloat(data_type))
-        array::Push(reg_alloc->free_float_regs, reg);
+    {
+        ASSERT(IsFloatRegister(reg_alloc, reg));
+        array::Push(reg_alloc->float_regs.free_regs, reg);
+    }
     else
-        array::Push(reg_alloc->free_regs, reg);
+    {
+        ASSERT(!IsFloatRegister(reg_alloc, reg));
+        array::Push(reg_alloc->general_regs.free_regs, reg);
+    }
+}
+
+void Spill(Reg_Alloc *reg_alloc, Live_Interval interval, 
+        s64 instr_index, s64 bias /*= 0*/,
+        const char *note /*= nullptr*/)
+{
+    ASSERT(instr_index >= 0);
+    Spill_Info spill_info = { };
+    spill_info.note = note;
+    spill_info.interval = interval;
+    spill_info.instr_index = instr_index * 2 + bias;
+    spill_info.spill_type = Spill_Type::Spill;
+    array::Push(reg_alloc->spills, spill_info);
+}
+
+void Unspill(Reg_Alloc *reg_alloc, Live_Interval interval,
+        s64 instr_index, s64 bias /*= 0*/,
+        const char *note /*= nullptr*/)
+{
+    ASSERT(instr_index >= 0);
+    Spill_Info spill_info = { };
+    spill_info.note = note;
+    spill_info.interval = interval;
+    spill_info.instr_index = instr_index * 2 + bias;
+    spill_info.spill_type = Spill_Type::Unspill;
+    array::Push(reg_alloc->spills, spill_info);
+}
+
+void Move(Reg_Alloc *reg_alloc, Live_Interval interval, Reg target,
+        s64 instr_index,
+        const char *note /*= nullptr*/)
+{
+    ASSERT(instr_index >= 0);
+    Spill_Info spill_info = { };
+    spill_info.note = note;
+    spill_info.interval = interval;
+    spill_info.target = target;
+    spill_info.instr_index = instr_index * 2;
+    spill_info.spill_type = Spill_Type::Move;
+    array::Push(reg_alloc->spills, spill_info);
 }
 
 } // hplang

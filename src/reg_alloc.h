@@ -66,22 +66,20 @@ struct Reg_Seq_Index
 };
 
 // TODO(henrik): Rename Special_Regs. Add free_regs array to the same struct?
-struct Special_Regs
+struct Reg_Class
 {
     Array<Reg> return_regs;
     Array<Reg> arg_regs;
+    Array<Reg> free_regs;
 };
 
 struct Reg_Alloc
 {
-    Array<Reg> free_regs;
-    Array<Reg> free_float_regs;
-
     s64 reg_count;
     const Reg_Info *reg_info;
 
-    Special_Regs general_regs;
-    Special_Regs float_regs;
+    Reg_Class general_regs;
+    Reg_Class float_regs;
 
     // Specifies if argument index is shared between arguments passed in
     // general registers and float registers.
@@ -110,16 +108,24 @@ b32 IsCalleeSave(Reg_Alloc *reg_alloc, Reg reg);
 b32 IsFloatRegister(Reg_Alloc *reg_alloc, Reg reg);
 
 b32 HasFreeRegisters(Reg_Alloc *reg_alloc, Oper_Data_Type data_type);
-Reg GetFreeRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type);
+Reg AllocateFreeRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type);
+void AllocateRegister(Reg_Alloc *reg_alloc, Reg reg, Oper_Data_Type data_type);
+b32 TryAllocateRegister(Reg_Alloc *reg_alloc, Reg reg, Oper_Data_Type data_type);
 void ReleaseRegister(Reg_Alloc *reg_alloc, Reg reg, Oper_Data_Type data_type);
 
 const Reg* GetReturnRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, s64 ret_index);
 const Reg* GetArgRegister(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, Reg_Seq_Index *arg_index);
-//void AdvanceArgIndex(Reg_Alloc *reg_alloc, Oper_Data_Type data_type, Reg_Seq_Index *arg_index);
 
 s64 GetArgStackAllocSize(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index);
 s64 GetOffsetFromBasePointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index);
 s64 GetOffsetFromStackPointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index);
+
+void Spill(Reg_Alloc *reg_alloc, Live_Interval interval,
+        s64 instr_index, s64 bias = 0, const char *note = nullptr);
+void Unspill(Reg_Alloc *reg_alloc, Live_Interval interval,
+        s64 instr_index, s64 bias = 0, const char *note = nullptr);
+void Move(Reg_Alloc *reg_alloc, Live_Interval interval, Reg target,
+        s64 instr_index, const char *note = nullptr);
 
 } // hplang
 
