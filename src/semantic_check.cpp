@@ -1249,6 +1249,15 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 }
                 return ltype;
             }
+            else if (TypeIsPointer(ltype) && TypeIsPointer(rtype))
+            {
+                if (!TypesEqual(ltype, rtype))
+                {
+                    Error(ctx, expr->file_loc, "Invalid pointer difference of incompatible pointer types");
+                    return GetBuiltinType(TYP_none);
+                }
+                return GetBuiltinType(TYP_s64);
+            }
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {

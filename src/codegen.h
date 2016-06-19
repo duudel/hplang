@@ -22,13 +22,12 @@ inline b32 operator != (Reg r1, Reg r2)
 
 enum class Oper_Type : u8
 {
-    None,
-    Register,
-    VirtualRegister,
-    FixedRegister,
-    Immediate,
-    Label,
-//    StringConst,
+    None,               // No operand
+    Register,           // A physical register       (after reg alloc)
+    VirtualRegister,    // A virtual register        (before reg alloc)
+    FixedRegister,      // A fixed physical register (before reg alloc)
+    Immediate,          // An immediate value
+    Label,              // A named label target
 };
 
 enum class Oper_Data_Type : u8
@@ -72,7 +71,6 @@ struct Virtual_Reg
     Name name;
 };
 
-
 enum Oper_Access_Flag_Bits
 {
     AF_Read         = 1,
@@ -95,21 +93,19 @@ struct Operand
         Fixed_Reg   fixed_reg;
         Virtual_Reg virtual_reg;
         Label       label;
-        //String      string_const;
-        union {
-            void *imm_ptr;
-            bool imm_bool;
-            u8 imm_u8;
-            s8 imm_s8;
-            u16 imm_u16;
-            s16 imm_s16;
-            u32 imm_u32;
-            s32 imm_s32;
-            u64 imm_u64;
-            s64 imm_s64;
-            f32 imm_f32;
-            f64 imm_f64;
-        };
+
+        void *imm_ptr;
+        bool imm_bool;
+        u8 imm_u8;
+        s8 imm_s8;
+        u16 imm_u16;
+        s16 imm_s16;
+        u32 imm_u32;
+        s32 imm_s32;
+        u64 imm_u64;
+        s64 imm_s64;
+        f32 imm_f32;
+        f64 imm_f64;
     };
 };
 
@@ -137,8 +133,8 @@ struct Instruction
     Operand oper2;
     Operand oper3;
     Ir_Comment comment;
-    Instr_Flags flags;
     Operand_Use *uses;
+    Instr_Flags flags;
 };
 
 typedef Array<Instruction*> Instruction_List;

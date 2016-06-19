@@ -784,9 +784,12 @@ static Ir_Operand GenRefUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
             break;
 
         case UN_OP_Deref:
-            return oper;
-            //PushInstruction(ctx, routine, IR_Deref, target, oper);
-            break;
+            {
+                //return oper;
+                Ir_Operand target = NewTemp(ctx, routine, oper_expr->expr_type);
+                PushInstruction(ctx, routine, IR_Deref, target, oper);
+                return target;
+            } break;
     }
     //return target;
     return oper;
@@ -925,7 +928,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         break;
     case AS_OP_AddAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -939,7 +942,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_SubtractAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -953,7 +956,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_MultiplyAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -967,7 +970,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_DivideAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -981,7 +984,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_ModuloAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -995,7 +998,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_LeftShiftAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1009,7 +1012,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_RightShiftAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1023,7 +1026,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_BitAndAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1037,7 +1040,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_BitOrAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1051,7 +1054,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_BitXorAssign:
         {
-            if (left->type != AST_VariableRef)
+            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);

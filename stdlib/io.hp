@@ -7,6 +7,8 @@ foreign {
     hp_get_stderr :: () : FILE*;
     hp_get_stdin :: () : FILE*;
 
+    hp_fflush :: (file : FILE*) : void;
+
     hp_fwrite :: (file : FILE*, size : s64, data : u8*) : s64;
     hp_fprint_uint :: (file : FILE*, x : u64) : s64;
     hp_fprint_int :: (file : FILE*, x : s64) : s64;

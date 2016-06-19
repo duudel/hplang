@@ -6,13 +6,20 @@
 
 import ":io";
 
-putc :: (c : u8)
+//data : u8*;
+//datap : u8*;
+
+putc :: (c : u8, datap : u8*)
 {
     if (c == 0) c = 32 -> u8;
     else if (c == 10) c = 10 -> u8;
     else if (c < 32) c = (120 - c) -> u8;
     else if (c > 120) c = (32 + (c - 120)) -> u8;
-    hp_fwrite(stdout, 1, &c);
+    //hp_fwrite(stdout, 1, &c);
+    //datap[0] = c;
+    @datap = c;
+    //datap += 1;
+    //datap = datap + 1;
 }
 
 main :: ()
@@ -28,9 +35,15 @@ main :: ()
 
     w = 600;
     h = 40;
+    //w = h = 1600;
+
+    data_size := (w * h >> 3) + h;
+    data := hp_alloc(data_size) -> u8*;
+    datap := data;
 
     print(w); print(" "); println(h);
 
+    w_mod_8 := w % 8;
     for (y := 0.0; y < h -> f64; y += 1.0)
     {
         for (x := 0.0; x < w -> f64; x += 1.0)
@@ -55,20 +68,32 @@ main :: ()
 
             if (bit_num == 8)
             {
-                putc(byte_acc);
+                putc(byte_acc, datap);
+                datap += 1;
                 byte_acc = 0 -> u8;
                 bit_num = 0;
             }
             else if (x == w-1)
             {
-                byte_acc <<= (8 - w % 8);
-                putc(byte_acc);
+                byte_acc <<= (8 - w_mod_8);
+                //byte_acc <<= (8 - w % 8);
+                putc(byte_acc, datap);
+                datap += 1;
                 byte_acc = 0 -> u8;
                 bit_num = 0;
             }
         }
-        println();
+        putc('\n' -> u8, datap);
+        datap += 1;
     }
+    
+    for (i : s64 = 0; i < data_size; i += 1)
+        hp_fwrite(stdout, 1, data + i);
+    for (i : s64 = 0; i < data_size; i += 1)
+        hp_fwrite(stdout, 1, &data[i]);
+    hp_fwrite(stdout, data_size, data);
+    println();
+
     return 0;
 }
 

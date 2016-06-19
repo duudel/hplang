@@ -179,18 +179,18 @@ static int ParseProfilingOption(Arg_Option_Result option_result, Compiler_Option
 int main(int argc, char **argv)
 {
 #if 0
-    fprintf(stderr, "sizeof(File_Location) %lld\n", sizeof(File_Location));
-    fprintf(stderr, "sizeof(Name) %lld\n", sizeof(Name));
-    fprintf(stderr, "sizeof(Ast_Node) %lld\n", sizeof(Ast_Node));
-    fprintf(stderr, "sizeof(Ast_Expr) %lld\n", sizeof(Ast_Expr));
-    fprintf(stderr, "sizeof(Ast_Function_Def) %lld\n", sizeof(Ast_Function_Def));
-    fprintf(stderr, "sizeof(Ir_Operand) %lld\n", sizeof(Ir_Operand));
-    fprintf(stderr, "sizeof(Ir_Instruction) %lld\n", sizeof(Ir_Instruction));
-    fprintf(stderr, "sizeof(Operand) %lld\n", sizeof(Operand));
-    fprintf(stderr, "sizeof(Instruction) %lld\n", sizeof(Instruction));
-    fprintf(stderr, "sizeof(Oper_Data_Type) %lld\n", sizeof(Oper_Data_Type));
-    fprintf(stderr, "sizeof(Oper_Access_Flags) %lld\n", sizeof(Oper_Access_Flags));
-    fflush(stderr);
+    printf("sizeof(File_Location) %lld\n", sizeof(File_Location));
+    printf("sizeof(Name) %lld\n", sizeof(Name));
+    printf("sizeof(Ast_Node) %lld\n", sizeof(Ast_Node));
+    printf("sizeof(Ast_Expr) %lld\n", sizeof(Ast_Expr));
+    printf("sizeof(Ast_Function_Def) %lld\n", sizeof(Ast_Function_Def));
+    printf("sizeof(Ir_Operand) %lld\n", sizeof(Ir_Operand));
+    printf("sizeof(Ir_Instruction) %lld\n", sizeof(Ir_Instruction));
+    printf("sizeof(Operand) %lld\n", sizeof(Operand));
+    printf("sizeof(Instruction) %lld\n", sizeof(Instruction));
+    printf("sizeof(Oper_Data_Type) %lld\n", sizeof(Oper_Data_Type));
+    printf("sizeof(Oper_Access_Flags) %lld\n", sizeof(Oper_Access_Flags));
+    fflush(stdout);
     return 0;
 #endif
 

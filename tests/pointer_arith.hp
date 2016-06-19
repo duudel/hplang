@@ -1,9 +1,5 @@
-// Some pointer arithmetic
+// Test pointer arithmetic
 // 2016-04-28
-
-//foreign {
-//    printf :: (fmt : char*, x : s64, y : s64) : s64;
-//}
 
 main :: ()
 {
@@ -11,6 +7,7 @@ main :: ()
     y := &x;
     @y = 10;
 
-    //printf("x = %d; @y = %d\n".data, x, @y);
+    if x != 10  return -1;
+
     return 0;
 }

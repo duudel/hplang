@@ -1371,38 +1371,42 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
     default: INVALID_CODE_PATH;
     case IR_Add:
         {
+            Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+            Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+            Operand oper2 = IrOperand(ctx, &ir_instr->oper2, AF_Read);
             if (ir_instr->target != ir_instr->oper1)
-                PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+            {
+                target.data_type = oper1.data_type;
+                PushLoad(ctx, target, oper1);
+            }
             if (is_float)
             {
                 Amd64_Opcode add_op = (ltype->tag == TYP_f32) ? OP_addss : OP_addsd;
-                PushInstruction(ctx, add_op,
-                        IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
-                        IrOperand(ctx, &ir_instr->oper2, AF_Read));
+                PushInstruction(ctx, add_op, RW_(target), R_(oper2));
             }
             else
             {
-                PushInstruction(ctx, OP_add,
-                        IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
-                        IrOperand(ctx, &ir_instr->oper2, AF_Read));
+                PushInstruction(ctx, OP_add, RW_(target), R_(oper2));
             }
         } break;
     case IR_Sub:
         {
+            Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+            Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+            Operand oper2 = IrOperand(ctx, &ir_instr->oper2, AF_Read);
             if (ir_instr->target != ir_instr->oper1)
-                PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+            {
+                target.data_type = oper1.data_type;
+                PushLoad(ctx, target, oper1);
+            }
             if (is_float)
             {
                 Amd64_Opcode sub_op = (ltype->tag == TYP_f32) ? OP_subss : OP_subsd;
-                PushInstruction(ctx, sub_op,
-                        IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
-                        IrOperand(ctx, &ir_instr->oper2, AF_Read));
+                PushInstruction(ctx, sub_op, RW_(target), R_(oper2));
             }
             else
             {
-                PushInstruction(ctx, OP_sub,
-                        IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
-                        IrOperand(ctx, &ir_instr->oper2, AF_Read));
+                PushInstruction(ctx, OP_sub, RW_(target), R_(oper2));
             }
         } break;
     case IR_Mul:
@@ -1893,10 +1897,13 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
 
         case IR_Deref:
             {
+                //Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                //PushLoad(ctx,
+                //        target,
+                //        BaseOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read));
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                PushLoad(ctx,
-                        target,
-                        BaseOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read));
+                Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                PushLoad(ctx, target, source);
             } break;
 
         case IR_Addr:
@@ -1932,13 +1939,13 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                     }
                     else
                     {
-                    Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                    Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Write);
-                    PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
-                    //Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                    //PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
-                    //PushLoad(ctx, source_addr, IrOperand(ctx, &ir_instr->oper1, AF_Read));
-                    Copy(ctx, target, source, type);
+                        Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                        Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Write);
+                        PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
+                        //Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                        //PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
+                        //PushLoad(ctx, source_addr, IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                        Copy(ctx, target, source, type);
                     }
                 }
                 else
@@ -1979,12 +1986,31 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
             {
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+#if 1
+                if (GetSize(oper1.data_type) == 4)
+                {
+                    target.data_type = oper1.data_type;
+                    PushLoad(ctx, target, oper1);
+                }
+                else if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
+                {
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoad(ctx, temp, oper1);
+                    PushInstruction(ctx, OP_movzx, target, R_(temp));
+                }
+                else
+                {
+                    PushInstruction(ctx, OP_movzx, target, oper1);
+                }
+#else
                 if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
                 {
                     Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
                     if (GetSize(oper1.data_type) == 4)
                     {
+                        temp.data_type = Oper_Data_Type::PTR;
                         PushZeroReg(ctx, temp);
+                        temp.data_type = oper1.data_type;
                         PushLoad(ctx, temp, oper1);
                         temp.data_type = target.data_type;
                         PushInstruction(ctx, OP_mov, target, R_(temp));
@@ -1999,8 +2025,9 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 {
                     if (GetSize(oper1.data_type) == 4)
                     {
-                        Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                        Operand temp = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
                         PushZeroReg(ctx, temp);
+                        temp.data_type = oper1.data_type;
                         PushLoad(ctx, temp, oper1);
                         temp.data_type = target.data_type;
                         PushInstruction(ctx, OP_mov, target, R_(temp));
@@ -2010,6 +2037,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                         PushInstruction(ctx, OP_movzx, target, oper1);
                     }
                 }
+#endif
             } break;
         case IR_Load:
             {
@@ -2451,7 +2479,7 @@ static b32 AddOper(Array<Name_Data_Type> &set, Operand oper, Oper_Access_Flags a
 static void PrintInstruction(IoFile *file, const Instruction *instr);
 
 static void ComputeLiveness(Codegen_Context *ctx,
-        Ir_Routine *ir_routine, Routine *routine, 
+        Ir_Routine *ir_routine, Routine *routine,
         Array<Live_Interval*> &live_intervals,
         Array<Live_Sets> &live_sets,
         Array<Cfg_Edge> &cfg_edges)
@@ -2760,7 +2788,7 @@ static void InsertSpills(Codegen_Context *ctx, Routine *routine)
             } break;
         case Spill_Type::Spill:
             {
-                RA_DEBUG(ctx, 
+                RA_DEBUG(ctx,
                 {
                     fprintf(stderr, "Insert spill of ");
                     PrintName((IoFile*)stderr, spill_info.interval.name);
@@ -2823,7 +2851,7 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                     }
                 }
                 // No confilicting interval found, continue to next interval.
-                if (index == -1) continue; 
+                if (index == -1) continue;
 
                 // Check if there are other intervals using the register at the
                 // branch point.
@@ -2842,7 +2870,7 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                         }
                     }
                 }
-                // If the register was in use.. 
+                // If the register was in use..
                 if (active_index != -1)
                 {
                     // ..use spilling to make sure that no value is
@@ -3100,7 +3128,7 @@ static void SetOperand(Codegen_Context *ctx,
     }
     else
     {
-        RA_DEBUG(ctx, 
+        RA_DEBUG(ctx,
         {
             fprintf(stderr, "No local offset for ");
             PrintName((IoFile*)stderr, oper_name);
@@ -3232,7 +3260,7 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
             fprintf(stderr, "\ti:");
             PrintIntervals(inactive);
         })
-        
+
         ScanInstruction(ctx, routine, active, instr_i);
     }
 }
@@ -3492,32 +3520,60 @@ static b32 IsMove(Opcode opcode)
             (Amd64_Opcode)opcode == OP_movsd);
 }
 
+#if 0
 static b32 IsSameRegister(Operand oper1, Operand oper2)
 {
     if (oper1.addr_mode != Oper_Addr_Mode::Direct) return false;
     if (oper2.addr_mode != Oper_Addr_Mode::Direct) return false;
-    Reg r1;
-    if (oper1.type == Oper_Type::Register)
-        r1 = oper1.reg;
-    else if (oper1.type == Oper_Type::FixedRegister)
-        r1 = oper1.fixed_reg.reg;
-    else
+
+    if (oper1.type != Oper_Type::Register)
+        return false;
+    if (oper2.type != Oper_Type::Register)
         return false;
 
-    Reg r2;
-    if (oper2.type == Oper_Type::Register)
-        r2 = oper2.reg;
-    else if (oper2.type == Oper_Type::FixedRegister)
-        r2 = oper2.fixed_reg.reg;
-    else
-        return false;
-
-    return r1 == r2;
+    return oper1.reg == oper2.reg;
 }
+#endif
 
 static b32 IsSame(Operand oper1, Operand oper2)
 {
-    return IsSameRegister(oper1, oper2);
+    if (oper1.addr_mode != oper2.addr_mode) return false;
+    if (oper1.scale_offset != oper2.scale_offset) return false;
+    if (oper1.data_type != oper2.data_type) return false;
+    if (oper1.type != oper2.type) return false;
+    switch (oper1.type)
+    {
+        case Oper_Type::None:
+            return true;
+        case Oper_Type::Register:
+            return oper1.reg == oper2.reg;
+        case Oper_Type::Label:
+            return oper1.label.name == oper2.label.name;
+        case Oper_Type::Immediate:
+            return oper1.imm_ptr == oper2.imm_ptr;
+        default:
+            INVALID_CODE_PATH;
+    }
+    return false;
+}
+
+static b32 IsCommentedOut(Instruction *instr)
+{
+    return (instr->flags & IF_CommentedOut) != 0;
+}
+
+void CommentOut(Instruction *instr)
+{
+    instr->flags |= IF_CommentedOut;
+}
+
+static bool HasSideEffectsBesidesDefOper1(Instruction *instr)
+{
+    return
+        (!IsSame(instr->oper1, instr->oper2) &&
+        ((instr->oper2.access_flags & AF_Write) == AF_Write)) ||
+        (!IsSame(instr->oper1, instr->oper3) &&
+        ((instr->oper3.access_flags & AF_Write) == AF_Write));
 }
 
 void OptimizeCode(Codegen_Context *ctx, Routine *routine)
@@ -3544,22 +3600,52 @@ void OptimizeCode(Codegen_Context *ctx, Routine *routine)
         {
             if (instr_0->oper1.label.name == instr_1->oper1.label.name)
             {
-                instr_0->flags |= IF_CommentedOut;
+                CommentOut(instr_0);
             }
         }
-        else if (IsMove(instr_0->opcode) &&
-                 (instr_0->opcode == instr_1->opcode))
+        else
         {
-            if (IsSame(instr_0->oper1, instr_1->oper2) &&
-                IsSame(instr_0->oper2, instr_1->oper1))
+            bool def0 = (instr_0->oper1.access_flags.value == AF_Write);
+            bool def1 = (instr_1->oper1.access_flags.value == AF_Write);
+            bool side_effects = HasSideEffectsBesidesDefOper1(instr_0) ||
+                                HasSideEffectsBesidesDefOper1(instr_1);
+            if (IsMove(instr_0->opcode) &&
+                (instr_0->opcode == instr_1->opcode))
             {
-                instr_1->flags |= IF_CommentedOut;
+                if (IsSame(instr_0->oper1, instr_1->oper2) &&
+                    IsSame(instr_0->oper2, instr_1->oper1))
+                {
+                    CommentOut(instr_1);
+                }
+                else
+                if (IsMove(instr_0->opcode) &&
+                    (instr_0->opcode == instr_1->opcode))
+                {
+                    if (IsSame(instr_0->oper1, instr_1->oper1) &&
+                        IsSame(instr_0->oper2, instr_1->oper2))
+                    {
+                        CommentOut(instr_1);
+                    }
+                }
+                else
+                if (IsSame(instr_0->oper1, instr_1->oper1) &&
+                    !IsCommentedOut(instr_1))
+                {
+                    CommentOut(instr_0);
+                }
             }
             else
-            if (IsSame(instr_0->oper1, instr_1->oper1) &&
-                IsSame(instr_0->oper2, instr_1->oper2))
+            if (def0 && def1 && !side_effects)
             {
-                instr_1->flags |= IF_CommentedOut;
+                // If two consequent instructions define the same register,
+                // only the last one of them will be outstanding. We can safely
+                // optimize the first defining instruction iff there are no
+                // side effects.
+                if (IsSame(instr_0->oper1, instr_1->oper1) &&
+                    !IsCommentedOut(instr_1))
+                {
+                    CommentOut(instr_0);
+                }
             }
         }
     }
@@ -3611,7 +3697,7 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
         ctx->current_routine = routine;
         AllocateRegisters(ctx, ir_routines[i], routine, live_sets);
     }
-    
+
     FreeLiveSets(live_sets);
 
     s64 instruction_count = 0;
@@ -3627,7 +3713,7 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
     {
         OptimizeCode(ctx, &ctx->routines[i]);
     }
-    
+
     if (ctx->comp_ctx->options.profile_instr_count)
     {
         s64 opt_instruction_count = 0;

@@ -26,6 +26,9 @@ FILE* hp_get_stdout() { return stdout; }
 FILE* hp_get_stderr() { return stderr; }
 FILE* hp_get_stdin() { return stdin; }
 
+void hp_fflush(FILE *file)
+{ fflush(file); }
+
 s64 hp_fwrite(FILE *file, s64 size, u8 *data)
 {
     s64 n = fwrite(data, 1, size, stdout);

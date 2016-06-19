@@ -325,6 +325,7 @@ b32 RunTest(const Execute_Test &test)
     {
         compiler_ctx.error_ctx.file = (IoFile*)outfile;
         compiler_ctx.options.output_filename = test_exe;
+        //compiler_ctx.options.profile_instr_count = true;
 
         Compile(&compiler_ctx, file);
 
