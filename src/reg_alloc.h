@@ -37,15 +37,22 @@ struct Live_Interval
     b32 is_spilled;
 };
 
+enum class Spill_Type : u8
+{
+    Spill,      // A spill from register to a stack slot
+    Unspill,    // An unspill (or fill) from stack slot to a register
+    Move,       // A copy from a register to another register
+};
+
 struct Spill_Info
 {
-    Live_Interval spill;
+    const char *note;
+
+    Live_Interval interval;
     s32 instr_index;
 
+    Spill_Type spill_type;
     Reg target;
-    b32 is_move;  // true, if this is actually a move to target register.
-
-    b32 is_spill; // true, if this is a spill, otherwise this is an unspill.
 };
 
 // Argument or return register index type for iterating over argument or

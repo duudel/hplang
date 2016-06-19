@@ -9,6 +9,22 @@
 #include <cstdio>
 #include <cinttypes>
 
+// The register allocation is implemented with a linear scan register
+// allocator.  The algorithm was first described by [1] and a more optimal
+// interval splitting algorithm was given by [2].
+//
+// The implementation here follows [1], but could be extended to support more
+// optimal interval split positining with the use position structure as
+// described by [2].
+//
+// [1]  Massimiliano Poletto and Vivek Sarkar, 1998.
+//      Linear Scan Register Allocation.
+//      http://web.cs.ucla.edu/~palsberg/course/cs132/linearscan.pdf
+//
+// [2]  Christian Wimmer and Haspeter Mössenböck, 2004.
+//      Optimized Interval Splitting in a Linear Scan Register Allocator.
+//      https://www.usenix.org/legacy/events/vee05/full_papers/p132-wimmer.pdf
+
 namespace hplang
 {
 
@@ -2692,6 +2708,28 @@ static void FreeLiveSets(Array<Live_Sets> &live_sets)
 
 // Register allocation
 
+static void MakeSpillComment(Codegen_Context *ctx, Ir_Comment *comment,
+        String spill_name, const char *spill_type, const char *note)
+{
+    s64 note_size = 0;
+    note_size += snprintf(nullptr, 0, "%s ", spill_type);
+    note_size += spill_name.size;
+    if (note)
+        note_size += snprintf(nullptr, 0, "; %s", note);
+    note_size += 1; // snprintf null terminates, thus needs one extra byte.
+
+    char *buf = PushArray<char>(&ctx->arena, note_size);
+
+    s64 len = snprintf(buf, note_size, "%s ", spill_type);
+    strncpy(buf + len, spill_name.data, spill_name.size);
+    len += spill_name.size;
+    if (note)
+        len += snprintf(buf + len, note_size - len, "; %s", note);
+
+    comment->start = buf;
+    comment->end = buf + note_size - 1; // take out null termination
+}
+
 static void InsertSpills(Codegen_Context *ctx, Routine *routine)
 {
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
@@ -2713,100 +2751,89 @@ static void InsertSpills(Codegen_Context *ctx, Routine *routine)
     for (s64 i = 0; i < spills.count; i++)
     {
         Spill_Info spill_info = spills[i];
-        s64 index = spill_info.instr_index + idx_offset;
+        s64 index = spill_info.instr_index / 2;
+        index += idx_offset;
 
-        s64 offs = GetLocalOffset(ctx, spill_info.spill.name, spill_info.spill.data_type);
         s64 count_old = routine->instructions.count;
 
         Ir_Comment comment = { };
         ctx->comment = &comment;
-        char buf[128];
-        String spill_name = spill_info.spill.name.str;
+        String spill_name = spill_info.interval.name.str;
 
-        if (spill_info.is_move)
+        switch (spill_info.spill_type)
         {
-            s64 size = snprintf(buf, sizeof(buf), "Fix consistency of ");
-            String s = PushString(&ctx->arena, buf, size);
-            String s2 = PushString(&ctx->arena, spill_name.data, spill_name.size);
-            s.size += s2.size;
-
-            comment.start = s.data;
-            comment.end = s.data + s.size;
-
-            InsertLoad(ctx, routine->instructions, index,
-                    RegOperand(spill_info.target, spill_info.spill.data_type, AF_Write),
-                    RegOperand(spill_info.spill.reg, spill_info.spill.data_type, AF_Read));
-        }
-        else if (spill_info.is_spill)
-        {
-            RA_DEBUG(ctx, 
+        case Spill_Type::Move:
             {
-                fprintf(stderr, "Insert spill of ");
-                PrintName((IoFile*)stderr, spill_info.spill.name);
-                fprintf(stderr, " before instr %" PRId64 "", index);
-                fprintf(stderr, " data_type = %" PRId64 "\n", (s64)spill_info.spill.data_type);
-            })
+                MakeSpillComment(ctx, &comment, spill_name, "move", spill_info.note);
+                InsertLoad(ctx, routine->instructions, index,
+                        RegOperand(spill_info.target, spill_info.interval.data_type, AF_Write),
+                        RegOperand(spill_info.interval.reg, spill_info.interval.data_type, AF_Read));
+            } break;
+        case Spill_Type::Spill:
+            {
+                RA_DEBUG(ctx, 
+                {
+                    fprintf(stderr, "Insert spill of ");
+                    PrintName((IoFile*)stderr, spill_info.interval.name);
+                    fprintf(stderr, " before instr %" PRId64 "", index);
+                    fprintf(stderr, " data_type = %" PRId64 "\n", (s64)spill_info.interval.data_type);
+                })
 
-            s64 size = snprintf(buf, sizeof(buf), "spill ");
-            String s = PushString(&ctx->arena, buf, size);
-            String s2 = PushString(&ctx->arena, spill_name.data, spill_name.size);
-            s.size += s2.size;
-
-            comment.start = s.data;
-            comment.end = s.data + s.size;
-
-            InsertLoad(ctx, routine->instructions, index,
-                    BaseOffsetOperand(REG_rbp, offs, spill_info.spill.data_type, AF_Write),
-                    RegOperand(spill_info.spill.reg, spill_info.spill.data_type, AF_Read));
-        }
-        else
-        {
-            s64 size = snprintf(buf, sizeof(buf), "unspill ");
-            String s = PushString(&ctx->arena, buf, size);
-            String s2 = PushString(&ctx->arena, spill_name.data, spill_name.size);
-            s.size += s2.size;
-
-            comment.start = s.data;
-            comment.end = s.data + s.size;
-
-            InsertLoad(ctx, routine->instructions, index,
-                    RegOperand(spill_info.spill.reg, spill_info.spill.data_type, AF_Write),
-                    BaseOffsetOperand(REG_rbp, offs, spill_info.spill.data_type, AF_Read));
+                MakeSpillComment(ctx, &comment, spill_name, "spill", spill_info.note);
+                s64 offs = GetLocalOffset(ctx, spill_info.interval.name, spill_info.interval.data_type);
+                InsertLoad(ctx, routine->instructions, index,
+                        BaseOffsetOperand(REG_rbp, offs, spill_info.interval.data_type, AF_Write),
+                        RegOperand(spill_info.interval.reg, spill_info.interval.data_type, AF_Read));
+            } break;
+        case Spill_Type::Unspill:
+            {
+                MakeSpillComment(ctx, &comment, spill_name, "unspill", spill_info.note);
+                s64 offs = GetLocalOffset(ctx, spill_info.interval.name, spill_info.interval.data_type);
+                InsertLoad(ctx, routine->instructions, index,
+                        RegOperand(spill_info.interval.reg, spill_info.interval.data_type, AF_Write),
+                        BaseOffsetOperand(REG_rbp, offs, spill_info.interval.data_type, AF_Read));
+            } break;
         }
         idx_offset += routine->instructions.count - count_old;
     }
 }
 
-static void Spill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
+static void Spill(Reg_Alloc *reg_alloc,
+        Live_Interval interval, s64 instr_index, s64 bias = 0, const char *note = nullptr)
 {
     ASSERT(instr_index >= 0);
     Spill_Info spill_info = { };
-    spill_info.spill = spill;
-    spill_info.instr_index = instr_index;
-    spill_info.is_spill = true;
+    spill_info.note = note;
+    spill_info.interval = interval;
+    spill_info.instr_index = instr_index * 2 + bias;
+    spill_info.spill_type = Spill_Type::Spill;
     array::Push(reg_alloc->spills, spill_info);
 }
 
-static void Unspill(Reg_Alloc *reg_alloc, Live_Interval spill, s64 instr_index)
+static void Unspill(Reg_Alloc *reg_alloc,
+        Live_Interval interval, s64 instr_index, s64 bias = 0, const char *note = nullptr)
 {
     if (instr_index < 0) return;
     ASSERT(instr_index >= 0);
     Spill_Info spill_info = { };
-    spill_info.spill = spill;
-    spill_info.instr_index = instr_index;
-    spill_info.is_spill = false;
+    spill_info.note = note;
+    spill_info.interval = interval;
+    spill_info.instr_index = instr_index * 2 + bias;
+    spill_info.spill_type = Spill_Type::Unspill;
     array::Push(reg_alloc->spills, spill_info);
 }
 
-static void InsertMove(Reg_Alloc *reg_alloc, Live_Interval interval, Reg target, s64 instr_index)
+static void InsertMove(Reg_Alloc *reg_alloc,
+        Live_Interval interval, Reg target, s64 instr_index, const char *note = nullptr)
 {
     if (instr_index < 0) return;
     ASSERT(instr_index >= 0);
     Spill_Info spill_info = { };
-    spill_info.spill = interval;
+    spill_info.note = note;
+    spill_info.interval = interval;
     spill_info.target = target;
-    spill_info.instr_index = instr_index;
-    spill_info.is_move = true;
+    spill_info.instr_index = instr_index * 2;
+    spill_info.spill_type = Spill_Type::Move;
     array::Push(reg_alloc->spills, spill_info);
 }
 
@@ -2885,14 +2912,14 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                 {
                     // ..use spilling to make sure that no value is
                     // overwritten.
-                    Spill(ctx->reg_alloc, li, edge.instr_index - 1);
+                    Spill(ctx->reg_alloc, li, edge.instr_index, 0, "consistency");
                     li.reg = interval.reg;
-                    Unspill(ctx->reg_alloc, li, edge.instr_index);
+                    Unspill(ctx->reg_alloc, li, edge.instr_index, 1, "consistency");
                 }
                 else
                 {
                     // Otherwise we can do just a straight copy.
-                    InsertMove(ctx->reg_alloc, li, interval.reg, edge.instr_index);
+                    InsertMove(ctx->reg_alloc, li, interval.reg, edge.instr_index, "consistency");
                 }
             }
         }
@@ -2953,8 +2980,8 @@ static void AddToUnhandled(Array<Live_Interval> &unhandled, Live_Interval interv
     array::Insert(unhandled, index, interval);
 }
 
-// Remove expired intervals from "active" set and add the inteval's next, if it
-// has one, to the "inactive" set.
+// Remove expired intervals from "active" set to the "handled" set and add the
+// inteval's next, if it has one, to the "inactive" set.
 static void ExpireOldIntervals(Codegen_Context *ctx,
         Array<Live_Interval> &active,
         Array<Live_Interval> &inactive,
@@ -2967,7 +2994,6 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
         if (active_interval.end >= instr_index)
             return;
         array::Erase(active, i);
-        //array::Push(handled, active_interval);
         AddToUnhandled(handled, active_interval);
 
         if (active_interval.next)
@@ -2976,11 +3002,6 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
             next.reg = active_interval.reg;
 
             AddToUnhandled(inactive, next);
-
-            //if ((ctx->current_routine->instructions[active_interval.end]->flags & IF_Branch) != 0)
-            //    Spill(ctx->reg_alloc, active_interval, active_interval.end);
-            //else
-            //    Spill(ctx->reg_alloc, active_interval, active_interval.end+1);
         }
 
         ReleaseRegister(ctx->reg_alloc, active_interval.reg, active_interval.data_type);
@@ -3000,6 +3021,8 @@ static void RenewInactiveIntervals(Codegen_Context *ctx,
         Live_Interval inactive_interval = inactive[i];
         if (inactive_interval.end < instr_index)
         {
+            // NOTE(henrik): I don't know when this should happen, but it is included in the algorithm given in
+            //
             INVALID_CODE_PATH;
             array::Erase(inactive, i);
             continue;
@@ -3240,20 +3263,6 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
             if (active[i].is_spilled) continue;
             Spill(reg_alloc, active[i], instr_i);
         }
-#if 0
-        ASSERT(instr->oper1.type == Oper_Type::Label);
-        Name label_name = instr->oper1.label.name;
-        const Label_Instr *li = hashtable::Lookup(routine->labels, label_name);
-        ASSERT(li != nullptr);
-        if (li->instr)
-        {
-            s64 label_instr_i = li->instr_index;
-            for (s64 i = 0; i < active.count; i++)
-            {
-                Unspill(reg_alloc, active[i], label_instr_i);
-            }
-        }
-#endif
     }
     else if ((Amd64_Opcode)instr->opcode == OP_LABEL)
     {
