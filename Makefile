@@ -46,11 +46,11 @@ run:
 	@#-./$(EXENAME) -dRi -o out samples/fibo.hp 2> stderr.out
 	@#-./$(EXENAME) -dRi -o out samples/test.hp 2> stderr.out
 	@#-./$(EXENAME) -diR -o out samples/nbody.hp 2> stderr.out
-	-./$(EXENAME) -dRi -pi -o out samples/mandelbrot.hp 2> stderr.out
-	-./$(EXENAME) -dRi -pi -o out_ samples/mandelbrot_other.hp 2> stderr.out
+	@#-./$(EXENAME) -dRi -pi -o out samples/mandelbrot.hp 2> stderr.out
+	@#-./$(EXENAME) -dRi -pi -o out_ samples/mandelbrot_other.hp 2> stderr.out
 	@#-./$(EXENAME) -dRi -o out tests/exec/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -diR -o out tests/exec/reg_alloc.hp 2> stderr.out
-	@#-./$(EXENAME) -diR -o out tests/pointer_arith.hp 2> stderr.out
+	-./$(EXENAME) -diR -o out tests/pointer_arith.hp 2> stderr.out
 	@#./out.exe
 
 

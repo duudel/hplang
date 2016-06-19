@@ -1,6 +1,11 @@
 // Test pointer arithmetic
 // 2016-04-28
 
+set_pointed :: (p : s16*)
+{
+    @p = 42 -> s16;
+}
+
 main :: ()
 {
     x := 5;
@@ -8,6 +13,11 @@ main :: ()
     @y = 10;
 
     if x != 10  return -1;
+
+    v : s16 = 589 -> s16;
+    set_pointed(&v);
+
+    if v != 42  return -2;
 
     return 0;
 }
