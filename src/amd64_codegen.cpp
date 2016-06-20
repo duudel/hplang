@@ -2738,6 +2738,10 @@ static void InsertSpills(Codegen_Context *ctx, Routine *routine)
     }
 }
 
+// Resolves conflicts in register allocations across basic blocks by inserting
+// required moves.
+// TODO(henrik): This seems to work in most cases, but fails in some. Investigate!
+// TODO(henrik): This algorithm could be drastically accelerated.
 static void CfgEdgeResolution(Codegen_Context *ctx,
         Array<Live_Interval> &live_intervals,
         Array<Cfg_Edge> &cfg_edges)

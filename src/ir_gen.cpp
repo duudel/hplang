@@ -903,8 +903,8 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
     Assignment_Op op = expr->assignment.op;
     Ast_Expr *left = expr->assignment.left;
     Ast_Expr *right = expr->assignment.right;
-    Ir_Operand loper = GenRefExpression(ctx, left, routine);
     Ir_Operand roper = GenExpression(ctx, right, routine);
+    Ir_Operand loper = GenRefExpression(ctx, left, routine);
     ASSERT(loper.type);
     ASSERT(TypeIsPointer(loper.type));
     loper.type = loper.type->base_type;
