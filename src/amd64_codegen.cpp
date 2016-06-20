@@ -2478,14 +2478,26 @@ static b32 AddOper(Array<Name_Data_Type> &set, Operand oper, Oper_Access_Flags a
 
 static void PrintInstruction(IoFile *file, const Instruction *instr);
 
+static void FreeLiveSets(Array<Live_Sets> &live_sets)
+{
+    for (s64 i = 0; i < live_sets.count; i++)
+    {
+        array::Free(live_sets[i].live_in);
+        array::Free(live_sets[i].live_out);
+    }
+    array::Free(live_sets);
+}
+
 static void ComputeLiveness(Codegen_Context *ctx,
         Ir_Routine *ir_routine, Routine *routine,
         Array<Live_Interval*> &live_intervals,
-        Array<Live_Sets> &live_sets,
+        Array<Live_Sets> &live_sets_,
         Array<Cfg_Edge> &cfg_edges)
 {
+    (void)live_sets_;
     Instruction_List &instructions = routine->instructions;
 
+    Array<Live_Sets> live_sets = { };
     array::Resize(live_sets, instructions.count);
 
     // Add argument registers to the first instructions live out set.
@@ -2710,16 +2722,8 @@ static void ComputeLiveness(Codegen_Context *ctx,
         }
         fprintf(stderr, "--Live intervals end--\n\n");
     })
-}
 
-static void FreeLiveSets(Array<Live_Sets> &live_sets)
-{
-    for (s64 i = 0; i < live_sets.count; i++)
-    {
-        array::Free(live_sets[i].live_in);
-        array::Free(live_sets[i].live_out);
-    }
-    array::Free(live_sets);
+    FreeLiveSets(live_sets);
 }
 
 
@@ -3699,7 +3703,7 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
         AllocateRegisters(ctx, ir_routines[i], routine, live_sets);
     }
 
-    FreeLiveSets(live_sets);
+    //FreeLiveSets(live_sets);
 
     s64 instruction_count = 0;
     if (ctx->comp_ctx->options.profile_instr_count)
