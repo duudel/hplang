@@ -200,7 +200,7 @@ void PrintSourceLineAndArrow(Compiler_Context *ctx, File_Location file_loc)
 {
     if (ctx->error_ctx.error_count <= ctx->options.max_line_arrow_error_count)
     {
-        fprintf((FILE*)ctx->error_ctx.file, "\n");
+        //fprintf((FILE*)ctx->error_ctx.file, "\n");
         PrintFileLine(ctx->error_ctx.file, file_loc);
         PrintFileLocArrow(ctx->error_ctx.file, file_loc);
         fprintf((FILE*)ctx->error_ctx.file, "\n");
