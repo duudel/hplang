@@ -416,32 +416,68 @@ static Ast_Expr* MakeTypecast(Sem_Check_Context *ctx,
     return cast_expr;
 }
 
+struct Int_Lit_Info
+{
+    Type *type;
+};
+
+const s8  MAX_INT_8  = 0x7f;
+const s16 MAX_INT_16 = 0x7fff;
 const s32 MAX_INT_32 = 0x7fffffff;
 const s64 MAX_INT_64 = 0x7fffffffffffffff;
 
-const u32 MAX_UINT_32 = 0xffffffff;
-const u64 MAX_UINT_64 = 0xffffffffffffffff;
+const u8  MAX_UINT_8  = 0xffu;
+const u16 MAX_UINT_16 = 0xffffu;
+const u32 MAX_UINT_32 = 0xffffffffu;
+const u64 MAX_UINT_64 = 0xffffffffffffffffu;
 
-static Type* GetSignedIntLiteralType(Ast_Expr *expr)
+static Type* GetSignedIntLiteralType(Ast_Expr *expr, Int_Lit_Info *int_lit_info)
 {
     ASSERT(expr->type == AST_IntLiteral);
     if (expr->int_literal.value <= MAX_INT_32)
+    {
+        if (int_lit_info)
+        {
+            if (expr->int_literal.value <= MAX_INT_8)
+                int_lit_info->type = GetBuiltinType(TYP_s8);
+            else if (expr->int_literal.value <= MAX_INT_16)
+                int_lit_info->type = GetBuiltinType(TYP_s16);
+            else
+                int_lit_info->type = GetBuiltinType(TYP_s32);
+        }
         return GetBuiltinType(TYP_s32);
+    }
     if (expr->int_literal.value <= MAX_INT_64)
-        return GetBuiltinType(TYP_s64);
-    return GetBuiltinType(TYP_u64);
+    {
+        if (int_lit_info) int_lit_info->type = GetBuiltinType(TYP_s64);
+        return int_lit_info->type;
+    }
+    if (int_lit_info) int_lit_info->type = GetBuiltinType(TYP_u64);
+    return int_lit_info->type;
 }
 
-static Type* GetUnsignedIntLiteralType(Ast_Expr *expr)
+static Type* GetUnsignedIntLiteralType(Ast_Expr *expr, Int_Lit_Info *int_lit_info)
 {
     ASSERT(expr->type == AST_UIntLiteral);
     if (expr->int_literal.value <= MAX_UINT_32)
+    {
+        if (int_lit_info)
+        {
+            if (expr->int_literal.value <= MAX_UINT_8)
+                int_lit_info->type = GetBuiltinType(TYP_u8);
+            else if (expr->int_literal.value <= MAX_UINT_16)
+                int_lit_info->type = GetBuiltinType(TYP_u16);
+            else
+                int_lit_info->type = GetBuiltinType(TYP_u32);
+        }
         return GetBuiltinType(TYP_u32);
+    }
+    if (int_lit_info) int_lit_info->type = GetBuiltinType(TYP_u64);
     return GetBuiltinType(TYP_u64);
 }
 
 
-static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt);
+static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt, Int_Lit_Info *int_lit_info = nullptr);
 
 static void CoerceFunctionArgs(Sem_Check_Context *ctx,
         Type *ftype, Ast_Function_Call *function_call)
@@ -1509,9 +1545,10 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_T
     Ast_Expr *left = expr->assignment.left;
     Ast_Expr *right = expr->assignment.right;
 
+    Int_Lit_Info il_info = { };
     Value_Type lvt, rvt;
     Type *ltype = CheckExpr(ctx, left, &lvt);
-    Type *rtype = CheckExpr(ctx, right, &rvt);
+    Type *rtype = CheckExpr(ctx, right, &rvt, &il_info);
     ASSERT(ltype && rtype);
 
     *vt = lvt;
@@ -1524,6 +1561,8 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_T
         Error(ctx, left->file_loc, "Assignment to non-l-value expression");
         return ltype;
     }
+
+    if (il_info.type) rtype = il_info.type;
 
     switch (op)
     {
@@ -1563,10 +1602,9 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_T
         } break;
     case AS_OP_ModuloAssign:
         {
-            // TODO(henrik): Should modulo work for floats too?
             if (TypeIsIntegral(ltype) && TypeIsIntegral(rtype))
                 return CoerceAssignmentExprType(ctx, expr, left, right, ltype, rtype);
-            ErrorBinaryOperands(ctx, expr->file_loc, "%%=", ltype, rtype);
+            ErrorBinaryOperands(ctx, expr->file_loc, "%=", ltype, rtype);
         } break;
 
     case AS_OP_LeftShiftAssign:
@@ -1604,7 +1642,7 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_T
     return ltype;
 }
 
-static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
+static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt, Int_Lit_Info *int_lit_info /*= nullptr*/)
 {
     Type *result_type = nullptr;
     switch (expr->type)
@@ -1623,11 +1661,11 @@ static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
             break;
         case AST_IntLiteral:
             *vt = VT_NonAssignable;
-            result_type = GetSignedIntLiteralType(expr);
+            result_type = GetSignedIntLiteralType(expr, int_lit_info);
             break;
         case AST_UIntLiteral:
             *vt = VT_NonAssignable;
-            result_type = GetUnsignedIntLiteralType(expr);
+            result_type = GetUnsignedIntLiteralType(expr, int_lit_info);
             break;
         case AST_Float32Literal:
             *vt = VT_NonAssignable;
@@ -1677,10 +1715,10 @@ static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
     return result_type;
 }
 
-static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
+static Type* CheckExpression(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt, Int_Lit_Info *int_lit_info = nullptr)
 {
-    Type *type = CheckExpr(ctx, expr, vt);
-    if (TypeIsPending(type)) //&& !type->base_type)
+    Type *type = CheckExpr(ctx, expr, vt, int_lit_info);
+    if (TypeIsPending(type))
     {
         if (!type->base_type)
         {
@@ -1708,11 +1746,12 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         type = CheckType(ctx, type_node);
     }
 
+    Int_Lit_Info init_li_info = { };
     Type *init_type = nullptr;
     if (init_expr)
     {
         Value_Type vt;
-        init_type = CheckExpression(ctx, init_expr, &vt);
+        init_type = CheckExpression(ctx, init_expr, &vt, &init_li_info);
     }
 
     if (!type)
@@ -1729,6 +1768,7 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
 
     if (type && init_type)
     {
+        init_type = (init_li_info.type) ? init_li_info.type : init_type;
         if (!TypeIsNone(init_type) && !TypesEqual(init_type, type))
         {
             if (!CheckTypeCoercion(init_type, type))
@@ -1743,26 +1783,6 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         }
     }
 
-#if 0
-    Name name = node->variable_decl.name;
-    Symbol *old_symbol = LookupSymbolInCurrentScope(ctx->env, name);
-    if (old_symbol)
-    {
-        ErrorDeclaredEarlierAs(ctx, node->file_loc, old_symbol);
-    }
-    else
-    {
-        old_symbol = LookupSymbol(ctx->env, name);
-        if (old_symbol && old_symbol->sym_type == SYM_Parameter)
-            ErrorVaribleShadowsParam(ctx, node, name);
-    }
-    Symbol *symbol = AddSymbol(ctx->env, SYM_Variable, name, type, node->file_loc);
-    // TODO(henrik): Make checking/marking a variable as global more elegant.
-    // Maybe new symbol type SYM_GlobalVariable?
-    if (!ctx->env->current->parent)
-        symbol->flags |= SYMF_Global;
-    node->variable_decl.symbol = symbol;
-#else
     u32 sym_flags = 0;
     if (!ctx->env->current->parent)
         sym_flags |= SYMF_Global;
@@ -1788,7 +1808,6 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
 
         names = names->next;
     }
-#endif
 }
 
 static void CheckStatement(Sem_Check_Context *ctx, Ast_Node *node);
