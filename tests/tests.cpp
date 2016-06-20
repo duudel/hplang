@@ -157,6 +157,7 @@ static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/exec/and_or.hp",         nullptr,                            0 },
     (Execute_Test){ "tests/exec/bitshift.hp",       nullptr,                            0 },
     (Execute_Test){ "tests/exec/reg_pressure.hp",   "tests/exec/reg_pressure.stdout",   0 },
+    (Execute_Test){ "tests/exec/reg_alloc.hp",      nullptr,                            0 },
     (Execute_Test){ "tests/exec/break.hp",          "tests/exec/break.stdout",          0 },
     (Execute_Test){ "tests/exec/break2.hp",         "tests/exec/break2.stdout",         0 },
     (Execute_Test){ "tests/exec/continue.hp",       "tests/exec/continue.stdout",       0 },

@@ -8,8 +8,10 @@ import ":io";
 
 putc :: (c : u8)
 {
-    if (c == 0) c = 32 -> u8;
+    //if (c == 0) c = 32 -> u8;
+    if (c == 0) c = 32u;
     else if (c == 10) c = 10 -> u8;
+    //else if (c == 10) c = 10u;
     else if (c < 32) c = (120 - c) -> u8;
     else if (c > 120) c = (32 + (c - 120)) -> u8;
     hp_fwrite(stdout, 1, &c);

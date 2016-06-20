@@ -35,15 +35,19 @@ main :: ()
 
     result := f(15, 0.5f);
     /*assert(*/ result == true /*)*/;
+    if result != true   return -1;
 
     result = call_f(f, 15, -2.5f);
     /*assert(*/ result == false /*)*/;
+    if result != false  return -2;
 
     result = call_f(func, 15, -2.5f);
     /*assert(*/ result == false /*)*/;
+    if result != false  return -3;
 
     result = call_f2(f, 0, 2.5f);
-    /*assert(*/ result == true /*)*/;
+    /*assert(*/ result == false /*)*/;
+    if result != false   return -4;
 
     return 0;
 }
