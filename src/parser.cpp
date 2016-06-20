@@ -207,7 +207,6 @@ static const Token* Expect(Parser_Context *ctx, Token_Type token_type)
     return nullptr;
 }
 
-// TODO(henrik): Rename this function to be more descriptive.
 static const Token* ExpectAfterLast(Parser_Context *ctx, Token_Type token_type)
 {
     const Token *token = Accept(ctx, token_type);
@@ -533,7 +532,7 @@ static Ast_Expr* ParseLiteralExpr(Parser_Context *ctx)
     const Token *token = Accept(ctx, TOK_NullLit);
     if (token)
     {
-        return PushExpr<Ast_Int_Literal>(ctx, AST_Null, token); // TODO(henrik): needs an empty Ast_Null_Literal struct
+        return PushExpr<Ast_Null_Literal>(ctx, AST_Null, token);
     }
     token = Accept(ctx, TOK_TrueLit);
     if (token)
@@ -760,7 +759,6 @@ static Ast_Expr* ParseFactorExpr(Parser_Context *ctx)
         return nullptr;
     }
 
-    // TODO(henrik): post ops
     Ast_Expr *post_op = ParsePostfixOperator(ctx, factor);
     if (post_op)
     {

@@ -90,10 +90,24 @@ void PrintFileLocArrow(IoFile *file, File_Location file_loc)
 
 void PrintTokenValue(IoFile *file, const Token *token)
 {
-    // TODO(henrik): There is a problem, when the token value contains newline
-    // characters. Should loop through and transform to escape sequences.
     s64 size = token->value_end - token->value;
-    fwrite(token->value, 1, size, (FILE*)file);
+    FILE *f = (FILE*)file;
+    for (s64 i = 0; i < size; i++)
+    {
+        char c = token->value[i];
+        if (c == '\t')
+            fputs("\\t", f);
+        else if (c == '\n')
+            fputs("\\n", f);
+        else if (c == '\r')
+            fputs("\\r", f);
+        else if (c == '\f')
+            fputs("\\f", f);
+        else if (c == '\v')
+            fputs("\\v", f);
+        else
+            putc(c, f);
+    }
 }
 
 } // hplang

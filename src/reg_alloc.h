@@ -55,7 +55,7 @@ struct Spill_Info
     Reg target;
 };
 
-// Argument or return register index type for iterating over argument or
+// Argument and return register index type for iterating over argument or
 // return registers.
 struct Reg_Seq_Index
 {
@@ -65,7 +65,6 @@ struct Reg_Seq_Index
     s32 stack_arg_count;
 };
 
-// TODO(henrik): Rename Special_Regs. Add free_regs array to the same struct?
 struct Reg_Class
 {
     Array<Reg> return_regs;
@@ -88,8 +87,11 @@ struct Reg_Alloc
     // Specifies how many argument registers need backing in stack shadow space.
     s32 shadow_arg_reg_count;
 
+    // An array of all "spills" that need to be inserted in to the code after
+    // register allocation.
     Array<Spill_Info> spills;
 
+    // Used to determine callee save registers used by a routine.
     u64 dirty_regs; // NOTE(henrik): Assumes that total register count < 64
 };
 
@@ -120,10 +122,13 @@ s64 GetArgStackAllocSize(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index);
 s64 GetOffsetFromBasePointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index);
 s64 GetOffsetFromStackPointer(Reg_Alloc *reg_alloc, Reg_Seq_Index arg_index);
 
+// The function adds a spill to Reg_Alloc::spills.
 void Spill(Reg_Alloc *reg_alloc, Live_Interval interval,
         s64 instr_index, s64 bias = 0, const char *note = nullptr);
+// The function adds a fill to Reg_Alloc::spills.
 void Unspill(Reg_Alloc *reg_alloc, Live_Interval interval,
         s64 instr_index, s64 bias = 0, const char *note = nullptr);
+// The function adds a move to Reg_Alloc::spills.
 void Move(Reg_Alloc *reg_alloc, Live_Interval interval, Reg target,
         s64 instr_index, const char *note = nullptr);
 

@@ -359,7 +359,7 @@ static FSM lex_default(FSM fsm, char c)
             case '5': case '6': case '7': case '8': case '9':
                 fsm.state = LS_Float; break;
             default:
-                // TODO(henrik): new state of flag for better errors?
+                // TODO(henrik): new state or flag for better errors?
                 fsm.state = LS_Invalid;
         } break;
     case LS_Float:
@@ -394,7 +394,7 @@ static FSM lex_default(FSM fsm, char c)
             case '5': case '6': case '7': case '8': case '9':
                 fsm.state = LS_FloatE; break;
             default:
-                // TODO(henrik): new state of flag for better errors?
+                // TODO(henrik): new state or flag for better errors?
                 fsm.state = LS_Invalid;
         } break;
     case LS_FloatE:

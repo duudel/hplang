@@ -107,14 +107,6 @@ void FreeIrGenContext(Ir_Gen_Context *ctx)
     FreeMemoryArena(&ctx->arena);
 }
 
-static b32 ContinueGen(Ir_Gen_Context *ctx)
-{
-    (void)ctx;
-    // NOTE(henrik): if there is a possibility for ICE, could use this to stop
-    // compilation.
-    return true;
-}
-
 static Ir_Routine* PushRoutine(Ir_Gen_Context *ctx, Name name, s64 arg_count)
 {
     Ir_Routine *routine = PushStruct<Ir_Routine>(&ctx->arena);
@@ -448,7 +440,6 @@ static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
                 PushInstruction(ctx, routine, IR_Mov, res, oper_res);
             }
             break;
-            // TODO(henrik): There are no AMD64 instructions from unsigned int -> float/double
         case TYP_u32:
             switch (res_type->tag)
             {
@@ -1415,7 +1406,7 @@ static void GenContinueStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *rou
 static void GenBlockStatement(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine)
 {
     Ast_Node_List *statements = &node->block_stmt.statements;
-    for (s64 i = 0; i < statements->count && ContinueGen(ctx); i++)
+    for (s64 i = 0; i < statements->count; i++)
     {
         GenIr(ctx, array::At(*statements, i), routine);
     }
@@ -1476,18 +1467,9 @@ static void GenVariableDecl(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *rou
 
 static void GenForeignBlock(Ir_Gen_Context *ctx, Ast_Node *node)
 {
-    return;
-    for (s64 i = 0; i < node->foreign.statements.count; i++)
-    {
-        Ast_Node *stmt = node->foreign.statements[i];
-        if (stmt->type == AST_FunctionDecl)
-        {
-            // TODO(henrik): Remove this!? At the moment foreign_routines is
-            // filled by a loop through all global symbols (i.e. symbols in the
-            // symbol env root scope).
-            array::Push(ctx->foreign_routines, stmt->function_decl.name);
-        }
-    }
+    (void)ctx;
+    (void)node;
+    // Nothing to do here.
 }
 
 static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool toplevel /*= false*/)
@@ -1575,9 +1557,7 @@ static void GenIrAst(Ir_Gen_Context *ctx, Ast *ast, Ir_Routine *routine)
     ASSERT(root);
 
     Ast_Node_List *statements = &root->top_level.statements;
-    for (s64 index = 0;
-        index < statements->count && ContinueGen(ctx);
-        index++)
+    for (s64 index = 0; index < statements->count; index++)
     {
         Ast_Node *node = array::At(*statements, index);
         GenIr(ctx, node, routine, true);
@@ -1603,15 +1583,9 @@ static void GenSqrtFunction(Ir_Gen_Context *ctx, Ir_Routine *top_level_routine)
         Name name = x_name;
         routine->args[i] = NewVariableRef(routine, type, name);
     }
-#if 0
-    Ir_Operand result = NewTemp(ctx, routine, ftype->function_type.return_type);
-    PushInstruction(ctx, routine, IR_Sqrt, result, routine->args[0]);
-    PushInstruction(ctx, routine, IR_Return, result);
-#else
     Ir_Operand arg = routine->args[0];
     PushInstruction(ctx, routine, IR_Sqrt, arg, arg);
     PushInstruction(ctx, routine, IR_Return, arg);
-#endif
 }
 
 b32 GenIr(Ir_Gen_Context *ctx)
@@ -1620,9 +1594,7 @@ b32 GenIr(Ir_Gen_Context *ctx)
     Name top_level_name = { };
     Ir_Routine *top_level_routine = PushRoutine(ctx, top_level_name, 0);
     Module_List modules = ctx->comp_ctx->modules;
-    for (s64 index = 0;
-         index < modules.count && ContinueGen(ctx);
-         index++)
+    for (s64 index = 0; index < modules.count; index++)
     {
         Module *module = array::At(modules, index);
         GenIrAst(ctx, &module->ast, top_level_routine);

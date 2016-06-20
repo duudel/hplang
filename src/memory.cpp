@@ -49,8 +49,8 @@ static iptr PointerDiff(void *p1, void *p2)
     return (iptr)((char*)p1 - (char*)p2);
 }
 
-// TODO(henrik): Extend memory arena implementation to somethin presented below.
-// This would remove or decrease the unused space left in the previous
+// TODO(henrik): Extend memory arena implementation to something presented
+// below.  This would remove or decrease the unused space left in the previous
 // memory blocks.
 //
 // Data structure layout

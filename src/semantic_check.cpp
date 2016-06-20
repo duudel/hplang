@@ -497,6 +497,9 @@ static void CoerceFunctionArgs(Sem_Check_Context *ctx,
 
 // Returns -1, if not compatible.
 // Otherwise returns >= 0, if compatible.
+// Every matching argument type scores 3 points, if the type must be coerced
+// for integral types matching signedness scores 2 points otherwise coercion
+// gives only 1 point.
 static s64 CheckFunctionArgs(Type *ftype, s64 arg_count, Type **arg_types)
 {
     // TODO(henrik): Make the check so that we can report the argument type
@@ -515,9 +518,6 @@ static s64 CheckFunctionArgs(Type *ftype, s64 arg_count, Type **arg_types)
         ASSERT(arg_type);
         ASSERT(param_type);
 
-        // TODO(henrik): Make the check and overload resolution more robust and
-        // intuitive for the user.
-        //score <<= 2; // TODO(henrik): should this be done?
         if (TypesEqual(arg_type, param_type))
         {
             score += 3;
@@ -555,7 +555,7 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
     ASSERT(fexpr_type != nullptr);
 
     // TODO(henrik): Should not make an array for arg types as they are now
-    // stored int the arg->expr_type and could be looked up from there.
+    // stored in the arg->expr_type and could be looked up from there.
     s64 arg_count = function_call->args.count;
     Type **arg_types = PushArray<Type*>(&ctx->env->arena, arg_count);
     b32 args_have_none_type = false;
@@ -1330,7 +1330,6 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         } break;
     case BIN_OP_Modulo:
         {
-            // TODO(henrik): Should modulo work for floats too?
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
@@ -2379,9 +2378,6 @@ b32 Check(Sem_Check_Context *ctx)
         if (pending_exprs.count > 0)
         {
             round++;
-            // TODO(henrik): Remove this debug message
-            //fprintf(stdout, "DEBUG: round %d; pending exprs %" PRId64 "\n",
-            //        round, pending_exprs.count);
             for (s64 i = 0; i < pending_exprs.count; i++)
             {
                 Pending_Expr pe = array::At(pending_exprs, i);

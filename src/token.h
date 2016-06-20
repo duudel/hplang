@@ -110,7 +110,6 @@ enum Token_Type
     TOK_PipePipe,       // ||
 
     // TODO: Add increment & decrement ops (++, --) ??
-    // TODO: Add shift ops
 
     TOK_Arrow,          // ->
 

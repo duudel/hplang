@@ -63,9 +63,7 @@ enum Ast_Expr_Type
     AST_TypecastExpr,   // <expr> -> <type>
 };
 
-// TODO(henrik): Add bit shift operators
-// << and >> (shift left and right)
-// maybe also
+// TODO(henrik): Add bit rotate operators?
 // <<< and >>> (rotate left and right)
 enum Binary_Op
 {
@@ -298,7 +296,7 @@ struct Ast_Function_Def
     Name name;
     Ast_Node_List parameters;
     Ast_Node *return_type; // NOTE(henrik): This is optional, so may be null
-    Ast_Node *body; // TODO(henrik): should use Ast_Node_List here?
+    Ast_Node *body;
 
     Symbol *symbol;
 };
