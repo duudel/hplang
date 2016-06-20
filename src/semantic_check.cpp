@@ -1793,12 +1793,16 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         if (old_symbol)
         {
             ErrorDeclaredEarlierAs(ctx, names->file_loc, old_symbol);
+            ShowLocation(ctx, old_symbol->define_loc, "here:");
         }
         else
         {
             old_symbol = LookupSymbol(ctx->env, names->name);
             if (old_symbol && old_symbol->sym_type == SYM_Parameter)
+            {
                 ErrorVaribleShadowsParam(ctx, names->file_loc, names->name);
+                ShowLocation(ctx, old_symbol->define_loc, "here:");
+            }
         }
         
         Symbol *symbol = AddSymbol(ctx->env, SYM_Variable,
