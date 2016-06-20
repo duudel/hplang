@@ -90,8 +90,8 @@ enum Opcode_Mod
     \
     PASTE_OP(lea,       O1_REG | O2_MEM)\
     PASTE_OP(mov,       O1_RM | O2_RM | O2_IMM)\
-    PASTE_OP(movsx,     O1_RM | O2_RM | O2_IMM)\
-    PASTE_OP(movzx,     O1_RM | O2_RM | O2_IMM)\
+    PASTE_OP(movsx,     O1_RM | O2_RM)\
+    PASTE_OP(movzx,     O1_RM | O2_RM)\
     PASTE_OP(movss,     O1_RM | O2_RM)\
     PASTE_OP(movsd,     O1_RM | O2_RM)\
     \
@@ -371,7 +371,6 @@ static Reg_Info nix_reg_info[] = {
 
 void InitializeCodegen_Amd64(Codegen_Context *ctx, Codegen_Target cg_target)
 {
-    // TODO(henrik): Fix this! Do not do this. Are the names even needed?
     for (s64 i = 0; i < array_length(reg_save_names); i++)
     {
         reg_save_names[i] = PushName(&ctx->arena, reg_save_name_strings[i]);
@@ -1690,8 +1689,6 @@ static b32 GetLocalOffset(Codegen_Context *ctx, Name name, s64 *offset)
 
 static Operand GetAddress(Codegen_Context *ctx, Ir_Operand *ir_oper)
 {
-    // TODO(henrik): Differentiate between IR immediate and IR string constant.
-    //ASSERT(ir_oper->oper_type != IR_OPER_Immediate);
     if (ir_oper->oper_type == IR_OPER_Immediate)
     {
         if (TypeIsString(ir_oper->type))
@@ -1971,85 +1968,31 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
             {
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
-                {
-                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
-                    PushLoad(ctx, temp, oper1);
-                    PushInstruction(ctx, OP_movsx, target, R_(temp));
-                }
-                else
-                {
-                    PushInstruction(ctx, OP_movsx, target, oper1);
-                }
+                PushInstruction(ctx, OP_movsx, target, oper1);
             } break;
         case IR_MovZX:
             {
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-#if 1
                 if (GetSize(oper1.data_type) == 4)
                 {
+                    // NOTE(henrik): When size of the target is 8 bytes and the
+                    // source is 4 bytes, movzx is not valid. Instead a regular
+                    // move will zero extend.
                     target.data_type = oper1.data_type;
                     PushLoad(ctx, target, oper1);
-                }
-                else if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
-                {
-                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
-                    PushLoad(ctx, temp, oper1);
-                    PushInstruction(ctx, OP_movzx, target, R_(temp));
                 }
                 else
                 {
                     PushInstruction(ctx, OP_movzx, target, oper1);
                 }
-#else
-                if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
-                {
-                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
-                    if (GetSize(oper1.data_type) == 4)
-                    {
-                        temp.data_type = Oper_Data_Type::PTR;
-                        PushZeroReg(ctx, temp);
-                        temp.data_type = oper1.data_type;
-                        PushLoad(ctx, temp, oper1);
-                        temp.data_type = target.data_type;
-                        PushInstruction(ctx, OP_mov, target, R_(temp));
-                    }
-                    else
-                    {
-                        PushLoad(ctx, temp, oper1);
-                        PushInstruction(ctx, OP_movzx, target, R_(temp));
-                    }
-                }
-                else
-                {
-                    if (GetSize(oper1.data_type) == 4)
-                    {
-                        Operand temp = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                        PushZeroReg(ctx, temp);
-                        temp.data_type = oper1.data_type;
-                        PushLoad(ctx, temp, oper1);
-                        temp.data_type = target.data_type;
-                        PushInstruction(ctx, OP_mov, target, R_(temp));
-                    }
-                    else
-                    {
-                        PushInstruction(ctx, OP_movzx, target, oper1);
-                    }
-                }
-#endif
             } break;
         case IR_Load:
             {
-                //Operand oper = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                //PushInstruction(ctx, OP_SPILL, oper);
-
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                //Operand source = R_(GetAddress(ctx, &ir_instr->oper1));
                 Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                 source.data_type = target.data_type;
                 PushLoad(ctx, target, BaseOffsetOperand(source, 0, AF_Read));
-                //PushLoad(ctx, target, source);
             } break;
         case IR_Store:
             {
@@ -2071,9 +2014,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                     oper1.data_type = target.data_type;
                     PushLoad(ctx,
-                            target,
-                            BaseOffsetOperand(oper1, member_offset, AF_Read));
-                            //BaseOffsetOperand(ctx, &ir_instr->oper1, member_offset, target.data_type, AF_Read));
+                            target, BaseOffsetOperand(oper1, member_offset, AF_Read));
                 }
                 else
                 {
@@ -2081,14 +2022,8 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                     oper1.data_type = target.data_type;
-                    PushLoad(ctx,
-                            target,
+                    PushLoad(ctx, target,
                             BaseOffsetOperand(oper1, member_offset, AF_Read));
-                    //s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                    //Operand source = GetAddress(ctx, &ir_instr->oper1);
-                    //source.scale_offset += member_offset;
-                    //source.data_type = target.data_type;
-                    //PushLoad(ctx, target, R_(source));
                 }
             } break;
         case IR_LoadMemberAddr:
@@ -2100,30 +2035,22 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 if (TypeIsPointer(oper_type))
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type->base_type, member_index);
-                    //Operand base = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                    //Operand oper1 = GetAddress(ctx, &ir_instr->oper1);
-                    //PushLoad(ctx, base, R_(oper1));
-                    //PushLoadAddr(ctx, target, BaseOffsetOperand(base, member_offset, AF_Read));
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                     PushLoadAddr(ctx, target, BaseOffsetOperand(oper1, member_offset, AF_Read));
                 }
                 else
                 {
                     s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                    //Operand temp = TempOperand(ctx, target.data_type, AF_Write);
-                    //PushLoadAddr(ctx, temp, R_(GetAddress(ctx, &ir_instr->oper1)));
-                    //PushLoadAddr(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                     PushLoadAddr(ctx, target, BaseOffsetOperand(oper1, member_offset, AF_Read));
                 }
             } break;
         case IR_MovElement:
             {
-                // target <- [base + index*size]
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 s64 size = GetAlignedElementSize(ir_instr->oper1.type);
-                // NOTE(henrik): If the size is valid as index scale, we will emit
-                // only one instruction.
+                // NOTE(henrik): If the size is valid as index scale, we will
+                // emit only one instruction.
                 if (size == 1 || size == 2 || size == 4 || size == 8)
                 {
                     PushLoad(ctx, target,
@@ -2139,12 +2066,10 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                     PushInstruction(ctx, OP_imul, RW_(index), ImmOperand(size, AF_Read));
 
                     Operand base = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                    //Operand oper1 = GetAddress(ctx, &ir_instr->oper1);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                    PushLoad(ctx, base, R_(oper1), S_(IrOperand(ctx, &ir_instr->oper1, AF_Read)));
+                    PushLoad(ctx, base, R_(oper1), S_(oper1));
                     PushLoad(ctx, target,
                             BaseIndexOffsetOperand(base, 0, AF_Read),
-                            //BaseIndexOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read),
                             IndexScaleOperand(index, 1, AF_Read));
                 }
             } break;
@@ -2153,8 +2078,8 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 s64 size = GetAlignedElementSize(ir_instr->oper1.type);
                 ASSERT(target.data_type == Oper_Data_Type::PTR);
-                // NOTE(henrik): If the size is valid as index scale, we will emit
-                // only one instruction.
+                // NOTE(henrik): If the size is valid as index scale, we will
+                // emit only one instruction.
                 if (size == 1 || size == 2 || size == 4 || size == 8)
                 {
                     PushLoadAddr(ctx, target,
@@ -2170,9 +2095,8 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                     PushInstruction(ctx, OP_imul, RW_(index), ImmOperand(size, AF_Read));
 
                     Operand base = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                    //Operand oper1 = GetAddress(ctx, &ir_instr->oper1);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                    PushLoad(ctx, base, R_(oper1), S_(IrOperand(ctx, &ir_instr->oper1, AF_Read)));
+                    PushLoad(ctx, base, R_(oper1), S_(oper1));
                     PushLoadAddr(ctx, target,
                             BaseIndexOffsetOperand(base, 0, AF_Read),
                             IndexScaleOperand(index, 1, AF_Read));
@@ -2262,25 +2186,23 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
         case IR_F32_TO_S:
             {
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                 if (GetSize(target.data_type) < 4)
                 {
                     target.data_type = Oper_Data_Type::S32;
                 }
-                PushInstruction(ctx, OP_cvtss2si,
-                        target,
-                        IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_cvtss2si, target, source);
             }
             break;
         case IR_F64_TO_S:
             {
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                 if (GetSize(target.data_type) < 4)
                 {
                     target.data_type = Oper_Data_Type::S32;
                 }
-                PushInstruction(ctx, OP_cvtsd2si,
-                        target,
-                        IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                PushInstruction(ctx, OP_cvtsd2si, target, source);
             }
             break;
         case IR_F32_TO_F64:
@@ -2543,8 +2465,8 @@ static void ComputeLiveness(Codegen_Context *ctx,
 
             for (Operand_Use *use = instr->uses; use; use = use->next)
             {
-                // NOTE(henrik): the operands are reads, but their access flags may not be reads.
-                // TODO(henrik): Add rax (or the return value registers) to the uses of call instructions as writes
+                // NOTE(henrik): the operands are reads, but their access flags
+                // may not be set as reads, thus use AF_ReadWrite for now.
                 changed |= AddOper(live_sets[i].live_in, use->oper, AF_ReadWrite);
             }
 
