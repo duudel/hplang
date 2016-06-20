@@ -7,7 +7,7 @@
 
 #include <cstdio>
 #include <cinttypes>
-#include <cstdlib> // for system()
+#include <cstdlib> // for WIFEXITED etc.
 
 
 FILE *nulldev;
@@ -406,6 +406,7 @@ b32 RunTest(const Execute_Test &test)
                             if (test_size == 0)
                                 break;
                         }
+                        fclose(expected_output);
                     }
                     else
                     {
@@ -499,6 +500,9 @@ int main(int argc, char **argv)
     fprintf(outfile, "----\n");
     fprintf(outfile, "%" PRId64 " tests run, %" PRId64 " failed\n", total_tests, failed_tests);
     fprintf(outfile, "----\n");
+
+    fclose(nulldev);
+
     return 0; //failed_tests;
 }
 

@@ -87,6 +87,9 @@ namespace array
         data_p.ptr = arr.data;
         data_p.size = arr.capacity * sizeof(T);
         Free(data_p);
+        arr.capacity = 0;
+        arr.count = 0;
+        arr.data = nullptr;
     }
 
     template <class T>

@@ -2491,10 +2491,8 @@ static void FreeLiveSets(Array<Live_Sets> &live_sets)
 static void ComputeLiveness(Codegen_Context *ctx,
         Ir_Routine *ir_routine, Routine *routine,
         Array<Live_Interval*> &live_intervals,
-        Array<Live_Sets> &live_sets_,
         Array<Cfg_Edge> &cfg_edges)
 {
-    (void)live_sets_;
     Instruction_List &instructions = routine->instructions;
 
     Array<Live_Sets> live_sets = { };
@@ -2576,7 +2574,6 @@ static void ComputeLiveness(Codegen_Context *ctx,
                 ASSERT(li != nullptr);
                 if (li->instr)
                 {
-                    //changed |= SetUnion(live_sets[i].live_out, live_sets[li->instr_index].live_in);
                     s64 label_instr_i = li->instr_index;
                     while (label_instr_i < instructions.count &&
                         (Amd64_Opcode)instructions[label_instr_i]->opcode == OP_LABEL)
@@ -2591,7 +2588,7 @@ static void ComputeLiveness(Codegen_Context *ctx,
     }
 
     // Collect CFG edges
-    for (s64 current_I = 0; current_I < live_sets.count; current_I++)
+    for (s64 current_I = 0; current_I < instructions.count; current_I++)
     {
         Instruction *instr = instructions[current_I];
         if ((instr->flags & IF_Branch) != 0)
@@ -3427,22 +3424,15 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine, Routine *
     PushInstruction(ctx, OP_LABEL, LabelOperand(ctx->return_label_name, AF_Read));
 }
 
-static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine, Routine *routine,
-        Array<Live_Sets> &live_sets)
+static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine, Routine *routine)
 {
     CollectLabelInstructions(ctx, routine);
 
     Array<Cfg_Edge> cfg_edges = { };
 
-    for (s64 i = 0; i < live_sets.count; i++)
-    {
-        array::Clear(live_sets[i].live_in);
-        array::Clear(live_sets[i].live_out);
-    }
-
     Array<Live_Interval*> live_interval_set = { };
     ComputeLiveness(ctx, ir_routine, routine,
-            live_interval_set, live_sets, cfg_edges);
+            live_interval_set, cfg_edges);
 
     // Sort the intervals in the singly linked list of every interval.
     for (s64 i = 0; i < live_interval_set.count; i++)
@@ -3694,16 +3684,12 @@ void GenerateCode_Amd64(Codegen_Context *ctx, Ir_Routine_List ir_routines)
         ctx->code_out = f;
     })
 
-    Array<Live_Sets> live_sets = { };
-
     for (s64 i = 0; i < ir_routines.count; i++)
     {
         Routine *routine = &ctx->routines[i];
         ctx->current_routine = routine;
-        AllocateRegisters(ctx, ir_routines[i], routine, live_sets);
+        AllocateRegisters(ctx, ir_routines[i], routine);
     }
-
-    //FreeLiveSets(live_sets);
 
     s64 instruction_count = 0;
     if (ctx->comp_ctx->options.profile_instr_count)
