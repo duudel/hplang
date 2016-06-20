@@ -3424,7 +3424,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine, Routine *
 }
 
 static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine, Routine *routine,
-        Array<Live_Sets> live_sets)
+        Array<Live_Sets> &live_sets)
 {
     CollectLabelInstructions(ctx, routine);
 
