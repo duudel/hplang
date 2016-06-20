@@ -361,10 +361,10 @@ void PrintType(IoFile *file, Type *type)
     switch (type->tag)
     {
     case TYP_pending:
-        fprintf((FILE*)file, "(?");
+        //fprintf((FILE*)file, "(?");
         if (type->base_type)
             PrintType(file, type->base_type);
-        fprintf((FILE*)file, ")");
+        //fprintf((FILE*)file, ")");
         break;
     case TYP_string:
     case TYP_Struct:

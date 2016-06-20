@@ -72,6 +72,7 @@ void PrintFileLine(IoFile *file, File_Location file_loc)
         line_len++;
     }
 
+    fprintf((FILE*)file, "> ");
     fwrite(line_start, 1, line_len, (FILE*)file);
     fprintf((FILE*)file, "\n");
 }
@@ -79,6 +80,7 @@ void PrintFileLine(IoFile *file, File_Location file_loc)
 void PrintFileLocArrow(IoFile *file, File_Location file_loc)
 {
     const char dashes[81] = "--------------------------------------------------------------------------------";
+    fprintf((FILE*)file, "> ");
     if (file_loc.column > 0 && file_loc.column < 81 - 1)
     {
         fwrite(dashes, 1, file_loc.column - 1, (FILE*)file);

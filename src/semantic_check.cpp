@@ -122,7 +122,7 @@ static void ErrorReturnTypeInferFail(Sem_Check_Context *ctx,
     PrintFileLocation(err_ctx->file, file_loc);
     fprintf((FILE*)err_ctx->file, "Could not infer return type for function '");
     PrintName(err_ctx->file, func_name);
-    fprintf((FILE*)err_ctx->file, "'");
+    fprintf((FILE*)err_ctx->file, "'\n");
     PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
@@ -2206,7 +2206,6 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
 
     if (TypeIsPending(inferred_return_type) && !inferred_return_type->base_type)
     {
-        //Error(ctx, node->file_loc, "Could not infer return type for function");
         ErrorReturnTypeInferFail(ctx, node->file_loc, name);
     }
     else if (TypeIsNull(inferred_return_type))
