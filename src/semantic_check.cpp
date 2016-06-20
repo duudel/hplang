@@ -2380,8 +2380,8 @@ b32 Check(Sem_Check_Context *ctx)
         {
             round++;
             // TODO(henrik): Remove this debug message
-            fprintf(stdout, "DEBUG: round %d; pending exprs %" PRId64 "\n",
-                    round, pending_exprs.count);
+            //fprintf(stdout, "DEBUG: round %d; pending exprs %" PRId64 "\n",
+            //        round, pending_exprs.count);
             for (s64 i = 0; i < pending_exprs.count; i++)
             {
                 Pending_Expr pe = array::At(pending_exprs, i);

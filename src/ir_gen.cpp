@@ -101,6 +101,9 @@ void FreeIrGenContext(Ir_Gen_Context *ctx)
     array::Free(ctx->foreign_routines);
     array::Free(ctx->global_vars);
 
+    array::Free(ctx->breakables);
+    array::Free(ctx->continuables);
+
     FreeMemoryArena(&ctx->arena);
 }
 

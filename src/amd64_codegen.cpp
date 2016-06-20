@@ -3491,6 +3491,7 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine, Rout
 
     CfgEdgeResolution(ctx, allocated_intervals, cfg_edges);
 
+    array::Free(allocated_intervals);
     array::Free(live_intervals);
     array::Free(cfg_edges);
 
