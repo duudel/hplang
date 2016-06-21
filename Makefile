@@ -1,4 +1,6 @@
 
+.PHONY: build build_stdlib run run_debug run_tests clean_tests
+
 COMPILER := gcc
 COMPILER_FLAGS := -std=c++11 -Wall -Wextra -fno-exceptions -fno-rtti -g
 EXENAME := hplangc
@@ -27,9 +29,11 @@ COMPILER_SOURCES := \
 	src/main.cpp \
 	$(SOURCES)
 
-build:
+build: build_stdlib
 	$(COMPILER) $(COMPILER_FLAGS) $(COMPILER_SOURCES) -o $(EXENAME)
 
+build_stdlib:
+	$(MAKE) -C stdlib
 
 run:
 	@#-./$(EXENAME) -diR -pi -o out samples/fibo.hp 2> stderr.out

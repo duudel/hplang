@@ -6,10 +6,5 @@ import ":io";
 main :: ()
 {
     print("Hello world!\n");
-    //hello := "Hello world!\n";
-    //print(hello);
-    print("A number ");
-    print(-105);
-    println();
     return 0;
 }

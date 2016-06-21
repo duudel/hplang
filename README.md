@@ -1,84 +1,134 @@
+
 hplang
-------
+======
 
-Henrik Paananen -- henrik.j.paananen@student.jyu.fi
+Author
+-----------------------------
 
-The language design has been infuenced by
-[Jonathan Blow's language, jai](http://www.youtube.com/user/jblow888/videos).
-
-The language will be procedural with:
-- static typing
-- simple type inference
-
-        // these are equivalent:
-        a : s64 = 0;
-        a := 0;
-
-- control structures: if, for, while
-- a few primitive datatypes:
-    - signed & unsigned integers of sizes 8, 16, 32 and 64 bits
-        - s8, s16, s32, s64, u8, ...
-    - boolean (bool)
-    - 8 bit character (char)
-    - raw pointers (char\*, s8\*, ...)
-- printing functionality, something like
-
-        print("Hello, ", name, "\n");
-
-these features have less priority:
-- operator overloading
-- procedures with variadic arguments
-- multiple return values from procedures
-
-        x, y := calculate_xy();
-
-- deferred code-blocks (defer keyword):
-
-        defer {
-            <code-that is run after the scope ends>
-        }
-
-- possibility to define structures containing other types
-- floating point numbers of sizes 32 and 64
-- string datatype
-- array datatype
-- compile time code execution (for meta programming)
+Henrik Juhana Paananen
+henrik.j.paananen@student.jyu.fi
 
 
-Sample programs are found in "samples" directory.
 
-Testing happens with regularly compiling and running some test programs.
-Test harness and test programs are in "tests" directory.
+Credits
+-------
 
-Target language: AMD64 for Windows (and maybe Linux).
-(I may change the target language to LLVM.)
+Basic features
+* Data types:
+    - empty type:               void
+    - boolean:                  bool
+    - single character:         char
+    - signed integers:          s8, s16, s32, s64
+    - unsigned integers:        u8, u16, u32, u64
+    - floating point numbers:   f32, f64
+    - string:                   string
+    - pointer types:            void*, char*, ...
+    - function types:           !(f64, f64) : bool
+* Integer arithmetic
+* Control structures: if, for, while
+    - Break and continue can be used to break from or countinue to the next
+      loop iteration in for and while loops.
+* Procedures with parameters
 
-Host language: C/C++
+-------
+= 3op
+
+Other features
+* Function overloads                    0.5op
+* "First-class functions"               0.5op
+* Aggregate types + type aliases        0.5op
+* Simple type "inference"               0.5op
+* Intermediate language generation      1op
+* Symbolic machine code generation
+    and "smart" register allocation     2op
+
+-------
+= 5op
+
+Total credits = 8op => 6op
 
 
-    ; A simple program that prints the team name.
-    ; Written for AMD64 on Windows (for NASM).
+Compiling the hplang compiler
+-----------------------------
 
-    global main
-    extern puts
-    section .text
+The compiler can be compiled with gcc that supports c++11. Compiling the
+compiler has been tested on Linux (Arch Linux) and Windows (Msys2) The project
+can be compiled by issuing
 
-    main:
-        ; prologue
-        push    rsp                 ; stack is aligned by 16
-        mov     rbp,    rsp
-        sub     rsp,    0x20        ; allocate 32 bytes "shadow space" needed by
-                                    ; called functions
+> make
 
-        lea     rcx,    [team_name]
-        call    puts                ; print team name
+or
 
-        mov     eax,    0           ; return 0
-        ; epilogoue
-        mov     rsp,    rbp
-        pop     rbp
-        ret
+> make build
 
-    team_name:
-        db "hplang", 0
+This will build the hplang stdandard library into stdlib/libstdlib.a, and then
+it will build the compiler into ./hplangc (./hplangc.exe on Windows).
+
+Running test suite:
+
+> make run_tests
+
+
+Using the compiler
+------------------
+
+hplang [options] <source>
+  compile <source> into binary executable
+
+options:
+  --output <filename>
+	-o <filename>             Sets the output filename
+  --target <target>
+	-T <target>               Sets the output target
+<target> can be one of [win64|win_amd64|elf64|linux64]
+
+  --diagnostic [memory|ast|ir|regalloc]
+	-dMAiR                    Selects the diagnostic options
+  --profile [instrcount]
+	-pi                       Selects profiling options
+  --help
+	-h                        Shows this help and exits
+  --version
+	-v                        Prints the version information
+
+When no output filename is given (-o/--output) "out" will be used.  
+
+When diagnostic options are given (-d/--diagnostic) various information is
+written to the standard error stream. In addition, when "regalloc" diagnostic
+option is specified, out.is.s file is written. The file contains the target
+code after instruction selection and before register allocation.
+
+Total instruction count emitted (before optimizations and after optimizations)
+can be measured with --profile instrcount (-pi).
+
+Example:
+
+> ./hplangc -o out samples/fibo.hp
+> ./out
+> fibo(10) = 55
+> fibo2(10) = 55
+
+
+Other files
+-----------
+
+LANGUAGE                    Gives a brief description of the hplang.
+
+Sample programs
+samples/beer.hp             Prints 99 bottles lyrics.
+samples/factorial.hp        Prints the factorial of some numbers.
+samples/fibo.hp             Prints the Fibonacci numbers recursively and iteratively.
+samples/hello.hp            Hello world.
+samples/mandelbrot.hp       Prints Mandelbrot fractal.
+samples/mandelbrot_other.hp Prints Mandelbrot fractal.
+samples/nbody.hp            Simulates gravitation on planets. (Warning: takes ~20s to finish).
+samples/syntax_ideas.hp     Not a compilable sample; contains notes about syntax ideas.
+samples/compiletime.hp      Not a compilable sample; contains notes about syntax ideas.
+
+Test suite
+tests/tests.cpp             The main test program.
+
+Standard library
+stdlib/stdlib.c             The hplang standard library.
+stdlib/io.hp                The hplang standard io module.
 

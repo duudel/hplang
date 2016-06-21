@@ -1,0 +1,110 @@
+
+hplang
+------
+
+
+Basic features
+--------------
+
+The string // starts a single line comment and /* and */ encloses a multiline
+comment.
+
+Boolean literals are keywords: true, false
+Integer literals are consecutive digits: 104
+Characer literals are enclosed in single quotes and has the common escape
+sequences for newline, carriage return, and tab characters: 'a', '\n', '\t'
+String literalvs are enclosed in double quotes and has the common escape
+sequences for newline, carriage return, and tab characters: "Hello!\n"
+
+A function can be defined as:
+
+func :: ()
+{
+    // ...
+}
+
+The name of the function is "func", it does not take parameters and does not
+have any return value type specified. The return value type can be specified
+with a colon:
+
+func :: () : s64
+{
+    // ...
+}
+
+Now the return value type is s64 (signed 64 bit integer). If the type is not
+specified, it may be possible for the compiler to infer it from the return
+statements inside the function body.
+
+Parameters are declared as follows:
+
+func :: (param : s64, flag : bool)
+{
+    // ...
+}
+
+Here param is a parameter s64 integer type and flag is a parameter of boolean
+type.
+
+Variables can be declared with type specified or without a type, in which case
+it will be inferred from the type of it's initializing expression.
+
+my_var : s64 = 0;   // Type is declared to be s64
+my_other_var := 0;  // Type is inferred to be s32
+
+Here := is a special operator that declares the variable as well as initializes it.
+
+
+Types
+-----
+
+The supported builtin primitive types are
+    - empty type:               void
+    - boolean:                  bool
+    - single character:         char
+    - signed integers:          s8, s16, s32, s64
+    - unsigned integers:        u8, u16, u32, u64
+    - floating point numbers:   f32, f64
+
+In addition the language as the following
+    - pointer types:            void*, char*, ...
+    - function types:           !(f64, f64) : bool
+    - string:                   string
+        String s contains the following member fields:
+        s.size : s64
+        s.data : u8*
+
+
+Control structures
+------------------
+
+Here <cond> means an expression that is of boolean type.
+<stmt> can be one statement or a block statement, multiple statements enclosed
+by curly braces. <init> is a variable declaration/initialization expression.
+<expr> can be any expression.
+
+
+if <cond> <stmt> [else <stmt>]
+If statement with optional else clause.
+
+
+while <cond> <stmt>
+While loop.
+
+
+for (<init>; <cond>; <expr>) <stmt>
+The basic for loop.
+
+
+for x := <range>    <stmt>
+Range based for loop (NOT IMPLEMENTED).
+
+
+Other features
+--------------
+
+For user defined aggregates, i.e. structures see the sample program
+"samples/nbody.hp".
+
+For first-class functions, see the test "tests/function_var.hp".
+
