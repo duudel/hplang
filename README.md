@@ -6,6 +6,7 @@ Author
 -----------------------------
 
 Henrik Juhana Paananen
+
 henrik.j.paananen@student.jyu.fi
 
 
@@ -55,41 +56,41 @@ The compiler can be compiled with gcc that supports c++11. Compiling the
 compiler has been tested on Linux (Arch Linux) and Windows (Msys2) The project
 can be compiled by issuing
 
-> make
+    make
 
 or
 
-> make build
+    make build
 
 This will build the hplang stdandard library into stdlib/libstdlib.a, and then
 it will build the compiler into ./hplangc (./hplangc.exe on Windows).
 
 Running test suite:
 
-> make run_tests
+    make run_tests
 
 
 Using the compiler
 ------------------
 
-hplang [options] <source>
-  compile <source> into binary executable
-
-options:
-  --output <filename>
-	-o <filename>             Sets the output filename
-  --target <target>
-	-T <target>               Sets the output target
-<target> can be one of [win64|win_amd64|elf64|linux64]
-
-  --diagnostic [memory|ast|ir|regalloc]
-	-dMAiR                    Selects the diagnostic options
-  --profile [instrcount]
-	-pi                       Selects profiling options
-  --help
-	-h                        Shows this help and exits
-  --version
-	-v                        Prints the version information
+    hplang [options] <source>
+      compile <source> into binary executable
+    
+    options:
+      --output <filename>
+    	-o <filename>             Sets the output filename
+      --target <target>
+    	-T <target>               Sets the output target
+    <target> can be one of [win64|win_amd64|elf64|linux64]
+    
+      --diagnostic [memory|ast|ir|regalloc]
+    	-dMAiR                    Selects the diagnostic options
+      --profile [instrcount]
+    	-pi                       Selects profiling options
+      --help
+    	-h                        Shows this help and exits
+      --version
+    	-v                        Prints the version information
 
 When no output filename is given (-o/--output) "out" will be used.  
 
@@ -103,10 +104,10 @@ can be measured with --profile instrcount (-pi).
 
 Example:
 
-> ./hplangc -o out samples/fibo.hp
-> ./out
-> fibo(10) = 55
-> fibo2(10) = 55
+    ./hplangc -o out samples/fibo.hp
+    ./out
+    fibo(10) = 55
+    fibo2(10) = 55
 
 
 Other files
