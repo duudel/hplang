@@ -23,7 +23,7 @@ Basic features
     - unsigned integers:        u8, u16, u32, u64
     - floating point numbers:   f32, f64
     - string:                   string
-    - pointer types:            void*, char*, ...
+    - pointer types:            void\*, char\*, ...
     - function types:           !(f64, f64) : bool
 * Integer arithmetic
 * Control structures: if, for, while
@@ -73,6 +73,9 @@ Running test suite:
 Using the compiler
 ------------------
 
+The compiler assumes that nasm (for assembling) and gcc (for linking) have been
+installed and are invokable for the compiler (i.e. in system search path).
+
     hplang [options] <source>
       compile <source> into binary executable
     
@@ -100,7 +103,14 @@ option is specified, out.is.s file is written. The file contains the target
 code after instruction selection and before register allocation.
 
 Total instruction count emitted (before optimizations and after optimizations)
-can be measured with --profile instrcount (-pi).
+can be measured with "--profile instrcount" (-pi).
+
+
+The compiler outputs out.s (independent of the source filename)  containing the
+generated symbolic machine code.  Next the compiler invokes nasm to assemble
+the asm file into and object file out.o. Lastly gcc is invoked to link the
+final binary.
+
 
 Example:
 
