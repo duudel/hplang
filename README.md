@@ -113,23 +113,23 @@ Example:
 Other files
 -----------
 
-LANGUAGE                    Gives a brief description of the hplang.
-
-Sample programs
-samples/beer.hp             Prints 99 bottles lyrics.
-samples/factorial.hp        Prints the factorial of some numbers.
-samples/fibo.hp             Prints the Fibonacci numbers recursively and iteratively.
-samples/hello.hp            Hello world.
-samples/mandelbrot.hp       Prints Mandelbrot fractal.
-samples/mandelbrot_other.hp Prints Mandelbrot fractal.
-samples/nbody.hp            Simulates gravitation on planets. (Warning: takes ~20s to finish).
-samples/syntax_ideas.hp     Not a compilable sample; contains notes about syntax ideas.
-samples/compiletime.hp      Not a compilable sample; contains notes about syntax ideas.
-
-Test suite
-tests/tests.cpp             The main test program.
-
-Standard library
-stdlib/stdlib.c             The hplang standard library.
-stdlib/io.hp                The hplang standard io module.
-
+    LANGUAGE                    Gives a brief description of the hplang.
+    
+    Sample programs
+    samples/beer.hp             Prints 99 bottles lyrics.
+    samples/factorial.hp        Prints the factorial of some numbers.
+    samples/fibo.hp             Prints the Fibonacci numbers recursively and iteratively.
+    samples/hello.hp            Hello world.
+    samples/mandelbrot.hp       Prints Mandelbrot fractal.
+    samples/mandelbrot_other.hp Prints Mandelbrot fractal.
+    samples/nbody.hp            Simulates gravitation on planets. (Warning: takes ~20s to finish).
+    samples/syntax_ideas.hp     Not a compilable sample; contains notes about syntax ideas.
+    samples/compiletime.hp      Not a compilable sample; contains notes about syntax ideas.
+    
+    Test suite
+    tests/tests.cpp             The main test program.
+    
+    Standard library
+    stdlib/stdlib.c             The hplang standard library.
+    stdlib/io.hp                The hplang standard io module.
+    
