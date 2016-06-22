@@ -239,7 +239,6 @@ struct FSM
     Token_Type token_type;
     b32 emit;
     b32 done;
-    b32 carriage_return;
 };
 
 static FSM lex_default(FSM fsm, char c)
@@ -1224,14 +1223,14 @@ void Lex(Lexer_Context *ctx)
     const char *text = (const char*)file_loc.file->contents.ptr;
     s64 text_length = file_loc.file->contents.size;
 
-    s64 cur = ctx->current;
+    s64 cur = 0;
+    bool carriage_return = false;
     ctx->current_token.value = text;
     ctx->current_token.value_end = text;
 
     FSM fsm = { };
     fsm.emit = false;
     fsm.state = LS_Default;
-    fsm.carriage_return = false;
 
     while (!fsm.done && cur < text_length - 1)
     {
@@ -1261,18 +1260,18 @@ void Lex(Lexer_Context *ctx)
                 {
                     file_loc.line++;
                     file_loc.column = 1;
-                    ctx->carriage_return = true;
+                    carriage_return = true;
                 }
-                else if (c == '\n' && ctx->carriage_return)
+                else if (c == '\n' && carriage_return)
                 {
                     file_loc.column = 1;
-                    ctx->carriage_return = false;
+                    carriage_return = false;
                 }
                 else if (IsNewlineChar(c))
                 {
                     file_loc.line++;
                     file_loc.column = 1;
-                    ctx->carriage_return = false;
+                    carriage_return = false;
                 }
                 else
                 {
@@ -1311,7 +1310,8 @@ void Lex(Lexer_Context *ctx)
     }
     if (fsm.done && cur < text_length - 1)
     {
-        Error(ctx, "Invalid character", &ctx->current_token);
+        Error(ctx, "Invalid terminating null character before end of the file",
+                &ctx->current_token);
     }
     else
     {
@@ -1323,18 +1323,18 @@ void Lex(Lexer_Context *ctx)
             {
                 file_loc.line++;
                 file_loc.column = 1;
-                ctx->carriage_return = true;
+                carriage_return = true;
             }
             else if (c == '\n' && ctx->carriage_return)
             {
                 file_loc.column = 1;
-                ctx->carriage_return = false;
+                carriage_return = false;
             }
             else if (IsNewlineChar(c))
             {
                 file_loc.line++;
                 file_loc.column = 1;
-                ctx->carriage_return = false;
+                carriage_return = false;
             }
             else
             {

@@ -128,7 +128,6 @@ static Crash_Test crash_tests[] = {
     { "tests/crash/id-000004,sig-11,src-000000,op-flip1,pos-81" },
     { "tests/crash/id-000005,sig-11,src-000000,op-flip1,pos-83" },
     { "tests/crash/id-000006,sig-11,src-000000,op-flip1,pos-84" },
-
     { "tests/crash/id-000007,sig-11,src-000000,op-flip1,pos-89" },
     { "tests/crash/id-000008,sig-11,src-000000,op-flip1,pos-121" },
     { "tests/crash/id-000009,sig-11,src-000000,op-flip1,pos-136" },

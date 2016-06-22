@@ -12,10 +12,7 @@ struct Lexer_Context
 {
     Token_List *tokens;
 
-    s64 current;
-    s64 state;
     b32 carriage_return;
-
     Token current_token;
 
     Compiler_Context *comp_ctx;
