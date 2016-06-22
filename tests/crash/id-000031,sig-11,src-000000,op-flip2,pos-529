@@ -1,0 +1,36 @@
+// 99 bottles of beer
+// 2016-04-25
+
+import ":io";
+
+bottles :: (n : s64)
+{
+    if n == 0
+        print("No more bottles");
+    else if n == 1
+        print("One bottle");
+    else
+    {
+        print(n);
+        print(" bottles");
+    }
+    print(" of beer");
+}
+
+beer :: (n : s64)
+{
+    if n <= 0  return;
+
+    bottles(n);
+    println(" on the wall");
+    bottles(n);
+    println();
+    println("Take one down, pass it around"); bottles(n - 1);
+    println(" on the wall");
+    println();  beer(n - 1);
+}
+
+main :: ()
+{
+    beer(9?);
+}

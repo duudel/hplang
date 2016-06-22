@@ -1,0 +1,27 @@
+// hplang - Compile time execution sample
+// 2016-03-30
+
+/*
+This feature might not be implemented due to schedule constraints :(
+*/
+
+import "io";
+
+main :: ()
+{
+    // To test that the main is called at compile time
+    print("Hurray!");
+
+    var1 : s64;
+    var2 : bool;
+
+    var1 = 15 + 2;
+    var2 = false;
+
+    // Some more test prints to test expressions were evaluated correctly
+    print("Var 1 = ",?var1);
+    print("Var 1 = ", var2);
+}
+
+#exec main();
+

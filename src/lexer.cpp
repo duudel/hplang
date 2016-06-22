@@ -205,7 +205,7 @@ enum Lexer_State
     LS_StarEq,          // *=
     LS_SlashEq,         // /=
     LS_PercentEq,       // %=
-    
+
     LS_LtLtEq,          // <<=
     LS_GtGtEq,          // >>=
 
@@ -1028,101 +1028,101 @@ static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
         case LS_STR_f3:
         case LS_STR_f32:
             return true;
-        case LS_STR_f6:         
-        case LS_STR_f64:        
+        case LS_STR_f6:
+        case LS_STR_f64:
             return true;
-        case LS_STR_fa:         
-        case LS_STR_fal:        
-        case LS_STR_fals:       
-        case LS_STR_false:      
+        case LS_STR_fa:
+        case LS_STR_fal:
+        case LS_STR_fals:
+        case LS_STR_false:
             return true;
-        case LS_STR_fo:         
-        case LS_STR_for:        
+        case LS_STR_fo:
+        case LS_STR_for:
             return true;
-        case LS_STR_fore:       
-        case LS_STR_forei:      
-        case LS_STR_foreig:     
-        case LS_STR_foreign:    
+        case LS_STR_fore:
+        case LS_STR_forei:
+        case LS_STR_foreig:
+        case LS_STR_foreign:
             return true;
-        case LS_STR_i:          
-        case LS_STR_if:     
+        case LS_STR_i:
+        case LS_STR_if:
             return true;
-        case LS_STR_im:         
-        case LS_STR_imp:        
-        case LS_STR_impo:       
-        case LS_STR_impor:      
-        case LS_STR_import:     
+        case LS_STR_im:
+        case LS_STR_imp:
+        case LS_STR_impo:
+        case LS_STR_impor:
+        case LS_STR_import:
             return true;
-        case LS_STR_n:          
-        case LS_STR_nu:         
-        case LS_STR_nul:        
-        case LS_STR_null:       
+        case LS_STR_n:
+        case LS_STR_nu:
+        case LS_STR_nul:
+        case LS_STR_null:
             return true;
-        case LS_STR_r:          
-        case LS_STR_re:         
-        case LS_STR_ret:        
-        case LS_STR_retu:       
-        case LS_STR_retur:      
-        case LS_STR_return:     
+        case LS_STR_r:
+        case LS_STR_re:
+        case LS_STR_ret:
+        case LS_STR_retu:
+        case LS_STR_retur:
+        case LS_STR_return:
             return true;
-        case LS_STR_s:          
-        case LS_STR_s8:         
+        case LS_STR_s:
+        case LS_STR_s8:
             return true;
-        case LS_STR_s1:         
-        case LS_STR_s16:        
+        case LS_STR_s1:
+        case LS_STR_s16:
             return true;
-        case LS_STR_s3:         
-        case LS_STR_s32:        
+        case LS_STR_s3:
+        case LS_STR_s32:
             return true;
-        case LS_STR_s6:         
-        case LS_STR_s64:        
+        case LS_STR_s6:
+        case LS_STR_s64:
             return true;
-        case LS_STR_st:         
-        case LS_STR_str:        
-        case LS_STR_stri:       
-        case LS_STR_strin:      
-        case LS_STR_string:     
+        case LS_STR_st:
+        case LS_STR_str:
+        case LS_STR_stri:
+        case LS_STR_strin:
+        case LS_STR_string:
             return true;
-        case LS_STR_stru:       
-        case LS_STR_struc:      
-        case LS_STR_struct:     
+        case LS_STR_stru:
+        case LS_STR_struc:
+        case LS_STR_struct:
             return true;
-        case LS_STR_t:          
-        case LS_STR_tr:         
-        case LS_STR_tru:        
-        case LS_STR_true:       
+        case LS_STR_t:
+        case LS_STR_tr:
+        case LS_STR_tru:
+        case LS_STR_true:
             return true;
-        case LS_STR_ty:         
-        case LS_STR_typ:        
-        case LS_STR_type:       
-        case LS_STR_typea:      
-        case LS_STR_typeal:     
-        case LS_STR_typeali:    
-        case LS_STR_typealia:   
-        case LS_STR_typealias:  
+        case LS_STR_ty:
+        case LS_STR_typ:
+        case LS_STR_type:
+        case LS_STR_typea:
+        case LS_STR_typeal:
+        case LS_STR_typeali:
+        case LS_STR_typealia:
+        case LS_STR_typealias:
             return true;
-        case LS_STR_u:          
-        case LS_STR_u8:         
+        case LS_STR_u:
+        case LS_STR_u8:
             return true;
-        case LS_STR_u1:         
-        case LS_STR_u16:        
+        case LS_STR_u1:
+        case LS_STR_u16:
             return true;
-        case LS_STR_u3:         
-        case LS_STR_u32:        
+        case LS_STR_u3:
+        case LS_STR_u32:
             return true;
-        case LS_STR_u6:         
-        case LS_STR_u64:        
+        case LS_STR_u6:
+        case LS_STR_u64:
             return true;
-        case LS_STR_v:          
-        case LS_STR_vo:         
-        case LS_STR_voi:        
-        case LS_STR_void:       
+        case LS_STR_v:
+        case LS_STR_vo:
+        case LS_STR_voi:
+        case LS_STR_void:
             return true;
-        case LS_STR_w:          
-        case LS_STR_wh:         
-        case LS_STR_whi:        
-        case LS_STR_whil:       
-        case LS_STR_while:      
+        case LS_STR_w:
+        case LS_STR_wh:
+        case LS_STR_whi:
+        case LS_STR_whil:
+        case LS_STR_while:
             return true;
 
         case LS_Hash:           return true;
@@ -1155,7 +1155,7 @@ static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
         case LS_Star:           return true;
         case LS_Slash:          return true;
         case LS_Percent:        return true;
-        
+
         case LS_LtLt:           return true;
         case LS_GtGt:           return true;
 
@@ -1240,7 +1240,7 @@ void Lex(Lexer_Context *ctx)
             char c = text[cur];
             fsm = lex_default(fsm, c);
 
-            // NOTE(henrik): There is lexically ambiguouss case where .
+            // NOTE(henrik): There is lexically ambiguous case, where .
             // follows after n digits that could result in either a floating
             // point literal, e.g. 1.5, or in a range 1..15. Thus we need to
             // peek the following character to disambiguate these.
@@ -1309,9 +1309,48 @@ void Lex(Lexer_Context *ctx)
             ResetToken(ctx, &file_loc, cur, text);
         }
     }
+    if (fsm.done && cur < text_length - 1)
+    {
+        Error(ctx, "Invalid character", &ctx->current_token);
+    }
+    else
+    {
+        while (cur < text_length - 1)
+        {
+            char c = text[cur];
+            cur++;
+            if (c == '\r')
+            {
+                file_loc.line++;
+                file_loc.column = 1;
+                ctx->carriage_return = true;
+            }
+            else if (c == '\n' && ctx->carriage_return)
+            {
+                file_loc.column = 1;
+                ctx->carriage_return = false;
+            }
+            else if (IsNewlineChar(c))
+            {
+                file_loc.line++;
+                file_loc.column = 1;
+                ctx->carriage_return = false;
+            }
+            else
+            {
+                file_loc.column++;
+            }
+        }
 
-    // A remain from continuable lexer days.. -.-´
-    ctx->current = cur;
+        file_loc.offset_start = cur - 2;
+        file_loc.offset_end = cur - 1;
+
+        Token *token = PushTokenList(ctx->tokens);
+        token->type = TOK_EOF;
+        token->file_loc = file_loc;
+        token->value = nullptr;
+        token->value_end = nullptr;
+    }
 }
 
 } // hplang

@@ -81,9 +81,10 @@ static void ErrorExpectedAtEnd(Parser_Context *ctx,
     PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
+static const Token* GetLastToken(Parser_Context *ctx);
 static void ErrorUnexpectedEOF(Parser_Context *ctx)
 {
-    const Token *last_token = &ctx->tokens->array.data[ctx->tokens->array.count - 1];
+    const Token *last_token = GetLastToken(ctx);
     Error(ctx, last_token, "Unexpected end of file");
 }
 
@@ -147,18 +148,20 @@ static void ErrorAssignmentExprRHS(Parser_Context *ctx, const Token *token, Assi
 }
 
 
-static Token eof_token = {
-    TOK_EOF,    // token type
-    nullptr,    // value
-    nullptr,    // value_end
-    { }         // file_loc
-};
+static const Token* GetLastToken(Parser_Context *ctx)
+{
+    //return &eof_token;
+    ASSERT(ctx->tokens->array.count > 0);
+    const Token *token = ctx->tokens->array.data + ctx->tokens->array.count - 1;
+    ASSERT(token->type == TOK_EOF);
+    return token;
+}
 
 static const Token* GetCurrentToken(Parser_Context *ctx)
 {
     if (ctx->current_token < ctx->tokens->array.count)
         return ctx->tokens->array.data + ctx->current_token;
-    return &eof_token;
+    return GetLastToken(ctx);
 }
 
 static const Token* GetNextToken(Parser_Context *ctx)
@@ -175,7 +178,7 @@ static const Token* PeekNextToken(Parser_Context *ctx)
 {
     if (ctx->current_token + 1 < ctx->tokens->array.count)
         return ctx->tokens->array.data + ctx->current_token + 1;
-    return &eof_token;
+    return GetLastToken(ctx);
 }
 
 static void Error(Parser_Context *ctx, const char *message)
@@ -465,11 +468,13 @@ static char ConvertChar(Parser_Context *ctx, const char *s, const char *end)
         }
         result = c;
     }
-    // NOTE(henrik): If we did not get to the end of the literal, there is a
-    // bug in either the lexer or the conversion above.
+    // NOTE(henrik): If we did not get to the end of the literal, the
+    // character literal is invalid. This can happen for example, when the
+    // literal is longer than one or two characters. This could be noticed
+    // in the lexer, but here we can give better errors.
     if (s != end)
     {
-        INVALID_CODE_PATH;
+        Error(ctx, "Invalid characer literal");
     }
     return result;
 }
@@ -995,7 +1000,10 @@ static Ast_Expr* ParseTernaryExpr(Parser_Context *ctx)
 
     Ast_Expr *false_expr = ParseLogicalExpr(ctx);
     if (!false_expr)
-        Error(ctx, colon_tok, "Expecting expression after ternary :");
+    {
+        if (colon_tok)
+            Error(ctx, colon_tok, "Expecting expression after ternary :");
+    }
 
     Ast_Expr *ternary_expr = PushExpr<Ast_Ternary_Expr>(ctx, AST_TernaryExpr, qmark_tok);
     ternary_expr->ternary_expr.cond_expr = expr;
@@ -1505,10 +1513,13 @@ static Ast_Node* ParseNamedImport(Parser_Context *ctx, const Token *ident_tok)
 
     Ast_Node *import_node = PushNode<Ast_Import>(ctx, AST_Import, import_tok);
     Name name = PushName(&ctx->ast->arena, ident_tok->value, ident_tok->value_end);
-    String mod_name_str = ConvertString(ctx,
-            module_name_tok->value, module_name_tok->value_end);
     import_node->import.name = name;
-    import_node->import.module_name = mod_name_str;
+    if (module_name_tok)
+    {
+        String mod_name_str = ConvertString(ctx,
+            module_name_tok->value, module_name_tok->value_end);
+        import_node->import.module_name = mod_name_str;
+    }
 
     return import_node;
 }
@@ -1526,10 +1537,13 @@ static Ast_Node* ParseGlobalImport(Parser_Context *ctx)
     ExpectAfterLast(ctx, TOK_Semicolon);
 
     Ast_Node *import_node = PushNode<Ast_Import>(ctx, AST_Import, import_tok);
-    String mod_name_str = ConvertString(ctx,
-            module_name_tok->value, module_name_tok->value_end);
     import_node->import.name = { };
-    import_node->import.module_name = mod_name_str;
+    if (module_name_tok)
+    {
+        String mod_name_str = ConvertString(ctx,
+                module_name_tok->value, module_name_tok->value_end);
+        import_node->import.module_name = mod_name_str;
+    }
 
     return import_node;
 }

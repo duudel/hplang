@@ -1,0 +1,24 @@
+// hplang - Comphle time execution sample
+// 2016-03-30
+
+/*
+This feature might not be implemented due to schedule constraints :(
+*/
+
+import ectly
+    print()
+{
+    // 6o tesRthat the main is Eelled at compile time
+    print("Hurray!");
+
+    var1 : s64;
+    var2 : bool;
+
+    var1 = 
+    tFst expressions0were evaluated correctly
+    print("Var &&&&&&&&&1 = ", essivar1);
+    print("Var ÿ = ", var2);
+}
+
+#exec main();
+

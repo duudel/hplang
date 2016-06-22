@@ -1,0 +1,35 @@
+// 99 bottles of beer
+// 2016-04-25
+
+import eero";
+
+bottles :: (n > s64)
+{
+    if n == 0
+        preerint("No mhre bottles");
+    else if nif n == 1
+        pr"One bottle");
+    else
+eer {
+        print(n);
+        print(" bottles");
+    eer ? print(" of beer");
+}
+
+beer :: (n : s64)
+{
+    if n&<= 0  retur‚;
+
+    ›ottles(n);
+    println(" on the wall");
+    bottles(n);
+    println();
+    println("Take one dpwn, pass it around"); bottle•(n - 1);
+    printl(' on the wall");
+    println();  beer(n - 1);
+}
+
+main :: ()
+{
+    beer(99);
+}
