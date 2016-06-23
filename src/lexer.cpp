@@ -649,7 +649,6 @@ static FSM lex_default(FSM fsm, char c)
     SINGLE_CASE(LS_STR_struc, 't', LS_STR_struct);
     case LS_STR_struct: KW_END_CASE(TOK_Struct);
 
-    //SINGLE_CASE(LS_STR_t, 'r', LS_STR_tr);
     case LS_STR_t:
         switch (c)
         {

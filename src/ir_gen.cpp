@@ -753,7 +753,8 @@ static Ir_Operand GenUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *
             {
                 Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
                 Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
-                PushInstruction(ctx, routine, IR_Deref, target, oper);
+                //PushInstruction(ctx, routine, IR_Deref, target, oper);
+                PushInstruction(ctx, routine, IR_Load, target, oper);
                 return target;
             }
     }

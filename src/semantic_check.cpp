@@ -203,6 +203,25 @@ static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
     PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
 
+static void ErrorVariableInitType(Sem_Check_Context *ctx,
+        File_Location file_loc, Ast_Variable_Decl_Names *names, 
+        Type *var_type, Type *init_type)
+{
+    Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
+    AddError(err_ctx, file_loc);
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "Variable '");
+    PrintName(err_ctx->file, names->name);
+    fprintf((FILE*)err_ctx->file, "' type is incompatible with the initializer expression type\n");
+    PrintFileLocation(err_ctx->file, file_loc);
+    fprintf((FILE*)err_ctx->file, "Variable declared with type ");
+    PrintType(err_ctx->file, var_type);
+    fprintf((FILE*)err_ctx->file, "; expression type is ");
+    PrintType(err_ctx->file, init_type);
+    fprintf((FILE*)err_ctx->file, "\n");
+    PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
+}
+
 static void ErrorVaribleShadowsParam(Sem_Check_Context *ctx,
         File_Location file_loc, Name name)
 {
@@ -210,7 +229,7 @@ static void ErrorVaribleShadowsParam(Sem_Check_Context *ctx,
     AddError(err_ctx, file_loc);
     PrintFileLocation(err_ctx->file, file_loc);
     fprintf((FILE*)err_ctx->file, "Variable '");
-    PrintString(err_ctx->file, name.str);
+    PrintName(err_ctx->file, name);
     fprintf((FILE*)err_ctx->file, "' shadows a parameter with the same name\n");
     PrintSourceLineAndArrow(ctx->comp_ctx, file_loc);
 }
@@ -370,11 +389,12 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
         {
             Type *pointer_type = nullptr;
             s64 indirection = node->type_node.pointer.indirection;
+            Type *base_type = CheckType(ctx, node->type_node.pointer.base_type);
             ASSERT(indirection > 0);
             while (indirection > 0)
             {
-                Type *base_type = CheckType(ctx, node->type_node.pointer.base_type);
                 pointer_type = GetPointerType(ctx->env, base_type);
+                base_type = pointer_type;
                 indirection--;
             }
             return pointer_type;
@@ -1772,7 +1792,8 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
         {
             if (!CheckTypeCoercion(init_type, type))
             {
-                Error(ctx, node->file_loc, "Variable initializer expression is incompatible");
+                Ast_Variable_Decl_Names *names = &node->variable_decl.names;
+                ErrorVariableInitType(ctx, init_expr->file_loc, names, type, init_type);
             }
             else
             {
@@ -2164,6 +2185,7 @@ static void CheckFunction(Sem_Check_Context *ctx, Ast_Node *node)
     if (symbol->sym_type != SYM_Function)
     {
         ErrorDeclaredEarlierAs(ctx, node->file_loc, symbol);
+        ShowLocation(ctx, symbol->define_loc, "here:");
     }
 
     node->function_def.symbol = symbol;
@@ -2234,6 +2256,7 @@ static void CheckTypealias(Sem_Check_Context *ctx, Ast_Node *node)
     if (old_symbol)
     {
         ErrorDeclaredEarlierAs(ctx, node->file_loc, old_symbol);
+        ShowLocation(ctx, old_symbol->define_loc, "here:");
     }
 
     AddSymbol(ctx->env, SYM_Typealias, typealias->name, type, node->file_loc);
@@ -2265,6 +2288,7 @@ static void CheckStruct(Sem_Check_Context *ctx, Ast_Node *node)
     if (old_symbol)
     {
         ErrorDeclaredEarlierAs(ctx, node->file_loc, old_symbol);
+        ShowLocation(ctx, old_symbol->define_loc, "here:");
     }
 
     AddSymbol(ctx->env, SYM_Struct, struct_def->name, type, node->file_loc);
@@ -2299,6 +2323,7 @@ static void CheckForeignFunction(Sem_Check_Context *ctx, Ast_Node *node)
         else
         {
             ErrorDeclaredEarlierAs(ctx, node->file_loc, old_symbol);
+            ShowLocation(ctx, old_symbol->define_loc, "here:");
         }
         return;
     }

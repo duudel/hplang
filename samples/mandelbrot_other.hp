@@ -9,15 +9,19 @@ import ":io";
 //data : u8*;
 //datap : u8*;
 
-putc :: (c : u8, datap : u8*)
+putc :: (c : u8, datap : u8**)
 {
     if (c == 0) c = 32 -> u8;
-    else if (c == 10) c = 10 -> u8;
+    else if (c == 10) c = 10u;
     else if (c < 32) c = (120 - c) -> u8;
     else if (c > 120) c = (32 + (c - 120)) -> u8;
     //hp_fwrite(stdout, 1, &c);
     //datap[0] = c;
-    @datap = c;
+    dp := @datap;
+    //@(@datap) = c;
+    @dp = c;
+    dp += 1;
+    @datap = dp;
     //datap += 1;
     //datap = datap + 1;
 }
@@ -25,7 +29,7 @@ putc :: (c : u8, datap : u8*)
 main :: ()
 {
     bit_num : s64 = 0;
-    byte_acc : u8 = 0 -> u8;
+    byte_acc : u8 = 0u;
     iter : s64 = 50;
 
     w, h : s64;
@@ -68,23 +72,25 @@ main :: ()
 
             if (bit_num == 8)
             {
-                putc(byte_acc, datap);
-                datap += 1;
-                byte_acc = 0 -> u8;
+                putc(byte_acc, &datap);
+                //datap += 1;
+                //byte_acc = 0 -> u8;
+                byte_acc = 0u;
                 bit_num = 0;
             }
             else if (x == w-1)
             {
                 byte_acc <<= (8 - w_mod_8);
                 //byte_acc <<= (8 - w % 8);
-                putc(byte_acc, datap);
-                datap += 1;
-                byte_acc = 0 -> u8;
+                putc(byte_acc, &datap);
+                //datap += 1;
+                //byte_acc = 0 -> u8;
+                byte_acc = 0u;
                 bit_num = 0;
             }
         }
-        putc('\n' -> u8, datap);
-        datap += 1;
+        putc('\n' -> u8, &datap);
+        //datap += 1;
     }
     
     for (i : s64 = 0; i < data_size; i += 1)
