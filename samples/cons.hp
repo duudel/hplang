@@ -1,0 +1,47 @@
+import ":io";
+
+Cons :: struct
+{
+    car : s64;
+    cdr : Cons*;
+}
+
+cons :: (car : s64, cdr : Cons*)
+{
+    rv := hp_alloc(16) -> Cons*;
+    rv.car = car;
+    rv.cdr = cdr;
+    return rv;
+}
+
+nil : Cons* = null;
+
+printlist :: (li : Cons*)
+{
+    if (li == null) return;
+    print(li.car);
+    if (li.cdr != null) {
+        print(", ");
+        printlist(li.cdr);
+    }
+}
+
+printlist_ :: (li : Cons*)
+{
+    if (li == null) return;
+    print(li.car);
+    while (li.cdr != null) {
+        print(", ");
+        li = li.cdr;
+        print(li.car);
+    }
+}
+
+main :: ()
+{
+    list := cons(1,cons(2,cons(3,nil)));
+    printlist(list);
+    println();
+    printlist_(list);
+    println();
+}

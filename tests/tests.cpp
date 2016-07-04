@@ -373,6 +373,7 @@ static Succeed_Test succeed_tests[] = {
     //              stop after      test source                     test function
     (Succeed_Test){ CP_Parsing,     "tests/expr_test.hp",           nullptr },
     (Succeed_Test){ CP_Parsing,     "tests/stmt_test.hp",           nullptr },
+    (Succeed_Test){ CP_Parsing,     "tests/empty_main.hp",          nullptr },
     (Succeed_Test){ CP_Checking,    "tests/empty.hp",               nullptr },
     (Succeed_Test){ CP_Checking,    "tests/variable_scope.hp",      nullptr },
     (Succeed_Test){ CP_Checking,    "tests/struct_access.hp",       nullptr },
