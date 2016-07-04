@@ -5,6 +5,7 @@
 #include "reg_alloc.h"
 #include "symbols.h"
 #include "hashtable.h"
+#include "time_profiler.h"
 
 #include <cstdio>
 #include <cinttypes>
@@ -2903,7 +2904,7 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
             }
         }
     }
-    fprintf(stdout, "iters %" PRId64 "\n", iters);
+    //fprintf(stdout, "iters %" PRId64 "\n", iters);
 }
 
 
@@ -3411,6 +3412,8 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
 
 static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine, Routine *routine)
 {
+    PROFILE_SCOPE("Select instructions");
+
     routine->ir_routine = ir_routine;
     routine->flags = ir_routine->flags;
 
@@ -3489,6 +3492,8 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *ir_routine, Routine *
 
 static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine, Routine *routine)
 {
+    PROFILE_SCOPE("Allocate registers");
+
     CollectLabelInstructions(ctx, routine);
 
     Array<Cfg_Edge> cfg_edges = { };
@@ -3551,7 +3556,10 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine, Rout
     //    fprintf(stderr, "lolsier");
     //}
 
-    CfgEdgeResolution(ctx, allocated_intervals, cfg_edges);
+    {
+        PROFILE_SCOPE("CFG edge resolution");
+        CfgEdgeResolution(ctx, allocated_intervals, cfg_edges);
+    }
 
     array::Free(allocated_intervals);
     array::Free(live_intervals);
@@ -3641,6 +3649,8 @@ static bool HasSideEffectsBesidesDefOper1(Instruction *instr)
 
 void OptimizeCode(Codegen_Context *ctx, Routine *routine)
 {
+    PROFILE_SCOPE("Optimize code");
+
     (void)ctx;
     for (s64 i = 0; i < routine->instructions.count; i++)
     {

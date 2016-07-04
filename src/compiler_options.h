@@ -30,6 +30,7 @@ struct Compiler_Options
     b32 debug_ir;
     b32 debug_reg_alloc;
 
+    b32 profile_time;
     b32 profile_instr_count;
 };
 

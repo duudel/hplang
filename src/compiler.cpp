@@ -7,6 +7,7 @@
 #include "semantic_check.h"
 #include "ir_gen.h"
 #include "codegen.h"
+#include "time_profiler.h"
 
 #include <cstdio>
 #include <cinttypes>
@@ -272,28 +273,23 @@ static String StripExtension(String filename)
     return filename;
 }
 
-b32 Compile(Compiler_Context *ctx, Open_File *open_file)
+static b32 CompileModule(Compiler_Context *ctx, Open_File *open_file, Module *module)
 {
-    Module *root_module = PushStruct<Module>(&ctx->arena);
-    *root_module = { };
-    root_module->module_file = open_file;
-    array::Push(ctx->modules, root_module);
-
     // Lexing
     Token_List tokens = { };
-    Lexer_Context lexer_ctx = NewLexerContext(&tokens, open_file, ctx);
-    Lex(&lexer_ctx);
-    if (HasError(ctx))
     {
-        FreeTokenList(&tokens);
+        PROFILE_SCOPE("Lexing");
+        Lexer_Context lexer_ctx = NewLexerContext(&tokens, open_file, ctx);
+        Lex(&lexer_ctx);
+        if (HasError(ctx))
+        {
+            FreeTokenList(&tokens);
+            FreeLexerContext(&lexer_ctx);
+            ctx->result = RES_FAIL_Lexing;
+            return false;
+        }
         FreeLexerContext(&lexer_ctx);
-        ctx->result = RES_FAIL_Lexing;
-        return false;
     }
-
-    FreeLexerContext(&lexer_ctx);
-
-    PrintMemoryDiagnostic(ctx);
 
     if (ctx->options.stop_after == CP_Lexing)
     {
@@ -303,26 +299,27 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     }
 
     // Parsing
-    Ast *ast = &root_module->ast;
-    Parser_Context parser_ctx = NewParserContext(
-            ast, &tokens, open_file, ctx);
-
-    Parse(&parser_ctx);
-    if (HasError(ctx))
+    Ast *ast = &module->ast;
     {
+        PROFILE_SCOPE("Parsing");
+        Parser_Context parser_ctx = NewParserContext(
+                ast, &tokens, open_file, ctx);
+
+        Parse(&parser_ctx);
+        if (HasError(ctx))
+        {
+            FreeTokenList(&tokens);
+            FreeParserContext(&parser_ctx);
+            ctx->result = RES_FAIL_Parsing;
+            return false;
+        }
+
+        if (ctx->options.debug_ast)
+            PrintAst(ctx->debug_file, ast);
+
         FreeTokenList(&tokens);
         FreeParserContext(&parser_ctx);
-        ctx->result = RES_FAIL_Parsing;
-        return false;
     }
-
-    if (ctx->options.debug_ast)
-        PrintAst(ctx->debug_file, ast);
-
-    FreeTokenList(&tokens);
-    FreeParserContext(&parser_ctx);
-
-    PrintMemoryDiagnostic(ctx);
 
     if (ctx->options.stop_after == CP_Parsing)
     {
@@ -331,19 +328,20 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     }
 
     // Semantic checking
-    Sem_Check_Context sem_ctx = NewSemanticCheckContext(ast, open_file, ctx);
-
-    Check(&sem_ctx);
-    if (HasError(ctx))
     {
+        PROFILE_SCOPE("Semantic check");
+        Sem_Check_Context sem_ctx = NewSemanticCheckContext(ast, open_file, ctx);
+
+        Check(&sem_ctx);
+        if (HasError(ctx))
+        {
+            FreeSemanticCheckContext(&sem_ctx);
+            ctx->result = RES_FAIL_SemanticCheck;
+            return false;
+        }
+
         FreeSemanticCheckContext(&sem_ctx);
-        ctx->result = RES_FAIL_SemanticCheck;
-        return false;
     }
-
-    FreeSemanticCheckContext(&sem_ctx);
-
-    PrintMemoryDiagnostic(ctx);
 
     if (ctx->options.stop_after == CP_Checking)
     {
@@ -351,16 +349,60 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         return true;
     }
 
+    ctx->result = RES_OK;
+    return true;
+}
+
+b32 CompileModule(Compiler_Context *ctx, Open_File *open_file)
+{
+    Module *module = PushStruct<Module>(&ctx->arena);
+    *module = { };
+    module->module_file = open_file;
+    array::Push(ctx->modules, module);
+    return CompileModule(ctx, open_file, module);
+}
+
+static b32 Compile_(Compiler_Context *ctx, Open_File *open_file);
+
+b32 Compile(Compiler_Context *ctx, Open_File *open_file)
+{
+    b32 result = Compile_(ctx, open_file);
+    CollateProfilingData(ctx);
+    return result;
+}
+
+static b32 Compile_(Compiler_Context *ctx, Open_File *open_file)
+{
+    PROFILE_SCOPE("Compilation");
+
+    Module *root_module = PushStruct<Module>(&ctx->arena);
+    *root_module = { };
+    root_module->module_file = open_file;
+    array::Push(ctx->modules, root_module);
+
+    b32 result = CompileModule(ctx, open_file, root_module);
+    if (!result ||
+        ctx->options.stop_after == CP_Lexing ||
+        ctx->options.stop_after == CP_Parsing ||
+        ctx->options.stop_after == CP_Checking)
+    {
+        return result;
+    }
+
+    PrintMemoryDiagnostic(ctx);
+
     // TODO(henrik): rename?
     ResolveTypeInformation(&ctx->env);
 
     // IR generation
     Ir_Gen_Context ir_ctx = NewIrGenContext(ctx);
+    {
+        PROFILE_SCOPE("IR generation");
+        GenIr(&ir_ctx);
 
-    GenIr(&ir_ctx);
-
-    if (ctx->options.debug_ir)
-        PrintIr(ctx->debug_file, &ir_ctx);
+        if (ctx->options.debug_ir)
+            PrintIr(ctx->debug_file, &ir_ctx);
+    }
 
     PrintMemoryDiagnostic(ctx);
 
@@ -372,35 +414,35 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
     }
 
     const char *asm_filename = "out.s";
-    FILE *asm_file = fopen(asm_filename, "w");
-    if (!asm_file)
     {
-        fprintf((FILE*)ctx->error_ctx.file, "Could not open '%s' for output\n",
-                asm_filename);
-        return false;
+        PROFILE_SCOPE("Code generation");
+        FILE *asm_file = fopen(asm_filename, "w");
+        if (!asm_file)
+        {
+            fprintf((FILE*)ctx->error_ctx.file, "Could not open '%s' for output\n",
+                    asm_filename);
+            return false;
+        }
+
+        Codegen_Context cg_ctx = NewCodegenContext((IoFile*)asm_file, ctx, ctx->options.target);
+        GenerateCode(&cg_ctx, ir_ctx.routines, ir_ctx.foreign_routines, ir_ctx.global_vars);
+
+        OutputCode(&cg_ctx);
+
+        fclose(asm_file);
+
+        FreeIrGenContext(&ir_ctx);
+        FreeCodegenContext(&cg_ctx);
+
+        fflush((FILE*)ctx->error_ctx.file);
+        fflush((FILE*)ctx->debug_file);
     }
-
-    Codegen_Context cg_ctx = NewCodegenContext((IoFile*)asm_file, ctx, ctx->options.target);
-    GenerateCode(&cg_ctx, ir_ctx.routines, ir_ctx.foreign_routines, ir_ctx.global_vars);
-
-    OutputCode(&cg_ctx);
-
-    fclose(asm_file);
-
-    FreeIrGenContext(&ir_ctx);
-    FreeCodegenContext(&cg_ctx);
-
-    fflush((FILE*)ctx->error_ctx.file);
-    fflush((FILE*)ctx->debug_file);
 
     if (ctx->options.stop_after == CP_CodeGen)
     {
         ctx->result = RES_OK;
         return true;
     }
-
-#if 1
-    //Invoke("compile_out.sh", nullptr, 0);
 
     // TODO(henrik): Specify the options for nasm and gcc somewhere else.
     // Mayby also move the assembling and linking to their own place.
@@ -423,12 +465,15 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         nasm_fmt,
         "-o", obj_filename,
         "--", asm_filename};
-    if (Invoke("nasm", nasm_args, array_length(nasm_args)) != 0)
     {
-        fprintf((FILE*)ctx->error_ctx.file, "Could not assemble the file '%s'\n",
-                asm_filename);
-        ctx->result = RES_FAIL_InternalError;
-        return false;
+        PROFILE_SCOPE("Assembling");
+        if (Invoke("nasm", nasm_args, array_length(nasm_args)) != 0)
+        {
+            fprintf((FILE*)ctx->error_ctx.file, "Could not assemble the file '%s'\n",
+                    asm_filename);
+            ctx->result = RES_FAIL_InternalError;
+            return false;
+        }
     }
 
     if (ctx->options.stop_after == CP_Assembling)
@@ -472,93 +517,18 @@ b32 Compile(Compiler_Context *ctx, Open_File *open_file)
         "-o", bin_filename,
         obj_filename,
         "-lstdlib"};
-    if (Invoke("gcc", gcc_args, array_length(gcc_args)) != 0)
     {
-        fprintf((FILE*)ctx->error_ctx.file, "Could not link the file '%s'\n",
-                obj_filename);
-        ctx->result = RES_FAIL_Linking;
-        return false;
+        PROFILE_SCOPE("Linking");
+        if (Invoke("gcc", gcc_args, array_length(gcc_args)) != 0)
+        {
+            fprintf((FILE*)ctx->error_ctx.file, "Could not link the file '%s'\n",
+                    obj_filename);
+            ctx->result = RES_FAIL_Linking;
+            return false;
+        }
     }
-#endif
 
     ASSERT(ctx->options.stop_after == CP_Linking);
-    ctx->result = RES_OK;
-    return true;
-}
-
-b32 CompileModule(Compiler_Context *ctx, Open_File *open_file)
-{
-    Module *module = PushStruct<Module>(&ctx->arena);
-    *module = { };
-    module->module_file = open_file;
-    array::Push(ctx->modules, module);
-
-    // Lexing
-    Token_List tokens = { };
-    Lexer_Context lexer_ctx = NewLexerContext(&tokens, open_file, ctx);
-    Lex(&lexer_ctx);
-    if (HasError(ctx))
-    {
-        FreeTokenList(&tokens);
-        FreeLexerContext(&lexer_ctx);
-        ctx->result = RES_FAIL_Lexing;
-        return false;
-    }
-
-    FreeLexerContext(&lexer_ctx);
-
-    if (ctx->options.stop_after == CP_Lexing)
-    {
-        FreeTokenList(&tokens);
-        ctx->result = RES_OK;
-        return true;
-    }
-
-    // Parsing
-    Ast *ast = &module->ast;
-    Parser_Context parser_ctx = NewParserContext(
-            ast, &tokens, open_file, ctx);
-
-    Parse(&parser_ctx);
-    if (HasError(ctx))
-    {
-        FreeTokenList(&tokens);
-        FreeParserContext(&parser_ctx);
-        ctx->result = RES_FAIL_Parsing;
-        return false;
-    }
-
-    if (ctx->options.debug_ast)
-        PrintAst(ctx->debug_file, ast);
-
-    FreeTokenList(&tokens);
-    FreeParserContext(&parser_ctx);
-
-    if (ctx->options.stop_after == CP_Parsing)
-    {
-        ctx->result = RES_OK;
-        return true;
-    }
-
-    // Semantic checking
-    Sem_Check_Context sem_ctx = NewSemanticCheckContext(ast, open_file, ctx);
-
-    Check(&sem_ctx);
-    if (HasError(ctx))
-    {
-        FreeSemanticCheckContext(&sem_ctx);
-        ctx->result = RES_FAIL_SemanticCheck;
-        return false;
-    }
-
-    FreeSemanticCheckContext(&sem_ctx);
-
-    if (ctx->options.stop_after == CP_Checking)
-    {
-        ctx->result = RES_OK;
-        return true;
-    }
-
     ctx->result = RES_OK;
     return true;
 }

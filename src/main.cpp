@@ -51,6 +51,7 @@ static const char *diag_args[] = {
 };
 
 static const char *profile_args[] = {
+    "time",
     "instrcount",
     nullptr
 };
@@ -58,8 +59,8 @@ static const char *profile_args[] = {
 static const Arg_Option options[] = {
     {"output", 'o', nullptr, nullptr, "Sets the output filename", "filename", nullptr},
     {"target", 'T', nullptr, nullptr, "Sets the output target", "target", target_args},
-    {"diagnostic", 'd', diag_args, "MAiR", "Selects the diagnostic options", nullptr, nullptr},
-    {"profile", 'p', profile_args, "i", "Selects profiling options", nullptr, nullptr},
+    {"diagnostic", 'd', diag_args, "MAIR", "Selects the diagnostic options", nullptr, nullptr},
+    {"profile", 'p', profile_args, "ti", "Selects profiling options", nullptr, nullptr},
     {"help", 'h', nullptr, nullptr, "Shows this help and exits", nullptr, nullptr},
     {"version", 'v', nullptr, nullptr, "Prints the version information", nullptr, nullptr},
     { }
@@ -106,7 +107,7 @@ static int ParseDiagnosticOption(Arg_Option_Result option_result, Compiler_Optio
                 case 'A':
                     options->debug_ast = true;
                     break;
-                case 'i':
+                case 'I':
                     options->debug_ir = true;
                     break;
                 case 'R':
@@ -150,6 +151,9 @@ static int ParseProfilingOption(Arg_Option_Result option_result, Compiler_Option
         {
             switch (p[0])
             {
+                case 't':
+                    options->profile_time = true;
+                    break;
                 case 'i':
                     options->profile_instr_count = true;
                     break;
@@ -164,7 +168,9 @@ static int ParseProfilingOption(Arg_Option_Result option_result, Compiler_Option
     else if (option_result.arg)
     {
         const char *arg = option_result.arg;
-        if (strcmp(arg, "instrcount") == 0)
+        if (strcmp(arg, "time") == 0)
+            options->profile_time = true;
+        else if (strcmp(arg, "instrcount") == 0)
             options->profile_instr_count = true;
         else
         {
