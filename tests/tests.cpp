@@ -9,6 +9,7 @@
 #include <cinttypes>
 #include <cstdlib> // for WIFEXITED etc.
 
+#define NO_CRASH_TESTS
 
 FILE *nulldev;
 FILE *outfile;
@@ -120,6 +121,7 @@ struct Execute_Test
     s32 expected_exit_code;
 };
 
+#ifndef NO_CRASH_TESTS
 static Crash_Test crash_tests[] = {
     { "tests/crash/id-000000,sig-11,src-000000,op-flip1,pos-43" },
     { "tests/crash/id-000001,sig-11,src-000000,op-flip1,pos-43" },
@@ -345,6 +347,7 @@ static Crash_Test crash_tests[] = {
     { "tests/crash/id-000221,sig-11,src-000003,op-int8,pos-767,val-+0" },
     { "tests/crash/id-000222,sig-11,src-000003,op-int8,pos-768,val-+0" },
 };
+#endif
 
 static Fail_Test fail_tests[] = {
     //          stop after      test source                                             expected fail location {line, column}
@@ -747,10 +750,12 @@ int main(int argc, char **argv)
     total_tests += array_length(exec_tests);
 
     s64 failed_tests = 0;
+#ifndef NO_CRASH_TESTS
     for (const Crash_Test &test : crash_tests)
     {
         failed_tests += RunTest(test) ? 0 : 1;
     }
+#endif
     for (const Fail_Test &test : fail_tests)
     {
         failed_tests += RunTest(test) ? 0 : 1;

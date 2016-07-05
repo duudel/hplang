@@ -18,8 +18,8 @@ typedef float   f32;
 typedef double  f64;
 
 
-void* hp_alloc(s64 size) { return malloc(size); }
-void hp_free(void *ptr) { free(ptr); }
+void* alloc(s64 size) { return malloc(size); }
+//void hp_free(void *ptr) { free(ptr); }
 
 
 FILE* hp_get_stdout() { return stdout; }

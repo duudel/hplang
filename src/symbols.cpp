@@ -451,10 +451,17 @@ static void AddBuiltinTypes(Environment *env)
 
 static void AddBuiltinFunctions(Environment *env)
 {
+    Type *void_type = GetBuiltinType(TYP_void);
+
     Type *hp_alloc_type = PushFunctionType(env, TYP_Function, 1);
-    hp_alloc_type->function_type.return_type = GetPointerType(env, GetBuiltinType(TYP_void));
+    hp_alloc_type->function_type.return_type = GetPointerType(env, void_type);
     hp_alloc_type->function_type.parameter_types[0] = GetBuiltinType(TYP_s64);
-    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "hp_alloc"), hp_alloc_type, NoFileLocation());
+    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "alloc"), hp_alloc_type, NoFileLocation());
+
+    Type *hp_free_type = PushFunctionType(env, TYP_Function, 1);
+    hp_free_type->function_type.return_type = void_type;
+    hp_free_type->function_type.parameter_types[0] = GetPointerType(env, void_type);
+    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "free"), hp_free_type, NoFileLocation());
 
     Type *c_exit_type = PushFunctionType(env, TYP_Function, 1);
     c_exit_type->function_type.return_type = GetBuiltinType(TYP_void);

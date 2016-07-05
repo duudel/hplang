@@ -105,7 +105,7 @@ init_bodies :: ()
     //bodies = alloc(Body, BODY_COUNT);
 
     size_of_Body := 8 * 7;
-    bodies = hp_alloc(BODY_COUNT * size_of_Body) -> Body*;
+    bodies = alloc(BODY_COUNT * size_of_Body) -> Body*;
     //bodies = hp_alloc(BODY_COUNT * size_of(Body)) -> Body*;
     //bodies = hp_alloc(BODY_COUNT * Body.size) -> Body*;
 
