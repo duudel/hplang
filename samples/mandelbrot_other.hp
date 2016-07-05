@@ -42,7 +42,7 @@ main :: ()
     //w = h = 1600;
 
     data_size := (w * h >> 3) + h;
-    data := hp_alloc(data_size) -> u8*;
+    data := alloc(data_size) -> u8*;
     datap := data;
 
     print(w); print(" "); println(h);

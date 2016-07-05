@@ -250,14 +250,12 @@ static void ErrorInvalidSubscriptOf(Sem_Check_Context *ctx,
 static b32 CheckTypeCoercion(Type *from, Type *to)
 {
     if (from == to) return true;
-    //if (!from || !to) return false;
-    //if (!from || !to) return true; // To suppress extra errors after type error
     switch (from->tag)
     {
         default: break;
         case TYP_none:
-            INVALID_CODE_PATH;
-            return false;
+            // There already was an error, let's be quiet about extranous errors.
+            return true;
 
         case TYP_pending:
             if (from->base_type)

@@ -434,7 +434,7 @@ b32 RunTest(const Crash_Test &test)
     b32 failed = false;
     Compiler_Context compiler_ctx = NewCompilerContext();
     compiler_ctx.options.stop_after = CP_Checking;
-    
+
     Open_File *file = OpenFile(&compiler_ctx, test.source_filename);
     if (file)
     {

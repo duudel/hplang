@@ -8,7 +8,7 @@ Cons :: struct
 
 cons :: (car : s64, cdr : Cons*)
 {
-    rv := hp_alloc(16) -> Cons*;
+    rv := alloc(16) -> Cons*;
     rv.car = car;
     rv.cdr = cdr;
     return rv;
