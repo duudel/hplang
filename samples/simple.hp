@@ -36,7 +36,7 @@ main :: ()
     println(s.size);
     println(s);
 
-    data := hp_alloc(16) -> char*;
+    data := alloc(16) -> char*;
     data[0] = 'a';
     data[1] = '\0';
     hp_fwrite(stdout, 1, data -> u8*);

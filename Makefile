@@ -40,14 +40,13 @@ run:
 	@#-./$(EXENAME) -dIR -pi -o out samples/fibo.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o samples/beer samples/beer.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o samples/factorial samples/factorial.hp 2> stderr.out
-	@#-./$(EXENAME) -dR tests/difficult_rt_infer.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/arg_passing.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/continue2.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/nbody.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/and_or.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out -pi tests/exec/bitshift.hp 2> stderr.out
-	@#-./$(EXENAME) -dRI samples/simple.hp 2> stderr.out
+	./$(EXENAME) -dRI -o out samples/simple.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out samples/fibo.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out samples/test.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out samples/nbody.hp 2> stderr.out
@@ -56,7 +55,7 @@ run:
 	@#-./$(EXENAME) -dRI -o out tests/exec/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/reg_alloc.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/pointer_arith.hp 2> stderr.out
-	-./$(EXENAME) -dIR -pit -o out samples/cons.hp 2> stderr.out
+	@#-./$(EXENAME) -dIR -pit -o out samples/cons.hp 2> stderr.out
 	@#./out.exe
 
 
