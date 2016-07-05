@@ -2221,10 +2221,11 @@ static void CollectLabelInstructions(Codegen_Context *ctx, Routine *routine)
         {
             Instruction *next_instr = nullptr;
             s64 next_i = -1;
+            // TODO(henrik): No loop needed. Just use the next instruction.
             for (s64 n = i + 1; n < routine->instructions.count; n++)
             {
                 Instruction *next = routine->instructions[n];
-                if ((Amd64_Opcode)next->opcode != OP_LABEL)
+                //if ((Amd64_Opcode)next->opcode != OP_LABEL)
                 {
                     next_instr = next;
                     next_i = n;
@@ -2493,11 +2494,11 @@ static void ComputeLiveness(Codegen_Context *ctx,
                 if (li->instr)
                 {
                     s64 label_instr_i = li->instr_index;
-                    while (label_instr_i < instructions.count &&
-                        (Amd64_Opcode)instructions[label_instr_i]->opcode == OP_LABEL)
-                    {
-                        label_instr_i++;
-                    }
+                    //while (label_instr_i < instructions.count &&
+                    //    (Amd64_Opcode)instructions[label_instr_i]->opcode == OP_LABEL)
+                    //{
+                    //    label_instr_i++;
+                    //}
                     if (label_instr_i < live_sets.count)
                         changed |= SetUnion(live_sets[i].live_out, live_sets[label_instr_i].live_in);
                 }
@@ -2760,8 +2761,9 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
         Array<Live_Interval> &live_intervals,
         Array<Cfg_Edge> &cfg_edges)
 {
-    FILE *dbgout = stderr;
+    FILE *dbgout = stdout;
 
+#if 0
     RA_DEBUG(ctx,
     {
         PrintName((IoFile*)dbgout, ctx->current_routine->name);
@@ -2777,6 +2779,7 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                     (interval.is_spilled) ? "(spilled)" : "");
         }
     })
+#endif
 
     s64 iters = 0;
     for (s64 ei = 0; ei < cfg_edges.count; ei++)
@@ -2807,7 +2810,9 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                             if (li.reg != lj.reg)
                             {
                                 index = j;
-                                //fprintf(dbgout, "regs NOT same at %d!\n", edge.instr_index);
+                                PrintName((IoFile*)dbgout, li.name);
+                                fprintf(dbgout, " -- regs NOT same at %d -> %d!\n",
+                                        edge.instr_index, edge.branch_instr_index);
                             }
                             //else
                             //    fprintf(dbgout, "regs same at %d!\n", edge.instr_index);
@@ -2853,19 +2858,46 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                         }
                     }
                 }
+                if (edge.falls_through) //&& active_index != -1)
+                {
+                    Live_Interval spill = (active_index == -1) ? interval : live_intervals[active_index];
+                    Spill(ctx->reg_alloc, spill, edge.instr_index, 0, "consistency (used in fall thru)");
+                }
                 // If the register was in use..
                 if (active_index != -1)
                 {
                     // ..use spilling to make sure that no value is
                     // overwritten.
-                    Spill(ctx->reg_alloc, li, edge.instr_index, 0, "consistency");
-                    li.reg = interval.reg;
-                    Unspill(ctx->reg_alloc, li, edge.instr_index, 1, "consistency");
+                    Live_Interval spill = li;
+                    Spill(ctx->reg_alloc, spill, edge.instr_index, 0, "consistency");
+                    spill.reg = interval.reg;
+                    Unspill(ctx->reg_alloc, spill, edge.instr_index, 1, "consistency");
                 }
                 else
                 {
                     // Otherwise we can do just a straight copy.
                     Move(ctx->reg_alloc, li, interval.reg, edge.instr_index, "consistency");
+                }
+                if (edge.falls_through)
+                {
+                    if (active_index != -1)
+                    {
+                        Live_Interval spill = li;
+                        spill.reg = interval.reg;
+                        Spill(ctx->reg_alloc, spill, edge.instr_index + 1, 0, "consistency (fall thru)");
+                        spill.reg = li.reg;
+                        Unspill(ctx->reg_alloc, spill, edge.instr_index + 1, 1, "consistency (fall thru)");
+                    }
+                    else
+                    {
+                        Move(ctx->reg_alloc, interval, li.reg, edge.instr_index + 1, "consistency (fall thru)");
+                    }
+                    //if (active_index != -1)
+                    {
+                        Live_Interval spill = (active_index == -1) ? interval : live_intervals[active_index];
+                        Unspill(ctx->reg_alloc, spill, edge.instr_index + 1, 1, "consistency (used in fall thru)");
+                        //Unspill(ctx->reg_alloc, spill, edge.instr_index + 1, 0, "consistency (used in fall thru)");
+                    }
                 }
             }
             else if (li.start <= edge.branch_instr_index &&
@@ -2894,7 +2926,7 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                         iters++;
                         if (edge.intervals[ii] == li.name)
                         {
-                            PrintName((IoFile*)dbgout, li.name);
+                            //PrintName((IoFile*)dbgout, li.name);
                             //fprintf(dbgout, "; no active interval at %d; must have been spilled!\n", edge.instr_index);
                             Unspill(ctx->reg_alloc, li, edge.instr_index, 1, "consistency");
                             break;
@@ -3089,7 +3121,7 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
         {
             fprintf(stderr, "Spilled ");
             PrintName((IoFile*)stderr, spill.name);
-            fprintf(stderr, " in reg %s at instr %d\n",
+            fprintf(stderr, " in reg %s at instr %d",
                     GetRegNameStr(spill.reg), interval.start);
 
             s64 offs = GetLocalOffset(ctx, spill.name, spill.data_type);
@@ -3244,50 +3276,32 @@ static void ScanInstruction(Codegen_Context *ctx, Routine *routine,
     }
     else if ((Amd64_Opcode)instr->opcode == OP_SPILL)
     {
+        Name oper_name = GetOperName(instr->oper1);
         for (s64 i = 0; i < active.count; i++)
         {
             Live_Interval interval = active[i];
-            Name oper_name = GetOperName(instr->oper1);
             if (interval.name == oper_name)
             {
-                Spill(reg_alloc, interval, instr_i);
+#if 0
+                Spill(reg_alloc, interval, instr_i, 1, "SPILL");
                 array::Erase(active, i);
                 ReleaseRegister(reg_alloc, interval.reg, interval.data_type);
                 break;
+#else
+                array::Erase(routine->instructions, instr_i);
+                s64 offs = GetLocalOffset(ctx, interval.name, interval.data_type);
+                InsertLoad(ctx, routine->instructions, instr_i,
+                    BaseOffsetOperand(REG_rbp, offs, interval.data_type, AF_Write),
+                    RegOperand(interval.reg, interval.data_type, AF_Read));
+                array::Erase(active, i);
+                ReleaseRegister(reg_alloc, interval.reg, interval.data_type);
+                return;
+#endif
             }
         }
-        instr->opcode = (Opcode)OP_nop;
-        instr->oper1 = NoneOperand();
+        MakeNop(instr);
+        return;
     }
-#if 0
-    else if ((instr->flags & IF_Branch) != 0)
-    {
-        for (s64 i = 0; i < active.count; i++)
-        {
-            if (active[i].is_fixed) continue;
-            if (active[i].is_spilled) continue;
-            Spill(reg_alloc, active[i], instr_i);
-        }
-    }
-    else if ((Amd64_Opcode)instr->opcode == OP_LABEL)
-    {
-        Instruction *prev_instr = (instr_i > 0) ?
-            routine->instructions[instr_i-1] : nullptr;
-        if (prev_instr && (prev_instr->flags & IF_FallsThrough) != 0)
-        for (s64 i = 0; i < active.count; i++)
-        {
-            if (active[i].is_fixed) continue;
-            if (active[i].is_spilled) continue;
-            Spill(reg_alloc, active[i], instr_i);
-        }
-        for (s64 i = 0; i < active.count; i++)
-        {
-            if (active[i].is_fixed) continue;
-            if (active[i].is_spilled) continue;
-            Unspill(reg_alloc, active[i], instr_i+1);
-        }
-    }
-#endif
     SetOperand(ctx, active, &instr->oper1, instr_i);
     SetOperand(ctx, active, &instr->oper2, instr_i);
     SetOperand(ctx, active, &instr->oper3, instr_i);

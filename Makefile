@@ -46,12 +46,12 @@ run:
 	@#-./$(EXENAME) -dIR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/and_or.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out -pi tests/exec/bitshift.hp 2> stderr.out
-	./$(EXENAME) -dRI -o out samples/simple.hp 2> stderr.out
+	@#./$(EXENAME) -dRI -o out samples/simple.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out samples/fibo.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out samples/test.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out samples/nbody.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -pi -o out samples/mandelbrot.hp 2> stderr.out
-	@#-./$(EXENAME) -dRI -pi -o out_ samples/mandelbrot_other.hp 2> stderr.out
+	-./$(EXENAME) -dRI -pi -o out_ samples/mandelbrot_other.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out tests/exec/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/reg_alloc.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/pointer_arith.hp 2> stderr.out

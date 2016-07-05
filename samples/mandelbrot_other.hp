@@ -74,7 +74,6 @@ main :: ()
             {
                 putc(byte_acc, &datap);
                 //datap += 1;
-                //byte_acc = 0 -> u8;
                 byte_acc = 0u;
                 bit_num = 0;
             }
@@ -84,7 +83,6 @@ main :: ()
                 //byte_acc <<= (8 - w % 8);
                 putc(byte_acc, &datap);
                 //datap += 1;
-                //byte_acc = 0 -> u8;
                 byte_acc = 0u;
                 bit_num = 0;
             }
