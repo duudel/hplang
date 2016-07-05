@@ -204,7 +204,7 @@ static void ErrorDeclaredEarlierAs(Sem_Check_Context *ctx,
 }
 
 static void ErrorVariableInitType(Sem_Check_Context *ctx,
-        File_Location file_loc, Ast_Variable_Decl_Names *names, 
+        File_Location file_loc, Ast_Variable_Decl_Names *names,
         Type *var_type, Type *init_type)
 {
     Error_Context *err_ctx = &ctx->comp_ctx->error_ctx;
@@ -784,33 +784,53 @@ static Type* CheckSubscriptExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Ty
     Type *base_type = CheckExpr(ctx, base_expr, &base_vt);
     Type *index_type = CheckExpr(ctx, index_expr, &index_vt);
 
-    *vt = VT_Assignable;
-    if (!TypeIsIntegral(index_type))
+    Type *none_type = GetBuiltinType(TYP_none);
+    Type *result_type = nullptr;
+
+    if (!TypeIsNone(index_type))
     {
-        Error(ctx, expr->file_loc, "Invalid non-integral subscript operand");
-        return GetBuiltinType(TYP_none);
+        *vt = VT_Assignable;
+        if (!TypeIsIntegral(index_type))
+        {
+            Error(ctx, expr->file_loc, "Invalid non-integral subscript operand");
+            result_type = none_type;
+        }
     }
-    if (TypeIsNull(base_type))
+    else
     {
-        Error(ctx, expr->file_loc, "Invalid subscript of null");
-        return GetBuiltinType(TYP_none);
+        result_type = none_type;
     }
-    if (TypeIsPointer(base_type))
+    if (!TypeIsNone(base_type))
     {
-        return base_type->base_type;
+        if (TypeIsNull(base_type))
+        {
+            Error(ctx, expr->file_loc, "Invalid subscript of null");
+            result_type = none_type;
+        }
+        else if (TypeIsPointer(base_type))
+        {
+            result_type = (!result_type) ? base_type->base_type : result_type;
+        }
+        //else if (TypeIsArray(base_type))
+        //{
+        //    // TODO(henrik): Static array check for negative or too large
+        //    // subscript operands.
+        //    // When implemented, static arrays have a known size.
+        //    // If the subscript operand is a constant, we can catch the error
+        //    // and give an error message.
+        //    return base_type->base_type;
+        //}
+        else
+        {
+            ErrorInvalidSubscriptOf(ctx, expr->file_loc, base_type);
+            result_type = none_type;
+        }
     }
-    //else if (TypeIsArray(base_type))
-    //{
-    //    // TODO(henrik): Static array check for negative or too large
-    //    // subscript operands.
-    //    // When implemented, static arrays have a known size.
-    //    // If the subscript operand is a constant, we can catch the error
-    //    // and give an error message.
-    //    return base_type->base_type;
-    //}
-    ErrorInvalidSubscriptOf(ctx, expr->file_loc, base_type);
-    Error(ctx, expr->file_loc, "Invalid subscript of type");
-    return GetBuiltinType(TYP_none);
+    else
+    {
+        result_type = none_type;
+    }
+    return result_type;
 }
 
 static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
@@ -1824,7 +1844,7 @@ static void CheckVariableDecl(Sem_Check_Context *ctx, Ast_Node *node)
                 ShowLocation(ctx, old_symbol->define_loc, "here:");
             }
         }
-        
+
         Symbol *symbol = AddSymbol(ctx->env, SYM_Variable,
                 names->name, type, names->file_loc);
         symbol->flags |= sym_flags;
@@ -1862,10 +1882,10 @@ static void CheckWhileStatement(Sem_Check_Context *ctx, Ast_Node *node)
 
     if (!TypeIsNone(cond_type) && !TypeIsBoolean(cond_type))
         Error(ctx, cond_expr->file_loc, "While loop condition must be boolean");
-    
+
     ctx->breakables++;
     ctx->continuables++;
-    
+
     CheckStatement(ctx, loop_stmt);
 
     ctx->breakables--;
