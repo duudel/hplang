@@ -2762,7 +2762,7 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
         Array<Cfg_Edge> &cfg_edges)
 {
     PROFILE_SCOPE("CFG edge resolution");
-    FILE *dbgout = stdout;
+    //FILE *dbgout = stdout;
 
 #if 0
     RA_DEBUG(ctx,
@@ -2811,9 +2811,9 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                             if (li.reg != lj.reg)
                             {
                                 index = j;
-                                PrintName((IoFile*)dbgout, li.name);
-                                fprintf(dbgout, " -- regs NOT same at %d -> %d!\n",
-                                        edge.instr_index, edge.branch_instr_index);
+                                //PrintName((IoFile*)dbgout, li.name);
+                                //fprintf(dbgout, " -- regs NOT same at %d -> %d!\n",
+                                //        edge.instr_index, edge.branch_instr_index);
                             }
                             //else
                             //    fprintf(dbgout, "regs same at %d!\n", edge.instr_index);
@@ -2821,25 +2821,8 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                         }
                     }
                 }
-#if 1
                 // No confilicting interval found, continue to next interval.
                 if (index == -1) continue;
-#else
-                // The conflicting interval not found; The interval should not
-                // be found in the branch target intervals.
-                if (index == -1)
-                {
-                    for (s64 ii = 0; ii < edge.branch_intervals.count; ii++)
-                    {
-                        if (edge.branch_intervals[ii] == li.name)
-                        {
-                            PrintName((IoFile*)dbgout, li.name);
-                            fprintf(dbgout, " -- its a branch fluke %d!\n", edge.instr_index);
-                        }
-                    }
-                    continue;
-                }
-#endif
 
                 // Check if there are other intervals using the register at the
                 // branch point.
