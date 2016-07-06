@@ -9,54 +9,35 @@
 namespace hplang
 {
 
-Type builtin_types[] = {
-    // tag,      size, align, union{}, pointer_type
-    {TYP_none,      0, 1, { }, nullptr},
-    {TYP_pending,   0, 1, { }, nullptr},
-    {TYP_null,      0, 1, { }, nullptr},
-    {TYP_pointer,   8, 8, { }, nullptr},
-    {TYP_void,      0, 1, { }, nullptr},
-    {TYP_bool,      1, 1, { }, nullptr},
-    {TYP_char,      1, 1, { }, nullptr},
-    {TYP_u8,        1, 1, { }, nullptr},
-    {TYP_s8,        1, 1, { }, nullptr},
-    {TYP_u16,       2, 2, { }, nullptr},
-    {TYP_s16,       2, 2, { }, nullptr},
-    {TYP_u32,       4, 4, { }, nullptr},
-    {TYP_s32,       4, 4, { }, nullptr},
-    {TYP_u64,       8, 8, { }, nullptr},
-    {TYP_s64,       8, 8, { }, nullptr},
-    {TYP_f32,       4, 4, { }, nullptr},
-    {TYP_f64,       8, 8, { }, nullptr},
-    {TYP_string,    0, 0, { }, nullptr},
-};
-
 struct Type_Info
 {
+    Type_Tag tag;
     Symbol_Type sym_type;
+    u32 size;
+    u32 alignment;
     const char *name;
 };
 
-static Type_Info builtin_type_infos[] = {
-    /*TYP_none,*/       (Type_Info){SYM_PrimitiveType,   "none_type"},
-    /*TYP_pending,*/    (Type_Info){SYM_PrimitiveType,   "pending_type"},
-    /*TYP_null,*/       (Type_Info){SYM_PrimitiveType,   "null_type"},
-    /*TYP_pointer,*/    (Type_Info){SYM_PrimitiveType,   "pointer_type"},
+static const Type_Info builtin_type_infos[] = {
+    {TYP_none,      SYM_PrimitiveType, 0, 1,  "none_type"},
+    {TYP_pending,   SYM_PrimitiveType, 0, 1,  "pending_type"},
+    {TYP_null,      SYM_PrimitiveType, 8, 8,  "null_type"},
+    {TYP_pointer,   SYM_PrimitiveType, 8, 8,  "pointer_type"},
 
-    /*TYP_void,*/       (Type_Info){SYM_PrimitiveType,   "void"},
-    /*TYP_bool,*/       (Type_Info){SYM_PrimitiveType,   "bool"},
-    /*TYP_char,*/       (Type_Info){SYM_PrimitiveType,   "char"},
-    /*TYP_u8,*/         (Type_Info){SYM_PrimitiveType,   "u8"},
-    /*TYP_s8,*/         (Type_Info){SYM_PrimitiveType,   "s8"},
-    /*TYP_u16,*/        (Type_Info){SYM_PrimitiveType,   "u16"},
-    /*TYP_s16,*/        (Type_Info){SYM_PrimitiveType,   "s16"},
-    /*TYP_u32,*/        (Type_Info){SYM_PrimitiveType,   "u32"},
-    /*TYP_s32,*/        (Type_Info){SYM_PrimitiveType,   "s32"},
-    /*TYP_u64,*/        (Type_Info){SYM_PrimitiveType,   "u64"},
-    /*TYP_s64,*/        (Type_Info){SYM_PrimitiveType,   "s64"},
-    /*TYP_f32,*/        (Type_Info){SYM_PrimitiveType,   "f32"},
-    /*TYP_f64,*/        (Type_Info){SYM_PrimitiveType,   "f64"},
-    /*TYP_string,*/     (Type_Info){SYM_Struct,          "string"},
+    {TYP_void,      SYM_PrimitiveType, 0, 1,  "void"},
+    {TYP_bool,      SYM_PrimitiveType, 1, 1,  "bool"},
+    {TYP_char,      SYM_PrimitiveType, 1, 1,  "char"},
+    {TYP_u8,        SYM_PrimitiveType, 1, 1,  "u8"},
+    {TYP_s8,        SYM_PrimitiveType, 1, 1,  "s8"},
+    {TYP_u16,       SYM_PrimitiveType, 2, 2,  "u16"},
+    {TYP_s16,       SYM_PrimitiveType, 2, 2,  "s16"},
+    {TYP_u32,       SYM_PrimitiveType, 4, 4,  "u32"},
+    {TYP_s32,       SYM_PrimitiveType, 4, 4,  "s32"},
+    {TYP_u64,       SYM_PrimitiveType, 8, 8,  "u64"},
+    {TYP_s64,       SYM_PrimitiveType, 8, 8,  "s64"},
+    {TYP_f32,       SYM_PrimitiveType, 4, 4,  "f32"},
+    {TYP_f64,       SYM_PrimitiveType, 8, 8,  "f64"},
+    {TYP_string,    SYM_Struct,        0, 0,  "string"},
 
     /*TYP_Function,*/
     /*TYP_Struct,*/
@@ -193,7 +174,6 @@ b32 TypesEqual(Type *a, Type *b)
     if (TypeIsPending(a)) a = a->base_type;
     if (TypeIsPending(b)) b = b->base_type;
 
-    //if (!a || !b) return false;
     if (a->tag != b->tag) return false;
     switch (a->tag)
     {
@@ -334,10 +314,22 @@ u32 GetAlignedElementSize(Type *type)
     return GetAlignedSize(type->base_type);
 }
 
-Type* GetBuiltinType(Type_Tag tt)
+Type* GetBuiltinType(Environment *env, Type_Tag tag)
 {
-    ASSERT(tt <= TYP_LAST_BUILTIN);
-    return &builtin_types[tt];
+    ASSERT(tag <= TYP_LAST_BUILTIN);
+    return env->builtin_types[tag];
+}
+
+Type* GetPointerType(Environment *env, Type *base_type)
+{
+    Type *pointer_type = base_type->pointer_type;
+    if (!pointer_type)
+    {
+        pointer_type = PushType(env, TYP_pointer);
+        pointer_type->base_type = base_type;
+        base_type->pointer_type = pointer_type;
+    }
+    return pointer_type;
 }
 
 void PrintFunctionType(IoFile *file, Type *return_type, s64 param_count, Type **param_types)
@@ -414,48 +406,51 @@ b32 SymbolIsIntrinsic(Symbol *symbol)
 
 static void AddBuiltinTypes(Environment *env)
 {
-    ASSERT(array_length(builtin_types) == TYP_LAST_BUILTIN + 1);
+    ASSERT(array_length(builtin_type_infos) == TYP_LAST_BUILTIN + 1);
     for (s64 i = 0;
-             i < array_length(builtin_types);
+             i < array_length(builtin_type_infos);
              i++)
     {
-        Type *type = &builtin_types[i];
-        // TODO(henrik): Cached pointer type could be set by a previous
-        // compiler context, thus making it invalid after the context was freed.
-        // This is just a work around. A better solution is to duplicate
-        // builtin types to the env->arena and make GetBuiltinType take env as
-        // parameter.
+        const Type_Info &type_info = builtin_type_infos[i];
+        ASSERT(type_info.tag == i);
+
+        Name name = PushName(&env->arena, type_info.name);
+
+        Type *type = PushType(env, type_info.tag);
+        type->size = type_info.size;
+        type->alignment = type_info.alignment;
         type->pointer_type = nullptr;
-        const Type_Info &info = builtin_type_infos[i];
-        Name name = PushName(&env->arena, info.name);
-        if (info.sym_type == SYM_PrimitiveType)
+
+        if (type_info.sym_type == SYM_PrimitiveType)
             type->type_name = name;
-        else if (info.sym_type == SYM_Struct)
+        else if (type_info.sym_type == SYM_Struct)
             type->struct_type.name = name;
 
-        if (i >= TYP_FIRST_BUILTIN_SYM)
-            AddSymbol(env, info.sym_type, name, type, NoFileLocation());
+        env->builtin_types[type_info.tag] = type;
+
+        if (type_info.tag >= TYP_FIRST_BUILTIN_SYM)
+            AddSymbol(env, type_info.sym_type, name, type, NoFileLocation());
     }
-    Type *string_type = GetBuiltinType(TYP_string);
+    Type *string_type = GetBuiltinType(env, TYP_string);
     Struct_Member *members = PushArray<Struct_Member>(&env->arena, 2);
     string_type->struct_type.member_count = 2;
     string_type->struct_type.members = members;
 
     members[0].name = PushName(&env->arena, "size");
-    members[0].type = GetBuiltinType(TYP_s64);
+    members[0].type = GetBuiltinType(env, TYP_s64);
     members[0].offset = 0;
     members[1].name = PushName(&env->arena, "data");
-    members[1].type = GetPointerType(env, GetBuiltinType(TYP_char));
+    members[1].type = GetPointerType(env, GetBuiltinType(env, TYP_char));
     members[1].offset = 8;
 }
 
 static void AddBuiltinFunctions(Environment *env)
 {
-    Type *void_type = GetBuiltinType(TYP_void);
+    Type *void_type = GetBuiltinType(env, TYP_void);
 
     Type *hp_alloc_type = PushFunctionType(env, TYP_Function, 1);
     hp_alloc_type->function_type.return_type = GetPointerType(env, void_type);
-    hp_alloc_type->function_type.parameter_types[0] = GetBuiltinType(TYP_s64);
+    hp_alloc_type->function_type.parameter_types[0] = GetBuiltinType(env, TYP_s64);
     AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "alloc"), hp_alloc_type, NoFileLocation());
 
     Type *hp_free_type = PushFunctionType(env, TYP_Function, 1);
@@ -464,14 +459,14 @@ static void AddBuiltinFunctions(Environment *env)
     AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "free"), hp_free_type, NoFileLocation());
 
     Type *c_exit_type = PushFunctionType(env, TYP_Function, 1);
-    c_exit_type->function_type.return_type = GetBuiltinType(TYP_void);
-    c_exit_type->function_type.parameter_types[0] = GetBuiltinType(TYP_s32);
+    c_exit_type->function_type.return_type = void_type;
+    c_exit_type->function_type.parameter_types[0] = GetBuiltinType(env, TYP_s32);
     AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "exit"), c_exit_type, NoFileLocation());
 
     Name sqrt_name = PushName(&env->arena, "sqrt");
     Type *sqrt_f64_type = PushFunctionType(env, TYP_Function, 1);
-    sqrt_f64_type->function_type.return_type = GetBuiltinType(TYP_f64);
-    sqrt_f64_type->function_type.parameter_types[0] = GetBuiltinType(TYP_f64);
+    sqrt_f64_type->function_type.return_type = GetBuiltinType(env, TYP_f64);
+    sqrt_f64_type->function_type.parameter_types[0] = GetBuiltinType(env, TYP_f64);
     Symbol *sqrt_sym = AddFunction(env, sqrt_name, sqrt_f64_type, NoFileLocation());
     sqrt_sym->flags = SYMF_Intrinsic;
 }
@@ -521,7 +516,7 @@ void OpenScope(Environment *env)
     *scope = { };
     array::Resize(scope->table, INITIAL_SYM_TABLE_SIZE);
 
-    scope->scope_id = env->scope_id++;
+    scope->scope_id = env->next_scope_id++;
     scope->parent = env->current;
     if (env->current)
     {
@@ -567,7 +562,7 @@ Type* CloseFunctionScope(Environment *env)
         // were encountered.
         if (env->current->return_stmt_count == 0)
         {
-            InferReturnType(env, GetBuiltinType(TYP_void), nullptr);
+            InferReturnType(env, GetBuiltinType(env, TYP_void), nullptr);
         }
     }
 
@@ -622,18 +617,6 @@ Type* PushFunctionType(Environment *env, Type_Tag tag, s64 param_count)
     else
         ftype->function_type.parameter_types = nullptr;
     return ftype;
-}
-
-Type* GetPointerType(Environment *env, Type *base_type)
-{
-    Type *pointer_type = base_type->pointer_type;
-    if (!pointer_type)
-    {
-        pointer_type = PushType(env, TYP_pointer);
-        pointer_type->base_type = base_type;
-        base_type->pointer_type = pointer_type;
-    }
-    return pointer_type;
 }
 
 static void PutHash(Array<Symbol*> &arr, Name name, Symbol *symbol);

@@ -766,9 +766,9 @@ static Operand IrOperand(Codegen_Context *ctx,
             {
                 case TYP_none:
                 case TYP_pending:
-                case TYP_null:
                     INVALID_CODE_PATH;
                     break;
+                case TYP_null:
                 case TYP_pointer:
                     return ImmOperand(ir_oper->imm_ptr, access_flags);
                 case TYP_bool:
@@ -3069,7 +3069,6 @@ static void SpillAtInterval(Codegen_Context *ctx, Interval_Sets &is, Live_Interv
     }
     else
     {
-        //Spill(ctx->reg_alloc, spill, interval.start, 0, "at interval");
         GetLocalOffset(ctx, interval.name, interval.data_type);
 
         if (interval.next)
@@ -3401,7 +3400,10 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
     ScanInstructions(ctx, routine, is,
             last_interval_start, last_interval_end);
 
-    // TODO(henrik): Implement this more cleanly.
+    // Scan through physical registers that are callee saves and have been used
+    // in this routine.  Add stores and loads for them in the prologue and
+    // epilogue.
+    // TODO(henrik): Add a way to iterate callee saves directly.
     for (s64 i = REG_NONE + 1; i < REG_COUNT; i++)
     {
         Reg reg = { (u8)i };

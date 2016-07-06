@@ -43,10 +43,10 @@ run:
 	@#-./$(EXENAME) -dIR -o out tests/exec/arg_passing.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/continue2.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/nbody.hp 2> stderr.out
-	-./$(EXENAME) -dIR tests/exec/reg_pressure.hp 2> stderr.out
+	@#-./$(EXENAME) -dIR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/and_or.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out -pi tests/exec/bitshift.hp 2> stderr.out
-	@#./$(EXENAME) -dRI -o out samples/simple.hp 2> stderr.out
+	@#-./$(EXENAME) -dRI -o out samples/simple.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out samples/fibo.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out samples/test.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out samples/nbody.hp 2> stderr.out
@@ -54,8 +54,8 @@ run:
 	@#-./$(EXENAME) -dRI -pi -o out_ samples/mandelbrot_other.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out tests/exec/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/reg_alloc.hp 2> stderr.out
-	@#-./$(EXENAME) -dIR -o out tests/pointer_arith.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -pit -o out samples/cons.hp 2> stderr.out
+	-./$(EXENAME) -dIR -o out tests/sem_check_fail/dup_variable.hp 2> stderr.out
 	@#./out.exe
 
 

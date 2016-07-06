@@ -82,6 +82,7 @@ static const char *ir_opcode_names[] = {
 Ir_Gen_Context NewIrGenContext(Compiler_Context *comp_ctx)
 {
     Ir_Gen_Context result = { };
+    result.env = &comp_ctx->env;
     result.comp_ctx = comp_ctx;
     return result;
 }
@@ -129,23 +130,25 @@ static Ir_Operand NoneOperand()
     return oper;
 }
 
-static Ir_Operand NewImmediateNull(Ir_Routine *routine)
+static Ir_Operand NewImmediateNull(Ir_Routine *routine, Type *type)
 {
     (void)routine;
+    ASSERT(type->tag == TYP_null);
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Immediate;
-    oper.type = GetBuiltinType(TYP_pointer);
+    oper.type = type;
     oper.imm_ptr = nullptr;
     return oper;
 }
 
 #define IR_IMM(t, typ, member)\
-static Ir_Operand NewImmediate(Ir_Routine *routine, t value)\
+static Ir_Operand NewImmediate(Ir_Routine *routine, t value, Type *type)\
 {\
     (void)routine;\
+    /*ASSERT(type->tag == typ);*/\
     Ir_Operand oper = { };\
     oper.oper_type = IR_OPER_Immediate;\
-    oper.type = GetBuiltinType(typ);\
+    oper.type = type;\
     oper.member = value;\
     return oper;\
 }
@@ -186,12 +189,12 @@ static Ir_Operand NewImmediateInt(Ir_Routine *routine, u64 value, Type *type)
     return oper;
 }
 
-static Ir_Operand NewImmediateOffset(Ir_Routine *routine, s64 value)
+static Ir_Operand NewImmediateOffset(Environment *env, Ir_Routine *routine, s64 value)
 {
     (void)routine;
     Ir_Operand oper = { };
     oper.oper_type = IR_OPER_Immediate;
-    oper.type = GetBuiltinType(TYP_s64);
+    oper.type = GetBuiltinType(env, TYP_s64);
     oper.imm_s64 = value;
     return oper;
 }
@@ -585,7 +588,7 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
     base_res.type = base_res.type->base_type;
     Ir_Operand member_res = NewTemp(ctx, routine, member_type);
-    Ir_Operand member_offs = NewImmediateOffset(routine, member_index);
+    Ir_Operand member_offs = NewImmediateOffset(ctx->env, routine, member_index);
     PushInstruction(ctx, routine, IR_MovMember, member_res, base_res, member_offs);
     return member_res;
 }
@@ -612,8 +615,8 @@ static Ir_Operand GenRefAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
 
     Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
     base_res.type = base_res.type->base_type;
-    Ir_Operand member_res = NewTemp(ctx, routine, GetPointerType(&ctx->comp_ctx->env, member_type));
-    Ir_Operand member_offs = NewImmediateOffset(routine, member_index);
+    Ir_Operand member_res = NewTemp(ctx, routine, GetPointerType(ctx->env, member_type));
+    Ir_Operand member_offs = NewImmediateOffset(ctx->env, routine, member_index);
     PushInstruction(ctx, routine, IR_LoadMemberAddr, member_res, base_res, member_offs);
     return member_res;
 }
@@ -644,7 +647,7 @@ static Ir_Operand GenRefSubscriptExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Ro
 
     Ir_Operand base_res = GenExpression(ctx, base_expr, routine);
     Ir_Operand index_res = GenExpression(ctx, index_expr, routine);
-    Ir_Operand elem_res = NewTemp(ctx, routine, GetPointerType(&ctx->comp_ctx->env, expr->expr_type));
+    Ir_Operand elem_res = NewTemp(ctx, routine, GetPointerType(ctx->env, expr->expr_type));
     PushInstruction(ctx, routine, IR_LoadElementAddr, elem_res, base_res, index_res);
     return elem_res;
 }
@@ -1089,7 +1092,7 @@ static Ir_Operand GenVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine
     }
     else if (symbol->sym_type == SYM_Parameter)
     {
-        Type *ref_type = GetPointerType(&ctx->comp_ctx->env, expr->expr_type);
+        Type *ref_type = GetPointerType(ctx->env, expr->expr_type);
         if (TypeIsStruct(expr->expr_type))
             return NewVariableRef(routine, ref_type, name);
         return NewVariableRef(routine, expr->expr_type, name);
@@ -1115,7 +1118,7 @@ static Ir_Operand GenRefVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Rout
     Symbol *symbol = expr->variable_ref.symbol;
     Name name = symbol->unique_name;
 
-    Type *ref_type = GetPointerType(&ctx->comp_ctx->env, expr->expr_type);
+    Type *ref_type = GetPointerType(ctx->env, expr->expr_type);
     if (symbol->sym_type == SYM_Function)
     {
         return NewRoutineRef(routine, ref_type, name);
@@ -1167,30 +1170,21 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
 
         Ir_Operand arg_res = GenExpression(ctx, arg, routine);
 
-#if 0
-        // NOTE(henrik): Struct types are passed as pointer (string literal is a
-        // special case for now).
-        if (TypeIsStruct(arg->expr_type) && arg->type != AST_StringLiteral)
-        {
-            arg_res.type = GetPointerType(&ctx->comp_ctx->env, arg->expr_type);
-        }
-#endif
-
         s64 instr_idx = routine->instructions.count;
         PushInstruction(ctx, routine, IR_Arg, arg_res,
-                NewImmediateOffset(routine, arg_instr_idx));
+                NewImmediateOffset(ctx->env, routine, arg_instr_idx));
         arg_instr_idx = instr_idx;
     }
 
     if (fv_res.oper_type == IR_OPER_ForeignRoutine)
     {
         PushInstruction(ctx, routine, IR_CallForeign, res, fv_res,
-                NewImmediateOffset(routine, arg_instr_idx));
+                NewImmediateOffset(ctx->env, routine, arg_instr_idx));
     }
     else
     {
         PushInstruction(ctx, routine, IR_Call, res, fv_res,
-                NewImmediateOffset(routine, arg_instr_idx));
+                NewImmediateOffset(ctx->env, routine, arg_instr_idx));
     }
 
     return res;
@@ -1201,21 +1195,21 @@ static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     switch (expr->type)
     {
         case AST_Null:
-            return NewImmediateNull(routine);
+            return NewImmediateNull(routine, expr->expr_type);
         case AST_BoolLiteral:
-            return NewImmediate(routine, expr->bool_literal.value);
+            return NewImmediate(routine, expr->bool_literal.value, expr->expr_type);
         case AST_CharLiteral:
-            return NewImmediate(routine, (u8)expr->char_literal.value);
+            return NewImmediate(routine, (u8)expr->char_literal.value, expr->expr_type);
         case AST_IntLiteral:
             return NewImmediateInt(routine, expr->int_literal.value, expr->expr_type);
         case AST_UIntLiteral:
             return NewImmediateInt(routine, expr->int_literal.value, expr->expr_type);
         case AST_Float32Literal:
-            return NewImmediate(routine, expr->float32_literal.value);
+            return NewImmediate(routine, expr->float32_literal.value, expr->expr_type);
         case AST_Float64Literal:
-            return NewImmediate(routine, expr->float64_literal.value);
+            return NewImmediate(routine, expr->float64_literal.value, expr->expr_type);
         case AST_StringLiteral:
-            return NewImmediate(routine, expr->string_literal.value);
+            return NewImmediate(routine, expr->string_literal.value, expr->expr_type);
 
         case AST_VariableRef:
             return GenVariableRef(ctx, expr, routine);
@@ -1239,37 +1233,21 @@ static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
         default:
             INVALID_CODE_PATH;
     }
-    return NewImmediateNull(routine);
+    return NewImmediateNull(routine, nullptr);
 }
 
 static Ir_Operand GenRefExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
     switch (expr->type)
     {
-        //case AST_Null:
-        //    return NewImmediateNull(routine);
-        //case AST_BoolLiteral:
-        //    return NewImmediate(routine, expr->bool_literal.value);
-        //case AST_CharLiteral:
-        //    return NewImmediate(routine, (u8)expr->char_literal.value);
-        //case AST_IntLiteral:
-        //    return NewImmediateInt(routine, expr->int_literal.value, expr->expr_type);
-        //case AST_Float32Literal:
-        //    return NewImmediate(routine, expr->float32_literal.value);
-        //case AST_Float64Literal:
-        //    return NewImmediate(routine, expr->float64_literal.value);
         //case AST_StringLiteral:
         //    return NewImmediate(routine, expr->string_literal.value);
 
         case AST_VariableRef:
             return GenRefVariableRef(ctx, expr, routine);
-        //case AST_FunctionCall:
-        //    return GenFunctionCall(ctx, expr, routine);
 
         case AST_AssignmentExpr:
             return GenRefAssignmentExpr(ctx, expr, routine);
-        //case AST_BinaryExpr:
-        //    return GenBinaryExpr(ctx, expr, routine);
         case AST_UnaryExpr:
             return GenRefUnaryExpr(ctx, expr, routine);
         case AST_TernaryExpr:
@@ -1278,12 +1256,10 @@ static Ir_Operand GenRefExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
             return GenRefAccessExpr(ctx, expr, routine);
         case AST_SubscriptExpr:
             return GenRefSubscriptExpr(ctx, expr, routine);
-        //case AST_TypecastExpr:
-        //    return GenTypecastExpr(ctx, expr, routine);
         default:
             INVALID_CODE_PATH;
     }
-    return NewImmediateNull(routine);
+    return NewImmediateNull(routine, nullptr);
 }
 
 static void GenIr(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routine, bool toplevel = false);
@@ -1336,7 +1312,7 @@ static void GenWhileStmt(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *routin
     PushJump(ctx, routine, IR_Jump, while_start_label);
 
     SetLabelTarget(ctx, routine, while_end_label);
-    
+
     array::Pop(ctx->breakables);
     array::Pop(ctx->continuables);
 }
@@ -1440,7 +1416,7 @@ static void GenVariableDecl(Ir_Gen_Context *ctx, Ast_Node *node, Ir_Routine *rou
     ExtractComment(ctx, node->file_loc);
 
     Ast_Expr *init_expr = node->variable_decl.init_expr;
-    Ir_Operand init_res; 
+    Ir_Operand init_res;
     if (init_expr)
     {
         init_res = GenExpression(ctx, init_expr, routine);

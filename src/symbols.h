@@ -104,8 +104,6 @@ b32 TypeIsStruct(Type *t);
 b32 TypeIsSigned(Type *t);
 b32 TypeIsUnsigned(Type *t);
 
-Type* GetBuiltinType(Type_Tag tt);
-
 void PrintType(IoFile *file, Type *type);
 void PrintFunctionType(IoFile *file, Type *return_type, s64 param_count, Type **param_types);
 
@@ -193,7 +191,9 @@ struct Environment
     Scope *current;
 
     Name main_func_name;
-    s64 scope_id;
+    s64 next_scope_id;
+
+    Type *builtin_types[TYP_LAST_BUILTIN + 1];
 };
 
 Environment NewEnvironment(const char *main_func_name);
@@ -220,7 +220,6 @@ void InferReturnType(Environment *env, Type *return_type, Ast_Node *location);
 Type* PushType(Environment *env, Type_Tag tag);
 Type* PushPendingType(Environment *env);
 Type* PushFunctionType(Environment *env, Type_Tag tag, s64 param_count);
-Type* GetPointerType(Environment *env, Type *base_type);
 
 Symbol* AddSymbol(Environment *env, Symbol_Type sym_type, Name name, Type *type, File_Location define_loc);
 Symbol* AddFunction(Environment *env, Name name, Type *type, File_Location define_loc);
@@ -229,6 +228,9 @@ Symbol* LookupSymbolInCurrentScope(Environment *env, Name name);
 
 b32 SymbolIsGlobal(Symbol *symbol);
 b32 SymbolIsIntrinsic(Symbol *symbol);
+
+Type* GetBuiltinType(Environment *env, Type_Tag tag);
+Type* GetPointerType(Environment *env, Type *base_type);
 
 b32 TypesEqual(Type *a, Type *b);
 

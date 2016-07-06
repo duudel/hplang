@@ -381,7 +381,7 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
                 }
             }
             ErrorSymbolNotTypename(ctx, node, node->type_node.plain.name);
-            return GetBuiltinType(TYP_none);
+            return GetBuiltinType(ctx->env, TYP_none);
         } break;
     case AST_Type_Pointer:
         {
@@ -449,7 +449,7 @@ const u16 MAX_UINT_16 = 0xffffu;
 const u32 MAX_UINT_32 = 0xffffffffu;
 const u64 MAX_UINT_64 = 0xffffffffffffffffu;
 
-static Type* GetSignedIntLiteralType(Ast_Expr *expr, Int_Lit_Info *int_lit_info)
+static Type* GetSignedIntLiteralType(Environment *env, Ast_Expr *expr, Int_Lit_Info *int_lit_info)
 {
     ASSERT(expr->type == AST_IntLiteral);
     if (expr->int_literal.value <= MAX_INT_32)
@@ -457,24 +457,24 @@ static Type* GetSignedIntLiteralType(Ast_Expr *expr, Int_Lit_Info *int_lit_info)
         if (int_lit_info)
         {
             if (expr->int_literal.value <= MAX_INT_8)
-                int_lit_info->type = GetBuiltinType(TYP_s8);
+                int_lit_info->type = GetBuiltinType(env, TYP_s8);
             else if (expr->int_literal.value <= MAX_INT_16)
-                int_lit_info->type = GetBuiltinType(TYP_s16);
+                int_lit_info->type = GetBuiltinType(env, TYP_s16);
             else
-                int_lit_info->type = GetBuiltinType(TYP_s32);
+                int_lit_info->type = GetBuiltinType(env, TYP_s32);
         }
-        return GetBuiltinType(TYP_s32);
+        return GetBuiltinType(env, TYP_s32);
     }
     if (expr->int_literal.value <= MAX_INT_64)
     {
-        if (int_lit_info) int_lit_info->type = GetBuiltinType(TYP_s64);
+        if (int_lit_info) int_lit_info->type = GetBuiltinType(env, TYP_s64);
         return int_lit_info->type;
     }
-    if (int_lit_info) int_lit_info->type = GetBuiltinType(TYP_u64);
+    if (int_lit_info) int_lit_info->type = GetBuiltinType(env, TYP_u64);
     return int_lit_info->type;
 }
 
-static Type* GetUnsignedIntLiteralType(Ast_Expr *expr, Int_Lit_Info *int_lit_info)
+static Type* GetUnsignedIntLiteralType(Environment *env, Ast_Expr *expr, Int_Lit_Info *int_lit_info)
 {
     ASSERT(expr->type == AST_UIntLiteral);
     if (expr->int_literal.value <= MAX_UINT_32)
@@ -482,16 +482,16 @@ static Type* GetUnsignedIntLiteralType(Ast_Expr *expr, Int_Lit_Info *int_lit_inf
         if (int_lit_info)
         {
             if (expr->int_literal.value <= MAX_UINT_8)
-                int_lit_info->type = GetBuiltinType(TYP_u8);
+                int_lit_info->type = GetBuiltinType(env, TYP_u8);
             else if (expr->int_literal.value <= MAX_UINT_16)
-                int_lit_info->type = GetBuiltinType(TYP_u16);
+                int_lit_info->type = GetBuiltinType(env, TYP_u16);
             else
-                int_lit_info->type = GetBuiltinType(TYP_u32);
+                int_lit_info->type = GetBuiltinType(env, TYP_u32);
         }
-        return GetBuiltinType(TYP_u32);
+        return GetBuiltinType(env, TYP_u32);
     }
-    if (int_lit_info) int_lit_info->type = GetBuiltinType(TYP_u64);
-    return GetBuiltinType(TYP_u64);
+    if (int_lit_info) int_lit_info->type = GetBuiltinType(env, TYP_u64);
+    return GetBuiltinType(env, TYP_u64);
 }
 
 
@@ -592,7 +592,7 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
         args_have_none_type ||
         TypeIsNone(fexpr_type))
     {
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
     }
 
     if (fexpr_type->tag == TYP_Function)
@@ -627,7 +627,7 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
                 {
                     ErrorFuncCallNoOverload(ctx, expr->file_loc,
                             func_name, arg_count, arg_types);
-                    return GetBuiltinType(TYP_none);
+                    return GetBuiltinType(ctx->env, TYP_none);
                 }
                 else if (ambiguous)
                 {
@@ -651,7 +651,7 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
                 {
                     // TODO(henrik): Improve this error message
                     Error(ctx, expr->file_loc, "Calling with invalid arguments");
-                    return GetBuiltinType(TYP_none);
+                    return GetBuiltinType(ctx->env, TYP_none);
                 }
                 return func->type->function_type.return_type;
             }
@@ -663,13 +663,13 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
             {
                 // TODO(henrik): Improve this error message
                 Error(ctx, expr->file_loc, "Calling with invalid arguments");
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             return fexpr_type->function_type.return_type;
         }
     }
     ErrorNotCallable(ctx, fexpr->file_loc, fexpr_type);
-    return GetBuiltinType(TYP_none);
+    return GetBuiltinType(ctx->env, TYP_none);
 }
 
 static Type* CheckVariableRef(Sem_Check_Context *ctx, Ast_Expr *expr)
@@ -678,7 +678,7 @@ static Type* CheckVariableRef(Sem_Check_Context *ctx, Ast_Expr *expr)
     if (!symbol)
     {
         ErrorUndefinedReference(ctx, expr->file_loc, expr->variable_ref.name);
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
     }
     expr->variable_ref.symbol = symbol;
     return symbol->type;
@@ -706,7 +706,7 @@ static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Typ
     *vt = VT_NonAssignable;
 
     if (TypeIsNone(oper_type) || TypeIsNone(to_type))
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
 
     if (TypeIsPointer(oper_type) && TypeIsPointer(to_type))
         return to_type;
@@ -718,7 +718,7 @@ static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Typ
         return to_type;
 
     ErrorTypecast(ctx, expr->file_loc, oper_type, to_type);
-    return GetBuiltinType(TYP_none);
+    return GetBuiltinType(ctx->env, TYP_none);
 }
 
 // TODO: Implement module.member
@@ -737,7 +737,7 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
     if (TypeIsNull(base_type))
     {
         Error(ctx, expr->file_loc, "Trying to access null with operator .");
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
     }
 
     if (TypeIsPointer(base_type))
@@ -748,12 +748,12 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
     if (!TypeIsStruct(base_type) && !TypeIsString(base_type))
     {
         Error(ctx, expr->file_loc, "Left hand side of operator . must be a struct or module");
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
     }
     if (member_expr->type != AST_VariableRef)
     {
         Error(ctx, expr->file_loc, "Right hand side of operator . must be a member name");
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
     }
     for (s64 i = 0; i < base_type->struct_type.member_count; i++)
     {
@@ -770,7 +770,7 @@ static Type* CheckAccessExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         }
     }
     Error(ctx, member_expr->file_loc, "Struct member not found");
-    return GetBuiltinType(TYP_none);
+    return GetBuiltinType(ctx->env, TYP_none);
 }
 
 static Type* CheckSubscriptExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
@@ -782,7 +782,7 @@ static Type* CheckSubscriptExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Ty
     Type *base_type = CheckExpr(ctx, base_expr, &base_vt);
     Type *index_type = CheckExpr(ctx, index_expr, &index_vt);
 
-    Type *none_type = GetBuiltinType(TYP_none);
+    Type *none_type = GetBuiltinType(ctx->env, TYP_none);
     Type *result_type = nullptr;
 
     if (!TypeIsNone(index_type))
@@ -855,7 +855,7 @@ static Type* CheckTernaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type
         *vt = VT_Assignable;
 
     if (TypeIsNone(true_type) || TypeIsNone(false_type))
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
 
     if (!TypesEqual(true_type, false_type))
     {
@@ -919,7 +919,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             if (!TypeIsNumeric(type))
             {
                 Error(ctx, expr->file_loc, "Invalid operand for unary +");
-                return GetBuiltinType(TYP_s64);
+                return GetBuiltinType(ctx->env, TYP_s64);
             }
             else
             {
@@ -928,7 +928,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
                 case TYP_u8:
                 case TYP_u16:
                     {
-                        type = GetBuiltinType(TYP_u32);
+                        type = GetBuiltinType(ctx->env, TYP_u32);
                         Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
                         expr->unary_expr.expr = cast_expr;
                         return type;
@@ -940,7 +940,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
                 case TYP_s8:
                 case TYP_s16:
                     {
-                        type = GetBuiltinType(TYP_s32);
+                        type = GetBuiltinType(ctx->env, TYP_s32);
                         Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
                         expr->unary_expr.expr = cast_expr;
                         return type;
@@ -959,7 +959,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             if (!TypeIsNumeric(type))
             {
                 Error(ctx, expr->file_loc, "Invalid operand for unary -");
-                return GetBuiltinType(TYP_s64);
+                return GetBuiltinType(ctx->env, TYP_s64);
             }
             else
             {
@@ -968,7 +968,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
                 case TYP_u8: case TYP_s8:
                 case TYP_u16: case TYP_s16:
                     {
-                        type = GetBuiltinType(TYP_s32);
+                        type = GetBuiltinType(ctx->env, TYP_s32);
                         Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
                         expr->unary_expr.expr = cast_expr;
                         return type;
@@ -979,7 +979,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
                     return type;
                 case TYP_u32:
                     {
-                        type = GetBuiltinType(TYP_s64);
+                        type = GetBuiltinType(ctx->env, TYP_s64);
                         Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
                         expr->unary_expr.expr = cast_expr;
                         return type;
@@ -995,7 +995,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             if (!TypeIsIntegral(type))
             {
                 Error(ctx, expr->file_loc, "Invalid operand for unary ~");
-                return GetBuiltinType(TYP_s64);
+                return GetBuiltinType(ctx->env, TYP_s64);
             }
             else
             {
@@ -1004,7 +1004,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
                 case TYP_u8:
                 case TYP_u16:
                     {
-                        type = GetBuiltinType(TYP_u32);
+                        type = GetBuiltinType(ctx->env, TYP_u32);
                         Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
                         expr->unary_expr.expr = cast_expr;
                         return type;
@@ -1016,7 +1016,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
                 case TYP_s8:
                 case TYP_s16:
                     {
-                        type = GetBuiltinType(TYP_s32);
+                        type = GetBuiltinType(ctx->env, TYP_s32);
                         Ast_Expr *cast_expr = MakeTypecast(ctx, oper, type);
                         expr->unary_expr.expr = cast_expr;
                         return type;
@@ -1035,7 +1035,7 @@ static Type* CheckUnaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *
             if (!TypeIsBoolean(type))
             {
                 Error(ctx, expr->file_loc, "Invalid operand for logical !");
-                return GetBuiltinType(TYP_bool);
+                return GetBuiltinType(ctx->env, TYP_bool);
             }
             return type;
         } break;
@@ -1089,7 +1089,7 @@ static Type* CoerceBinaryExprType(Sem_Check_Context *ctx,
         Type *ltype, Type *rtype)
 {
     if (TypeIsNone(ltype) || TypeIsNone(rtype))
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
 
     if (TypeIsPending(ltype))
     {
@@ -1201,7 +1201,7 @@ static Type* CoerceBinaryExprType(Sem_Check_Context *ctx,
         }
         else if (TypeIsSigned(rtype))
         {
-            Type *type = GetBuiltinType(TYP_s64);
+            Type *type = GetBuiltinType(ctx->env, TYP_s64);
             Ast_Expr *cast_left = MakeTypecast(ctx, left, type);
             Ast_Expr *cast_right = MakeTypecast(ctx, right, type);
             expr->binary_expr.left = cast_left;
@@ -1216,7 +1216,7 @@ static Type* CoerceBinaryExprType(Sem_Check_Context *ctx,
     {
         if (TypeIsSigned(ltype))
         {
-            Type *type = GetBuiltinType(TYP_s64);
+            Type *type = GetBuiltinType(ctx->env, TYP_s64);
             Ast_Expr *cast_left = MakeTypecast(ctx, left, type);
             Ast_Expr *cast_right = MakeTypecast(ctx, right, type);
             expr->binary_expr.left = cast_left;
@@ -1248,7 +1248,7 @@ static Type* CoerceBinaryExprType(Sem_Check_Context *ctx,
     }
 
     // Otherwise, just cast both operands to s32.
-    Type *type = GetBuiltinType(TYP_s32);
+    Type *type = GetBuiltinType(ctx->env, TYP_s32);
     Ast_Expr *cast_left = MakeTypecast(ctx, left, type);
     Ast_Expr *cast_right = MakeTypecast(ctx, right, type);
     expr->binary_expr.left = cast_left;
@@ -1268,7 +1268,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
 
     *vt = VT_NonAssignable;
     if (TypeIsNone(ltype) || TypeIsNone(rtype))
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
 
     if (TypeIsPending(ltype))
     {
@@ -1298,7 +1298,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 if (TypeIsNull(ltype))
                 {
                     Error(ctx, expr->file_loc, "Invalid null operand");
-                    return GetBuiltinType(TYP_none);
+                    return GetBuiltinType(ctx->env, TYP_none);
                 }
                 return ltype;
             }
@@ -1306,7 +1306,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "+", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             ASSERT(TypesEqual(expr->binary_expr.left->expr_type,
                         expr->binary_expr.right->expr_type));
@@ -1319,7 +1319,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 if (TypeIsNull(ltype))
                 {
                     Error(ctx, expr->file_loc, "Invalid null operand");
-                    return GetBuiltinType(TYP_none);
+                    return GetBuiltinType(ctx->env, TYP_none);
                 }
                 return ltype;
             }
@@ -1328,15 +1328,15 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
                 if (!TypesEqual(ltype, rtype))
                 {
                     Error(ctx, expr->file_loc, "Invalid pointer difference of incompatible pointer types");
-                    return GetBuiltinType(TYP_none);
+                    return GetBuiltinType(ctx->env, TYP_none);
                 }
-                return GetBuiltinType(TYP_s64);
+                return GetBuiltinType(ctx->env, TYP_s64);
             }
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "-", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             ASSERT(TypesEqual(expr->binary_expr.left->expr_type,
                         expr->binary_expr.right->expr_type));
@@ -1348,7 +1348,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "*", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             ASSERT(TypesEqual(expr->binary_expr.left->expr_type,
                         expr->binary_expr.right->expr_type));
@@ -1360,7 +1360,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "/", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             ASSERT(TypesEqual(expr->binary_expr.left->expr_type,
                         expr->binary_expr.right->expr_type));
@@ -1372,12 +1372,12 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "%", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             else if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "%", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             return type;
         } break;
@@ -1387,7 +1387,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "<<", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             return type;
         } break;
@@ -1396,7 +1396,7 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, ">>", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             return type;
         } break;
@@ -1407,12 +1407,12 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "&", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             else if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "&", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             return type;
         } break;
@@ -1422,12 +1422,12 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "|", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             else if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "|", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             return type;
         } break;
@@ -1437,12 +1437,12 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
             if (!type)
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "^", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             else if (!TypeIsIntegral(ltype) || !TypeIsIntegral(rtype))
             {
                 ErrorBinaryOperands(ctx, expr->file_loc, "^", ltype, rtype);
-                return GetBuiltinType(TYP_none);
+                return GetBuiltinType(ctx->env, TYP_none);
             }
             return type;
         } break;
@@ -1451,92 +1451,92 @@ static Type* CheckBinaryExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type 
         {
             if (!TypeIsBoolean(ltype) || !TypeIsBoolean(rtype))
                 Error(ctx, expr->file_loc, "Logical && expects boolean type for left and right hand side");
-            return GetBuiltinType(TYP_bool);
+            return GetBuiltinType(ctx->env, TYP_bool);
         } break;
     case BIN_OP_Or:
         {
             if (!TypeIsBoolean(ltype) || !TypeIsBoolean(rtype))
                 Error(ctx, expr->file_loc, "Logical || expects boolean type for left and right hand side");
-            return GetBuiltinType(TYP_bool);
+            return GetBuiltinType(ctx->env, TYP_bool);
         } break;
 
     case BIN_OP_Equal:
         {
             if (TypesEqual(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
+                return GetBuiltinType(ctx->env, TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
-                    return GetBuiltinType(TYP_bool);
+                    return GetBuiltinType(ctx->env, TYP_bool);
             }
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "==", ltype, rtype);
-            return GetBuiltinType(TYP_bool);
+            return GetBuiltinType(ctx->env, TYP_bool);
         } break;
     case BIN_OP_NotEqual:
         {
             if (TypesEqual(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
+                return GetBuiltinType(ctx->env, TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
-                    return GetBuiltinType(TYP_bool);
+                    return GetBuiltinType(ctx->env, TYP_bool);
             }
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "!=", ltype, rtype);
-            return GetBuiltinType(TYP_bool);
+            return GetBuiltinType(ctx->env, TYP_bool);
         } break;
     case BIN_OP_Less:
         {
             if (TypesEqual(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
+                return GetBuiltinType(ctx->env, TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
-                    return GetBuiltinType(TYP_bool);
+                    return GetBuiltinType(ctx->env, TYP_bool);
             }
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "<", ltype, rtype);
-            return GetBuiltinType(TYP_bool);
+            return GetBuiltinType(ctx->env, TYP_bool);
         } break;
     case BIN_OP_LessEq:
         {
             if (TypesEqual(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
+                return GetBuiltinType(ctx->env, TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
-                    return GetBuiltinType(TYP_bool);
+                    return GetBuiltinType(ctx->env, TYP_bool);
             }
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, "<=", ltype, rtype);
-            return GetBuiltinType(TYP_bool);
+            return GetBuiltinType(ctx->env, TYP_bool);
         } break;
     case BIN_OP_Greater:
         {
             if (TypesEqual(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
+                return GetBuiltinType(ctx->env, TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
-                    return GetBuiltinType(TYP_bool);
+                    return GetBuiltinType(ctx->env, TYP_bool);
             }
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, ">", ltype, rtype);
-            return GetBuiltinType(TYP_bool);
+            return GetBuiltinType(ctx->env, TYP_bool);
         } break;
     case BIN_OP_GreaterEq:
         {
             if (TypesEqual(ltype, rtype))
-                return GetBuiltinType(TYP_bool);
+                return GetBuiltinType(ctx->env, TYP_bool);
             if (TypeIsPointer(ltype) || TypeIsPointer(rtype))
             {
                 if (TypeIsNull(ltype) || TypeIsNull(rtype))
-                    return GetBuiltinType(TYP_bool);
+                    return GetBuiltinType(ctx->env, TYP_bool);
             }
             type = CoerceBinaryExprType(ctx, expr, left, right, ltype, rtype);
             if (!type) ErrorBinaryOperands(ctx, expr->file_loc, ">=", ltype, rtype);
-            return GetBuiltinType(TYP_bool);
+            return GetBuiltinType(ctx->env, TYP_bool);
         } break;
 
     case BIN_OP_Range:
@@ -1553,7 +1553,7 @@ static Type* CoerceAssignmentExprType(Sem_Check_Context *ctx,
 {
     (void)left;
     if (TypeIsNone(ltype) || TypeIsNone(rtype))
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
 
     if (TypeIsPending(ltype))
     {
@@ -1591,7 +1591,7 @@ static Type* CheckAssignmentExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_T
     *vt = lvt;
 
     if (TypeIsNone(ltype) || TypeIsNone(rtype))
-        return GetBuiltinType(TYP_none);
+        return GetBuiltinType(ctx->env, TYP_none);
 
     if (lvt != VT_Assignable)
     {
@@ -1686,35 +1686,35 @@ static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt, I
     {
         case AST_Null:
             *vt = VT_NonAssignable;
-            result_type = GetBuiltinType(TYP_null);
+            result_type = GetBuiltinType(ctx->env, TYP_null);
             break;
         case AST_BoolLiteral:
             *vt = VT_NonAssignable;
-            result_type = GetBuiltinType(TYP_bool);
+            result_type = GetBuiltinType(ctx->env, TYP_bool);
             break;
         case AST_CharLiteral:
             *vt = VT_NonAssignable;
-            result_type = GetBuiltinType(TYP_char);
+            result_type = GetBuiltinType(ctx->env, TYP_char);
             break;
         case AST_IntLiteral:
             *vt = VT_NonAssignable;
-            result_type = GetSignedIntLiteralType(expr, int_lit_info);
+            result_type = GetSignedIntLiteralType(ctx->env, expr, int_lit_info);
             break;
         case AST_UIntLiteral:
             *vt = VT_NonAssignable;
-            result_type = GetUnsignedIntLiteralType(expr, int_lit_info);
+            result_type = GetUnsignedIntLiteralType(ctx->env, expr, int_lit_info);
             break;
         case AST_Float32Literal:
             *vt = VT_NonAssignable;
-            result_type = GetBuiltinType(TYP_f32);
+            result_type = GetBuiltinType(ctx->env, TYP_f32);
             break;
         case AST_Float64Literal:
             *vt = VT_NonAssignable;
-            result_type = GetBuiltinType(TYP_f64);
+            result_type = GetBuiltinType(ctx->env, TYP_f64);
             break;
         case AST_StringLiteral:
             *vt = VT_NonAssignable;
-            result_type = GetBuiltinType(TYP_string);
+            result_type = GetBuiltinType(ctx->env, TYP_string);
             break;
 
         case AST_VariableRef:
@@ -1956,7 +1956,7 @@ static void CheckReturnStatement(Sem_Check_Context *ctx, Ast_Node *node)
         {
             if (!expr)
             {
-                type = GetBuiltinType(TYP_void);
+                type = GetBuiltinType(ctx->env, TYP_void);
                 InferReturnType(ctx->env, type, node);
             }
             else if (type != cur_return_type)

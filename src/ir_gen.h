@@ -8,6 +8,7 @@ namespace hplang
 {
 
 struct Compiler_Context;
+struct Environment;
 
 struct Ir_Gen_Context
 {
@@ -21,6 +22,7 @@ struct Ir_Gen_Context
     Array<Symbol*> global_vars;
     Ir_Comment comment;
 
+    Environment *env;
     Compiler_Context *comp_ctx;
 };
 
