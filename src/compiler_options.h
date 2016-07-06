@@ -7,13 +7,13 @@ namespace hplang
 
 enum Compilation_Phase
 {
-    CP_Lexing,
-    CP_Parsing,
-    CP_Checking,
-    CP_IrGen,
-    CP_CodeGen,
-    CP_Assembling,
-    CP_Linking
+    PHASE_Lexing,
+    PHASE_Parsing,
+    PHASE_SemanticCheck,
+    PHASE_IrGen,
+    PHASE_CodeGen,
+    PHASE_Assembling,
+    PHASE_Linking
 };
 
 struct Compiler_Options

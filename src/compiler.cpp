@@ -291,7 +291,7 @@ static b32 CompileModule(Compiler_Context *ctx, Open_File *open_file, Module *mo
         FreeLexerContext(&lexer_ctx);
     }
 
-    if (ctx->options.stop_after == CP_Lexing)
+    if (ctx->options.stop_after == PHASE_Lexing)
     {
         FreeTokenList(&tokens);
         ctx->result = RES_OK;
@@ -321,7 +321,7 @@ static b32 CompileModule(Compiler_Context *ctx, Open_File *open_file, Module *mo
         FreeParserContext(&parser_ctx);
     }
 
-    if (ctx->options.stop_after == CP_Parsing)
+    if (ctx->options.stop_after == PHASE_Parsing)
     {
         ctx->result = RES_OK;
         return true;
@@ -343,7 +343,7 @@ static b32 CompileModule(Compiler_Context *ctx, Open_File *open_file, Module *mo
         FreeSemanticCheckContext(&sem_ctx);
     }
 
-    if (ctx->options.stop_after == CP_Checking)
+    if (ctx->options.stop_after == PHASE_SemanticCheck)
     {
         ctx->result = RES_OK;
         return true;
@@ -382,9 +382,9 @@ static b32 Compile_(Compiler_Context *ctx, Open_File *open_file)
 
     b32 result = CompileModule(ctx, open_file, root_module);
     if (!result ||
-        ctx->options.stop_after == CP_Lexing ||
-        ctx->options.stop_after == CP_Parsing ||
-        ctx->options.stop_after == CP_Checking)
+        ctx->options.stop_after == PHASE_Lexing ||
+        ctx->options.stop_after == PHASE_Parsing ||
+        ctx->options.stop_after == PHASE_SemanticCheck)
     {
         return result;
     }
@@ -406,7 +406,7 @@ static b32 Compile_(Compiler_Context *ctx, Open_File *open_file)
 
     PrintMemoryDiagnostic(ctx);
 
-    if (ctx->options.stop_after == CP_IrGen)
+    if (ctx->options.stop_after == PHASE_IrGen)
     {
         FreeIrGenContext(&ir_ctx);
         ctx->result = RES_OK;
@@ -438,7 +438,7 @@ static b32 Compile_(Compiler_Context *ctx, Open_File *open_file)
         fflush((FILE*)ctx->debug_file);
     }
 
-    if (ctx->options.stop_after == CP_CodeGen)
+    if (ctx->options.stop_after == PHASE_CodeGen)
     {
         ctx->result = RES_OK;
         return true;
@@ -476,7 +476,7 @@ static b32 Compile_(Compiler_Context *ctx, Open_File *open_file)
         }
     }
 
-    if (ctx->options.stop_after == CP_Assembling)
+    if (ctx->options.stop_after == PHASE_Assembling)
     {
         ctx->result = RES_OK;
         return true;
@@ -528,7 +528,7 @@ static b32 Compile_(Compiler_Context *ctx, Open_File *open_file)
         }
     }
 
-    ASSERT(ctx->options.stop_after == CP_Linking);
+    ASSERT(ctx->options.stop_after == PHASE_Linking);
     ctx->result = RES_OK;
     return true;
 }

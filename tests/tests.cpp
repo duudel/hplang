@@ -350,38 +350,38 @@ static Crash_Test crash_tests[] = {
 #endif
 
 static Fail_Test fail_tests[] = {
-    //          stop after      test source                                             expected fail location {line, column}
-    (Fail_Test){ CP_Lexing,     "tests/lexer_fail/crlf_test.hp",                        {4, 26} },
-    (Fail_Test){ CP_Lexing,     "tests/lexer_fail/only_one_dquote.hp",                  {1, 1} },
-    (Fail_Test){ CP_Lexing,     "tests/lexer_fail/non_ending_mlc.hp",                   {6, 5} },
-    (Fail_Test){ CP_Parsing,    "tests/parser_fail/token_test.hp",                      {1, 1} },
-    (Fail_Test){ CP_Parsing,    "tests/parser_fail/if_paren_test.hp",                   {8, 23} },
-    (Fail_Test){ CP_Parsing,    "tests/parser_fail/extra_comma_in_params.hp",           {4, 31} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/infer_var_type_from_null.hp",     {4, 1} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/dup_func_param.hp",               {4, 39} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/dup_variable.hp",                 {7, 5} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/var_shadows_param.hp",            {6, 5} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/ambiguous_func_call.hp",          {8, 9} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/dup_func_def.hp",                 {5, 1} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/return_infer_fail.hp",            {11, 12} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/void_func_return.hp",             {6, 12} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/non_void_func_return.hp",         {6, 5} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/infer_ret_type_from_null.hp",     {4, 1} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/access_non_struct.hp",            {7, 10} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/deref_void_ptr.hp",               {7, 10} },
-    (Fail_Test){ CP_Checking,   "tests/sem_check_fail/break_out_of_place.hp",           {6, 5} },
+    //          stop after              test source                                             expected fail location {line, column}
+    (Fail_Test){ PHASE_Lexing,          "tests/lexer_fail/crlf_test.hp",                        {4, 26} },
+    (Fail_Test){ PHASE_Lexing,          "tests/lexer_fail/only_one_dquote.hp",                  {1, 1} },
+    (Fail_Test){ PHASE_Lexing,          "tests/lexer_fail/non_ending_mlc.hp",                   {6, 5} },
+    (Fail_Test){ PHASE_Parsing,         "tests/parser_fail/token_test.hp",                      {1, 1} },
+    (Fail_Test){ PHASE_Parsing,         "tests/parser_fail/if_paren_test.hp",                   {8, 23} },
+    (Fail_Test){ PHASE_Parsing,         "tests/parser_fail/extra_comma_in_params.hp",           {4, 31} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/infer_var_type_from_null.hp",     {4, 1} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/dup_func_param.hp",               {4, 39} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/dup_variable.hp",                 {7, 5} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/var_shadows_param.hp",            {6, 5} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/ambiguous_func_call.hp",          {8, 9} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/dup_func_def.hp",                 {5, 1} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/return_infer_fail.hp",            {11, 12} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/void_func_return.hp",             {6, 12} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/non_void_func_return.hp",         {6, 5} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/infer_ret_type_from_null.hp",     {4, 1} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/access_non_struct.hp",            {7, 10} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/deref_void_ptr.hp",               {7, 10} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/break_out_of_place.hp",           {6, 5} },
 };
 
 static Succeed_Test succeed_tests[] = {
-    //              stop after      test source                     test function
-    (Succeed_Test){ CP_Parsing,     "tests/expr_test.hp",           nullptr },
-    (Succeed_Test){ CP_Parsing,     "tests/stmt_test.hp",           nullptr },
-    (Succeed_Test){ CP_Parsing,     "tests/empty_main.hp",          nullptr },
-    (Succeed_Test){ CP_Checking,    "tests/empty.hp",               nullptr },
-    (Succeed_Test){ CP_Checking,    "tests/variable_scope.hp",      nullptr },
-    (Succeed_Test){ CP_Checking,    "tests/struct_access.hp",       nullptr },
-    (Succeed_Test){ CP_Checking,    "tests/recursive_rt_infer.hp",  RecursiveRtInfer_Test },
-    (Succeed_Test){ CP_Checking,    "tests/difficult_rt_infer.hp",  nullptr },
+    //              stop after              test source                     test function
+    (Succeed_Test){ PHASE_Parsing,          "tests/expr_test.hp",           nullptr },
+    (Succeed_Test){ PHASE_Parsing,          "tests/stmt_test.hp",           nullptr },
+    (Succeed_Test){ PHASE_Parsing,          "tests/empty_main.hp",          nullptr },
+    (Succeed_Test){ PHASE_SemanticCheck,    "tests/empty.hp",               nullptr },
+    (Succeed_Test){ PHASE_SemanticCheck,    "tests/variable_scope.hp",      nullptr },
+    (Succeed_Test){ PHASE_SemanticCheck,    "tests/struct_access.hp",       nullptr },
+    (Succeed_Test){ PHASE_SemanticCheck,    "tests/recursive_rt_infer.hp",  RecursiveRtInfer_Test },
+    (Succeed_Test){ PHASE_SemanticCheck,    "tests/difficult_rt_infer.hp",  nullptr },
 };
 
 static Execute_Test exec_tests[] = {
@@ -433,7 +433,7 @@ b32 RunTest(const Crash_Test &test)
 
     b32 failed = false;
     Compiler_Context compiler_ctx = NewCompilerContext();
-    compiler_ctx.options.stop_after = CP_Checking;
+    compiler_ctx.options.stop_after = PHASE_SemanticCheck;
 
     Open_File *file = OpenFile(&compiler_ctx, test.source_filename);
     if (file)
@@ -474,7 +474,7 @@ b32 RunTest(const Fail_Test &test)
         File_Location error_loc = compiler_ctx.error_ctx.first_error_loc;
         switch (test.stop_after)
         {
-        case CP_Lexing:
+        case PHASE_Lexing:
             if (compiler_ctx.result != RES_FAIL_Lexing)
             {
                 fprintf(outfile, "TEST ERROR: Was expecting lexing failure at %d:%d, but the lexing was successful\n",
@@ -487,7 +487,7 @@ b32 RunTest(const Fail_Test &test)
                         test.fail_location.line, test.fail_location.column, error_loc.line, error_loc.column);
                 failed = true;
             } break;
-        case CP_Parsing:
+        case PHASE_Parsing:
             if (compiler_ctx.result != RES_FAIL_Parsing)
             {
                 fprintf(outfile, "TEST ERROR: Was expecting parsing failure at %d:%d, but the parsing was successful\n",
@@ -500,7 +500,7 @@ b32 RunTest(const Fail_Test &test)
                         test.fail_location.line, test.fail_location.column, error_loc.line, error_loc.column);
                 failed = true;
             } break;
-        case CP_Checking:
+        case PHASE_SemanticCheck:
             if (compiler_ctx.result != RES_FAIL_SemanticCheck)
             {
                 fprintf(outfile, "TEST ERROR: Was expecting semantic check failure at %d:%d, but the semantic check was successful\n",
@@ -513,10 +513,10 @@ b32 RunTest(const Fail_Test &test)
                         test.fail_location.line, test.fail_location.column, error_loc.line, error_loc.column);
                 failed = true;
             } break;
-        case CP_IrGen:
-        case CP_CodeGen:
-        case CP_Assembling:
-        case CP_Linking:
+        case PHASE_IrGen:
+        case PHASE_CodeGen:
+        case PHASE_Assembling:
+        case PHASE_Linking:
             fprintf(outfile, "INVALID TEST: Failing tests should only be tested for the lexing--semantic check part of the compiler");
             INVALID_CODE_PATH;
             break;
