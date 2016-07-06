@@ -54,8 +54,7 @@ run:
 	@#-./$(EXENAME) -dRI -pi -o out_ samples/mandelbrot_other.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out tests/exec/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/reg_alloc.hp 2> stderr.out
-	@#-./$(EXENAME) -dIR -pit -o out samples/cons.hp 2> stderr.out
-	-./$(EXENAME) -dIR -o out tests/sem_check_fail/dup_variable.hp 2> stderr.out
+	-./$(EXENAME) -dIR -pit -o out samples/cons.hp 2> stderr.out
 	@#./out.exe
 
 

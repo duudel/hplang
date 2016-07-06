@@ -1669,14 +1669,12 @@ static s64 PrintImmediate(FILE *file, Ir_Operand oper)
         case TYP_pending:
             INVALID_CODE_PATH;
             break;
-        case TYP_null:
-            INVALID_CODE_PATH;
-            break;
         case TYP_none:
         case TYP_void:
             INVALID_CODE_PATH;
             break;
 
+        case TYP_null:
         case TYP_pointer:   len = PrintPtr(file, oper.imm_ptr); break;
         case TYP_bool:      len = PrintBool(file, oper.imm_bool); break;
         case TYP_char:      len = fprintf(file, "'%c'", oper.imm_u8); break;
