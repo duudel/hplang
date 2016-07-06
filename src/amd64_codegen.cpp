@@ -2948,48 +2948,53 @@ struct Interval_Sets
     Array<Live_Interval> allocated;
 };
 
-// Adds live interval "inteval" to the set "active". The set is kept sorted
-// by ascending iterval end.
-static void AddToActive(Array<Live_Interval> &active, Live_Interval interval)
+// Adds live interval "inteval" to the "set". The set is kept sorted by
+// ascending iterval end.
+static void AddToSetSortedByEnd(Array<Live_Interval> &set, Live_Interval interval)
 {
     s64 index = 0;
-    for (; index < active.count; index++)
+    for (; index < set.count; index++)
     {
-        ASSERT(active[index].reg != interval.reg);
-        if (interval.end <= active[index].end)
+        ASSERT(set[index].reg != interval.reg);
+        if (interval.end <= set[index].end)
             break;
     }
-    array::Insert(active, index, interval);
+    array::Insert(set, index, interval);
 }
 
-// Adds live interval "inteval" to the set "unhandled". The set is kept sorted
-// by ascending iterval start.
-static void AddToUnhandled(Array<Live_Interval> &unhandled, Live_Interval interval)
+// Adds live interval "inteval" to the "set". The set is kept sorted by
+// ascending iterval start.
+static void AddToSetSortedByStart(Array<Live_Interval> &set, Live_Interval interval)
 {
     s64 index = 0;
-    for (; index < unhandled.count; index++)
+    for (; index < set.count; index++)
     {
-        if (interval.start <= unhandled[index].start)
+        if (interval.start <= set[index].start)
             break;
     }
-    array::Insert(unhandled, index, interval);
+    array::Insert(set, index, interval);
 }
 
-static void AddNextIntervalToInactive(Array<Live_Interval> &inactive,
-        Live_Interval interval)
+static void AddToActive(Interval_Sets &is, Live_Interval interval)
+{ AddToSetSortedByEnd(is.active, interval); }
+
+static void AddToUnhandled(Interval_Sets &is, Live_Interval interval)
+{ AddToSetSortedByStart(is.unhandled, interval); }
+
+static void AddNextIntervalToInactive(Interval_Sets &is, Live_Interval interval)
 {
     if (interval.next)
     {
         Live_Interval *next = interval.next;
         next->reg = interval.reg;
-        AddToUnhandled(inactive, *next);
+        AddToSetSortedByStart(is.inactive, *next);
     }
 }
 
 static void AddToAllocated(Interval_Sets &is, Live_Interval interval)
 {
-    AddToUnhandled(is.allocated, interval);
-    AddNextIntervalToInactive(is.inactive, interval);
+    array::Push(is.allocated, interval);
+    AddNextIntervalToInactive(is, interval);
 }
 
 // Remove expired intervals from "active" set to the "handled" set and add the
@@ -3027,20 +3032,17 @@ static void RenewInactiveIntervals(Codegen_Context *ctx, Interval_Sets &is, s64 
         if (interval.start <= instr_index)
         {
             array::Erase(is.inactive, i);
+            if (!HasFreeRegisters(ctx->reg_alloc, interval.data_type))
+            {
+                GetLocalOffset(ctx, interval.name, interval.data_type);
+                continue;
+            }
             if (!TryAllocateRegister(ctx->reg_alloc, interval.reg, interval.data_type))
             {
-                if (!HasFreeRegisters(ctx->reg_alloc, interval.data_type))
-                {
-                    GetLocalOffset(ctx, interval.name, interval.data_type);
-                    continue;
-                }
-                else
-                {
-                    Reg free_reg = AllocateFreeRegister(ctx->reg_alloc, interval.data_type);
-                    interval.reg = free_reg;
-                }
+                Reg free_reg = AllocateFreeRegister(ctx->reg_alloc, interval.data_type);
+                interval.reg = free_reg;
             }
-            AddToActive(is.active, interval);
+            AddToActive(is, interval);
             continue;
         }
         i++;
@@ -3063,7 +3065,7 @@ static void SpillAtInterval(Codegen_Context *ctx, Interval_Sets &is, Live_Interv
         spill.end = interval.start;
         AddToAllocated(is, spill);
 
-        AddToActive(is.active, interval);
+        AddToActive(is, interval);
     }
     else
     {
@@ -3071,7 +3073,7 @@ static void SpillAtInterval(Codegen_Context *ctx, Interval_Sets &is, Live_Interv
         GetLocalOffset(ctx, interval.name, interval.data_type);
 
         if (interval.next)
-            AddToUnhandled(is.unhandled, *interval.next);
+            AddToUnhandled(is, *interval.next);
     }
 }
 
@@ -3092,7 +3094,7 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx, Interval_Sets &is, Liv
     if (spill_i == -1)
     {
         AllocateRegister(ctx->reg_alloc, interval.reg, interval.data_type);
-        AddToActive(is.active, interval);
+        AddToActive(is, interval);
     }
     else
     {
@@ -3134,19 +3136,19 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx, Interval_Sets &is, Liv
         handled_li.next = nullptr;
         AddToAllocated(is, handled_li);
 
-        AddToActive(is.active, interval);
+        AddToActive(is, interval);
 
         spill.start = interval.end + 1;
         if (spill.end > spill.start)
         {
             Unspill(ctx->reg_alloc, spill, spill.start);
-            AddToUnhandled(is.unhandled, spill);
+            AddToUnhandled(is, spill);
         }
         else
         {
             // Add next interval to inactive only, when spill is not added to unhandled.
             // This way we do not add it twice.
-            AddNextIntervalToInactive(is.inactive, spill);
+            AddNextIntervalToInactive(is, spill);
         }
     }
 }
@@ -3381,7 +3383,7 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
         {
             Reg free_reg = AllocateFreeRegister(reg_alloc, interval.data_type);
             interval.reg = free_reg;
-            AddToActive(is.active, interval);
+            AddToActive(is, interval);
 
             if (interval.is_spilled)
             {
