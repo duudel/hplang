@@ -2761,6 +2761,7 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
         Array<Live_Interval> &live_intervals,
         Array<Cfg_Edge> &cfg_edges)
 {
+    PROFILE_SCOPE("CFG edge resolution");
     FILE *dbgout = stdout;
 
 #if 0
@@ -2939,6 +2940,13 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
     //fprintf(stdout, "iters %" PRId64 "\n", iters);
 }
 
+struct Interval_Sets
+{
+    Array<Live_Interval> unhandled;
+    Array<Live_Interval> active;
+    Array<Live_Interval> inactive;
+    Array<Live_Interval> allocated;
+};
 
 // Adds live interval "inteval" to the set "active". The set is kept sorted
 // by ascending iterval end.
@@ -2978,23 +2986,23 @@ static void AddNextIntervalToInactive(Array<Live_Interval> &inactive,
     }
 }
 
+static void AddToAllocated(Interval_Sets &is, Live_Interval interval)
+{
+    AddToUnhandled(is.allocated, interval);
+    AddNextIntervalToInactive(is.inactive, interval);
+}
+
 // Remove expired intervals from "active" set to the "handled" set and add the
 // inteval's next, if it has one, to the "inactive" set.
-static void ExpireOldIntervals(Codegen_Context *ctx,
-        Array<Live_Interval> &active,
-        Array<Live_Interval> &inactive,
-        Array<Live_Interval> &handled,
-        s64 instr_index)
+static void ExpireOldIntervals(Codegen_Context *ctx, Interval_Sets &is, s64 instr_index)
 {
-    for (s64 i = 0; i < active.count; )
+    for (s64 i = 0; i < is.active.count; )
     {
-        Live_Interval active_interval = active[i];
+        Live_Interval active_interval = is.active[i];
         if (active_interval.end >= instr_index)
             return;
-        array::Erase(active, i);
-        AddToUnhandled(handled, active_interval);
-
-        AddNextIntervalToInactive(inactive, active_interval);
+        array::Erase(is.active, i);
+        AddToAllocated(is, active_interval);
 
         ReleaseRegister(ctx->reg_alloc, active_interval.reg, active_interval.data_type);
     }
@@ -3003,25 +3011,22 @@ static void ExpireOldIntervals(Codegen_Context *ctx,
 // Remove intervals that have expired from the "inactive" set, and move
 // intervals that overlap current instruction index "instr_index" from the
 // "inactive" to the "active" set.
-static void RenewInactiveIntervals(Codegen_Context *ctx,
-        Array<Live_Interval> &active,
-        Array<Live_Interval> &inactive,
-        s64 instr_index)
+static void RenewInactiveIntervals(Codegen_Context *ctx, Interval_Sets &is, s64 instr_index)
 {
-    for (s64 i = 0; i < inactive.count; )
+    for (s64 i = 0; i < is.inactive.count; )
     {
-        Live_Interval interval = inactive[i];
+        Live_Interval interval = is.inactive[i];
         if (interval.end < instr_index)
         {
             // NOTE(henrik): I don't know when this should happen, but it is
             // included in the algorithm given in [2].
             INVALID_CODE_PATH;
-            array::Erase(inactive, i);
+            array::Erase(is.inactive, i);
             continue;
         }
         if (interval.start <= instr_index)
         {
-            array::Erase(inactive, i);
+            array::Erase(is.inactive, i);
             if (!TryAllocateRegister(ctx->reg_alloc, interval.reg, interval.data_type))
             {
                 if (!HasFreeRegisters(ctx->reg_alloc, interval.data_type))
@@ -3035,7 +3040,7 @@ static void RenewInactiveIntervals(Codegen_Context *ctx,
                     interval.reg = free_reg;
                 }
             }
-            AddToActive(active, interval);
+            AddToActive(is.active, interval);
             continue;
         }
         i++;
@@ -3044,50 +3049,41 @@ static void RenewInactiveIntervals(Codegen_Context *ctx,
 
 // Spill either "interval" or the last interval in the "active" set, depending
 // on which expires earlier.
-static void SpillAtInterval(Codegen_Context *ctx,
-        Array<Live_Interval> &unhandled,
-        Array<Live_Interval> &handled,
-        Array<Live_Interval> &active, Live_Interval interval)
+static void SpillAtInterval(Codegen_Context *ctx, Interval_Sets &is, Live_Interval interval)
 {
-    (void)unhandled;
-    s64 spill_i = active.count - 1;
-    Live_Interval spill = active[spill_i];
+    s64 spill_i = is.active.count - 1;
+    Live_Interval spill = is.active[spill_i];
     if (spill.end > interval.end)
     {
         Spill(ctx->reg_alloc, spill, interval.start, 0, "at interval");
 
         interval.reg = spill.reg;
         GetLocalOffset(ctx, spill.name, spill.data_type);
-        array::Erase(active, spill_i);
+        array::Erase(is.active, spill_i);
         spill.end = interval.start;
-        AddToUnhandled(handled, spill);
+        AddToAllocated(is, spill);
 
-        AddToActive(active, interval);
-
-        //AddNextIntervalToInactive(unhandled, spill);
+        AddToActive(is.active, interval);
     }
     else
     {
-        Spill(ctx->reg_alloc, spill, interval.start, 0, "at interval");
-
+        //Spill(ctx->reg_alloc, spill, interval.start, 0, "at interval");
         GetLocalOffset(ctx, interval.name, interval.data_type);
 
-        //AddToUnhandled(handled, interval);
+        if (interval.next)
+            AddToUnhandled(is.unhandled, *interval.next);
     }
 }
 
 // Spill interval from "active" set that has the fixed register of "interval"
 // allocated. If the register is not currently allocated, then allocate it for
 // the "interval".
-static void SpillFixedRegAtInterval(Codegen_Context *ctx,
-        Array<Live_Interval> &unhandled,
-        Array<Live_Interval> &handled,
-        Array<Live_Interval> &active, Live_Interval interval)
+static void SpillFixedRegAtInterval(Codegen_Context *ctx, Interval_Sets &is, Live_Interval interval)
 {
     s64 spill_i = -1;
-    for (s64 i = 0; i < active.count; i++)
+    for (s64 i = 0; i < is.active.count; i++)
     {
-        if (active[i].reg == interval.reg)
+        if (is.active[i].reg == interval.reg)
         {
             spill_i = i;
             break;
@@ -3096,7 +3092,7 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
     if (spill_i == -1)
     {
         AllocateRegister(ctx->reg_alloc, interval.reg, interval.data_type);
-        AddToActive(active, interval);
+        AddToActive(is.active, interval);
     }
     else
     {
@@ -3108,10 +3104,12 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
         // interval needs arg_reg0, active allocates new free reg which by
         // chance is arg_reg1.  Soon new fixed interval needs arg_reg1, and so
         // on...
+        // TESTED: This results in worse code than just spilling (also, could
+        // not make to work correctly).
 
-        Live_Interval spill = active[spill_i];
+        Live_Interval spill = is.active[spill_i];
         // NOTE(henrik): This here prevents spilling registers whose live
-        // interval ends after the this instruction.
+        // interval ends after this instruction.
         if (spill.end == interval.start)
             return;
 
@@ -3130,18 +3128,25 @@ static void SpillFixedRegAtInterval(Codegen_Context *ctx,
 
         GetLocalOffset(ctx, spill.name, spill.data_type);
 
-        array::Erase(active, spill_i);
+        array::Erase(is.active, spill_i);
         Live_Interval handled_li = spill;
         handled_li.end = interval.start;
-        AddToUnhandled(handled, handled_li);
+        handled_li.next = nullptr;
+        AddToAllocated(is, handled_li);
 
-        AddToActive(active, interval);
+        AddToActive(is.active, interval);
 
         spill.start = interval.end + 1;
         if (spill.end > spill.start)
         {
             Unspill(ctx->reg_alloc, spill, spill.start);
-            AddToUnhandled(unhandled, spill);
+            AddToUnhandled(is.unhandled, spill);
+        }
+        else
+        {
+            // Add next interval to inactive only, when spill is not added to unhandled.
+            // This way we do not add it twice.
+            AddNextIntervalToInactive(is.inactive, spill);
         }
     }
 }
@@ -3320,9 +3325,7 @@ static void PrintIntervals(Array<Live_Interval> intervals)
 }
 
 static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
-        Array<Live_Interval> &active,
-        Array<Live_Interval> &inactive,
-        Array<Live_Interval> &handled,
+        Interval_Sets &is,
         s64 interval_start, s64 next_interval_start)
 {
     RA_DEBUG(ctx,
@@ -3330,25 +3333,25 @@ static void ScanInstructions(Codegen_Context *ctx, Routine *routine,
                 interval_start, next_interval_start);
     )
 
-    for (s64 instr_i = interval_start; instr_i < next_interval_start; instr_i++)
+    for (s64 instr_index = interval_start; instr_index < next_interval_start; instr_index++)
     {
-        ExpireOldIntervals(ctx, active, inactive, handled, instr_i);
-        RenewInactiveIntervals(ctx, active, inactive, instr_i);
+        ExpireOldIntervals(ctx, is, instr_index);
+        RenewInactiveIntervals(ctx, is, instr_index);
 
         RA_DEBUG(ctx,
         {
-            fprintf(stderr, "%d\ta:", (s32)instr_i);
-            PrintIntervals(active);
+            fprintf(stderr, "%d\ta:", (s32)instr_index);
+            PrintIntervals(is.active);
             fprintf(stderr, "\ti:");
-            PrintIntervals(inactive);
+            PrintIntervals(is.inactive);
         })
 
-        ScanInstruction(ctx, routine, active, instr_i);
+        ScanInstruction(ctx, routine, is.active, instr_index);
     }
 }
 
 static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
-        Array<Live_Interval> &live_intervals, Array<Live_Interval> &handled)
+        Interval_Sets &is)
 {
     Reg_Alloc *reg_alloc = ctx->reg_alloc;
 
@@ -3356,32 +3359,29 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
     ResetRegAlloc(reg_alloc, !is_leaf);
 
     s64 last_interval_start = 0;
-    Array<Live_Interval> active = { };
-    Array<Live_Interval> inactive = { };
-
-    for (s64 i = 0; i < live_intervals.count; i++)
+    for (s64 i = 0; i < is.unhandled.count; i++)
     {
-        Live_Interval interval = live_intervals[i];
+        Live_Interval interval = is.unhandled[i];
         s64 next_interval_start = interval.end;
-        if (i + 1 < live_intervals.count)
-            next_interval_start = live_intervals[i + 1].start;
+        if (i + 1 < is.unhandled.count)
+            next_interval_start = is.unhandled[i + 1].start;
 
-        ExpireOldIntervals(ctx, active, inactive, handled, interval.start);
-        RenewInactiveIntervals(ctx, active, inactive, interval.start);
+        ExpireOldIntervals(ctx, is, interval.start);
+        RenewInactiveIntervals(ctx, is, interval.start);
 
         if (interval.reg.reg_index != REG_NONE)
         {
-            SpillFixedRegAtInterval(ctx, live_intervals, handled, active, interval);
+            SpillFixedRegAtInterval(ctx, is, interval);
         }
         else if (!HasFreeRegisters(reg_alloc, interval.data_type))
         {
-            SpillAtInterval(ctx, live_intervals, handled, active, interval);
+            SpillAtInterval(ctx, is, interval);
         }
         else
         {
             Reg free_reg = AllocateFreeRegister(reg_alloc, interval.data_type);
             interval.reg = free_reg;
-            AddToActive(active, interval);
+            AddToActive(is.active, interval);
 
             if (interval.is_spilled)
             {
@@ -3389,18 +3389,15 @@ static void LinearScanRegAllocation(Codegen_Context *ctx, Routine *routine,
             }
         }
 
-        ScanInstructions(ctx, routine, active, inactive, handled,
+        ScanInstructions(ctx, routine, is,
                 interval.start, next_interval_start);
 
         last_interval_start = interval.start;
     }
 
     s64 last_interval_end = routine->instructions.count;
-    ScanInstructions(ctx, routine, active, inactive, handled,
+    ScanInstructions(ctx, routine, is,
             last_interval_start, last_interval_end);
-
-    array::Free(active);
-    array::Free(inactive);
 
     // TODO(henrik): Implement this more cleanly.
     for (s64 i = REG_NONE + 1; i < REG_COUNT; i++)
@@ -3562,21 +3559,17 @@ static void AllocateRegisters(Codegen_Context *ctx, Ir_Routine *ir_routine, Rout
     }
     array::Free(live_interval_set);
 
-    Array<Live_Interval> allocated_intervals = { };
-    LinearScanRegAllocation(ctx, routine, live_intervals, allocated_intervals);
+    Interval_Sets is = { };
+    is.unhandled = live_intervals;
 
-    //for (s64 i = 0; i < allocated_intervals.count; i++)
-    //{
-    //    fprintf(stderr, "lolsier");
-    //}
+    LinearScanRegAllocation(ctx, routine, is);
 
-    {
-        PROFILE_SCOPE("CFG edge resolution");
-        CfgEdgeResolution(ctx, allocated_intervals, cfg_edges);
-    }
+    CfgEdgeResolution(ctx, is.allocated, cfg_edges);
 
-    array::Free(allocated_intervals);
-    array::Free(live_intervals);
+    array::Free(is.unhandled);
+    array::Free(is.active);
+    array::Free(is.inactive);
+    array::Free(is.allocated);
     array::Free(cfg_edges);
 
     InsertSpills(ctx, routine);
