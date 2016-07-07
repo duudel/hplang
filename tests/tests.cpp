@@ -409,6 +409,8 @@ static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/pointer_arith.hp",       nullptr,                            0 },
     (Execute_Test){ "tests/member_access.hp",       nullptr,                            0 },
     (Execute_Test){ "tests/function_var.hp",        nullptr,                            0 },
+    (Execute_Test){ "tests/exec/alignof.hp",        "tests/exec/alignof.stdout",        0 },
+    (Execute_Test){ "tests/exec/sizeof.hp",         "tests/exec/sizeof.stdout",         0 },
 };
 
 //static void PrintError(const char *filename, s64 line, s64 column, const char *message)
@@ -664,7 +666,7 @@ b32 RunTest(const Execute_Test &test)
                                 if (!failed && test_size != expected_size)
                                 {
                                     fprintf(outfile, "TEST ERROR: Test output length mismatch\n");
-                                    fprintf(outfile, "%s:%d:%d: (test output) %" PRId64 " != %" PRId64 " (expected)\n",
+                                    fprintf(outfile, "%s:%d:%d: (test output lenght) %" PRId64 " != %" PRId64 " (expected length)\n",
                                             test.expected_output_filename, loc.line, loc.column,
                                             test_size, expected_size);
                                     failed = true;

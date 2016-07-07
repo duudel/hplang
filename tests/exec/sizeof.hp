@@ -1,0 +1,35 @@
+// Test that uses prints sizeof of different types. The results are tested
+// against expected output.
+// 2016-07-07
+
+import ":io";
+
+My_Struct :: struct
+{
+    b1 : bool;
+    fv : f64;
+    b2 : bool;
+}
+
+main :: ()
+{
+    println(sizeof(void));
+    println(sizeof(bool));
+    println(sizeof(char));
+    println(sizeof(u8));
+    println(sizeof(s8));
+    println(sizeof(u16));
+    println(sizeof(s16));
+    println(sizeof(u32));
+    println(sizeof(s32));
+    println(sizeof(u64));
+    println(sizeof(s64));
+    println(sizeof(f32));
+    println(sizeof(f64));
+    println(sizeof(string));
+    println(sizeof(void*));
+    println(sizeof(string*));
+    println(sizeof(s8**));
+    println(sizeof(My_Struct));
+    return 0;
+}

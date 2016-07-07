@@ -1,0 +1,36 @@
+// Test that uses prints alignof of different types. The results are tested
+// against expected output.
+// 2016-07-07
+
+import ":io";
+
+My_Struct :: struct
+{
+    b1 : bool;
+    fv : f64;
+    b2 : bool;
+}
+
+main :: ()
+{
+    println(alignof(void));
+    println(alignof(bool));
+    println(alignof(char));
+    println(alignof(u8));
+    println(alignof(s8));
+    println(alignof(u16));
+    println(alignof(s16));
+    println(alignof(u32));
+    println(alignof(s32));
+    println(alignof(u64));
+    println(alignof(s64));
+    println(alignof(f32));
+    println(alignof(f64));
+    println(alignof(string));
+    println(alignof(void*));
+    println(alignof(string*));
+    println(alignof(s8**));
+    println(alignof(My_Struct));
+    return 0;
+}
+

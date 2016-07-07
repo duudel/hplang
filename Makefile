@@ -49,14 +49,14 @@ run:
 	@#-./$(EXENAME) -dRI -o out samples/simple.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out samples/fibo.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out samples/test.hp 2> stderr.out
-	-./$(EXENAME) -dIR -o out samples/nbody.hp 2> stderr.out
+	@#-./$(EXENAME) -dIR -o out samples/nbody.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -pi -o out samples/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -pi -o out_ samples/mandelbrot_other.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out tests/exec/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/reg_alloc.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -pit -o out samples/cons.hp 2> stderr.out
-	@#-./$(EXENAME) tests/sizeof_and_alignof.hp
-	@#./out.exe
+	-./$(EXENAME) -o out tests/exec/sizeof.hp
+	./out
 
 
 GDB := /usr/bin/gdb
