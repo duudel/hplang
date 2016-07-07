@@ -216,6 +216,12 @@ void FreeAstExpr(Ast_Expr *expr)
             FreeAstExpr(expr->typecast_expr.expr);
             FreeAstNode(expr->typecast_expr.type);
             break;
+        case AST_AlignOf:
+            FreeAstNode(expr->alignof_expr.type);
+            break;
+        case AST_SizeOf:
+            FreeAstNode(expr->sizeof_expr.type);
+            break;
     }
 }
 
@@ -315,6 +321,8 @@ static void PrintOp(IoFile *file, Unary_Op op)
     }
 }
 
+static void PrintNode(IoFile *file, Ast_Node *node, s64 level, s64 lev_diff, s64 prev_parent);
+
 static void PrintExpr(IoFile *file, Ast_Expr *expr, s64 level, s64 lev_diff, s64 prev_parent)
 {
     FILE *f = (FILE*)file;
@@ -408,8 +416,17 @@ static void PrintExpr(IoFile *file, Ast_Expr *expr, s64 level, s64 lev_diff, s64
             PrintExpr(file, expr->subscript_expr.index, level, 2, parent_level);
             break;
         case AST_TypecastExpr:
-            fprintf(f, "<typecast_expr>");
-            fprintf(f, "\n");
+            fprintf(f, "<typecast_expr>\n");
+            break;
+        case AST_AlignOf:
+            fprintf(f, "<alignof_expr>\n");
+            PrintPadding(file, level + 1, level, parent_level);
+            PrintNode(file, expr->alignof_expr.type, level, 1, parent_level);
+            break;
+        case AST_SizeOf:
+            fprintf(f, "<sizeof_expr>\n");
+            PrintPadding(file, level + 1, level, parent_level);
+            PrintNode(file, expr->sizeof_expr.type, level, 1, parent_level);
             break;
     }
 }

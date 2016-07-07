@@ -1,0 +1,21 @@
+// Test for sizeof and alignof operators
+// 2016-07-07
+
+My_Struct :: struct
+{
+    thing : s64;
+    other : bool;
+}
+
+test :: ()
+{
+    x := sizeof(bool);
+    y := sizeof(s64);
+    z := sizeof(f32);
+    w := sizeof(My_Struct);
+
+    x = alignof(bool);
+    y = alignof(s64);
+    z = alignof(f32);
+    w = alignof(My_Struct);
+}

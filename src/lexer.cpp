@@ -65,6 +65,13 @@ enum Lexer_State
 
     LS_Ident,
 
+    LS_STR_a,
+    LS_STR_al,
+    LS_STR_ali,
+    LS_STR_alig,
+    LS_STR_align,
+    LS_STR_aligno,
+    LS_STR_alignof,
     LS_STR_b,
     LS_STR_bo,
     LS_STR_boo,
@@ -128,6 +135,11 @@ enum Lexer_State
     LS_STR_s32,
     LS_STR_s6,
     LS_STR_s64,
+    LS_STR_si,
+    LS_STR_siz,
+    LS_STR_size,
+    LS_STR_sizeo,
+    LS_STR_sizeof,
     LS_STR_st,
     LS_STR_str,
     LS_STR_stri,
@@ -275,7 +287,7 @@ static FSM lex_default(FSM fsm, char c)
             case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
             case 'V': case 'W': case 'X': case 'Y': case 'Z':
                 fsm.state = LS_Ident; break;
-            case 'a': fsm.state = LS_Ident; break;
+            case 'a': fsm.state = LS_STR_a; break;
             case 'b': fsm.state = LS_STR_b; break;
             case 'c': fsm.state = LS_STR_c; break;
             case 'd': fsm.state = LS_Ident; break;
@@ -510,6 +522,14 @@ static FSM lex_default(FSM fsm, char c)
                 STR_END_CASE();\
         } break
 
+    SINGLE_CASE(LS_STR_a, 'l', LS_STR_al);
+    SINGLE_CASE(LS_STR_al, 'i', LS_STR_ali);
+    SINGLE_CASE(LS_STR_ali, 'g', LS_STR_alig);
+    SINGLE_CASE(LS_STR_alig, 'n', LS_STR_align);
+    SINGLE_CASE(LS_STR_align, 'o', LS_STR_aligno);
+    SINGLE_CASE(LS_STR_aligno, 'f', LS_STR_alignof);
+    case LS_STR_alignof: KW_END_CASE(TOK_AlignOf);
+
     DOUBLE_CASE(LS_STR_b, 'o', LS_STR_bo, 'r', LS_STR_br);
     SINGLE_CASE(LS_STR_bo, 'o', LS_STR_boo);
     SINGLE_CASE(LS_STR_boo, 'l', LS_STR_bool);
@@ -617,6 +637,8 @@ static FSM lex_default(FSM fsm, char c)
                 fsm.state = LS_STR_s3; break;
             case '6':
                 fsm.state = LS_STR_s6; break;
+            case 'i':
+                fsm.state = LS_STR_si; break;
             case 't':
                 fsm.state = LS_STR_st; break;
             default:
@@ -629,6 +651,12 @@ static FSM lex_default(FSM fsm, char c)
     case LS_STR_s32: KW_END_CASE(TOK_Type_S32);
     SINGLE_CASE(LS_STR_s6, '4', LS_STR_s64);
     case LS_STR_s64: KW_END_CASE(TOK_Type_S64);
+
+    SINGLE_CASE(LS_STR_si, 'z', LS_STR_siz);
+    SINGLE_CASE(LS_STR_siz, 'e', LS_STR_size);
+    SINGLE_CASE(LS_STR_size, 'o', LS_STR_sizeo);
+    SINGLE_CASE(LS_STR_sizeo, 'f', LS_STR_sizeof);
+    case LS_STR_sizeof: KW_END_CASE(TOK_SizeOf);
 
     SINGLE_CASE(LS_STR_st, 'r', LS_STR_str);
     case LS_STR_str:
@@ -994,6 +1022,14 @@ static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
         case LS_Ident:
             return true;
 
+        case LS_STR_a:
+        case LS_STR_al:
+        case LS_STR_ali:
+        case LS_STR_alig:
+        case LS_STR_align:
+        case LS_STR_aligno:
+        case LS_STR_alignof:
+            return true;
         case LS_STR_b:
         case LS_STR_bo:
         case LS_STR_boo:
@@ -1074,6 +1110,12 @@ static b32 CheckEmitState(Lexer_Context *ctx, FSM fsm)
             return true;
         case LS_STR_s6:
         case LS_STR_s64:
+            return true;
+        case LS_STR_si:
+        case LS_STR_siz:
+        case LS_STR_size:
+        case LS_STR_sizeo:
+        case LS_STR_sizeof:
             return true;
         case LS_STR_st:
         case LS_STR_str:

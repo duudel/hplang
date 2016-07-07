@@ -1,5 +1,6 @@
 
 #include "token.h"
+#include "common.h"
 #include "assert.h"
 
 #include <cstdio>
@@ -13,7 +14,7 @@ struct Token_Type_And_String
     const char *str;
 };
 
-static Token_Type_And_String g_token_type_and_str[] = {
+static Token_Type_And_String token_type_and_str[] = {
     {TOK_Comment,           "comment"},
     {TOK_Multiline_comment, "multiline comment"},
 
@@ -29,6 +30,7 @@ static Token_Type_And_String g_token_type_and_str[] = {
 
     {TOK_Identifier,        "identifier"},
 
+    {TOK_AlignOf,           "alignof"},
     {TOK_Break,             "break"},
     {TOK_Continue,          "continue"},
     {TOK_Else,              "else"},
@@ -37,6 +39,7 @@ static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_If,                "if"},
     {TOK_Import,            "import"},
     {TOK_Return,            "return"},
+    {TOK_SizeOf,            "sizeof"},
     {TOK_Struct,            "struct"},
     {TOK_Typealias,         "typealias"},
     {TOK_While,             "while"},
@@ -115,17 +118,13 @@ static Token_Type_And_String g_token_type_and_str[] = {
     {TOK_Arrow,             "->"},
 };
 
-template <class T, s64 N>
-s64 count_of_arr(T (&)[N])
-{ return N; }
-
 static bool check_token_names()
 {
-    s64 count = count_of_arr(g_token_type_and_str);
+    s64 count = array_length(token_type_and_str);
     for (s64 i = 0; i < count; i++)
     {
         Token_Type type = (Token_Type)i;
-        ASSERT(g_token_type_and_str[i].type == type);
+        ASSERT(token_type_and_str[i].type == type);
     }
     return true;
 }
@@ -135,13 +134,9 @@ static const bool tokens_checked = check_token_names();
 const char* TokenTypeToString(Token_Type type)
 {
     ASSERT(type < TOK_COUNT);
-    return g_token_type_and_str[type].str;
+    return token_type_and_str[type].str;
 }
 
-
-enum {
-    DEFAULT_ARENA_TOKEN_COUNT = 4 * 4096
-};
 
 void FreeTokenList(Token_List *tokens)
 {

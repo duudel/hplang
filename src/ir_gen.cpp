@@ -333,6 +333,20 @@ static void SetLabelTarget(Ir_Gen_Context *ctx, Ir_Routine *routine, Ir_Operand 
 static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine);
 static Ir_Operand GenRefExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine);
 
+static Ir_Operand GenAlignOfExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
+{
+    (void)ctx;
+    Ast_Node *type_node = expr->alignof_expr.type;
+    return NewImmediateInt(routine, GetAlign(type_node->type_node.type), expr->expr_type);
+}
+
+static Ir_Operand GenSizeOfExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
+{
+    (void)ctx;
+    Ast_Node *type_node = expr->sizeof_expr.type;
+    return NewImmediateInt(routine, GetSize(type_node->type_node.type), expr->expr_type);
+}
+
 static Ir_Operand GenTypecastExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
     Ast_Expr *oper_expr = expr->typecast_expr.expr;
@@ -1230,9 +1244,12 @@ static Ir_Operand GenExpression(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
             return GenSubscriptExpr(ctx, expr, routine);
         case AST_TypecastExpr:
             return GenTypecastExpr(ctx, expr, routine);
-        default:
-            INVALID_CODE_PATH;
+        case AST_AlignOf:
+            return GenAlignOfExpr(ctx, expr, routine);
+        case AST_SizeOf:
+            return GenSizeOfExpr(ctx, expr, routine);
     }
+    INVALID_CODE_PATH;
     return NewImmediateNull(routine, nullptr);
 }
 

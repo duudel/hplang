@@ -382,6 +382,7 @@ static Succeed_Test succeed_tests[] = {
     (Succeed_Test){ PHASE_SemanticCheck,    "tests/struct_access.hp",       nullptr },
     (Succeed_Test){ PHASE_SemanticCheck,    "tests/recursive_rt_infer.hp",  RecursiveRtInfer_Test },
     (Succeed_Test){ PHASE_SemanticCheck,    "tests/difficult_rt_infer.hp",  nullptr },
+    (Succeed_Test){ PHASE_SemanticCheck,    "tests/sizeof_and_alignof.hp",  nullptr },
 };
 
 static Execute_Test exec_tests[] = {

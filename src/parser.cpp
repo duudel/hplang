@@ -757,6 +757,39 @@ static Ast_Expr* ParseFactorExpr(Parser_Context *ctx)
 
     if (!factor)
     {
+        const Token *size_align_of_tok = Accept(ctx, TOK_AlignOf);
+        size_align_of_tok = (!size_align_of_tok) ?
+            Accept(ctx, TOK_SizeOf) : size_align_of_tok;
+        if (size_align_of_tok)
+        {
+            Expect(ctx, TOK_OpenParent);
+            switch (size_align_of_tok->type)
+            {
+            case TOK_AlignOf:
+                {
+                    factor = PushExpr<Ast_AlignOf_Expr>(ctx, AST_AlignOf, size_align_of_tok);
+                    Ast_Node *type_node = ParseType(ctx);
+                    if (!type_node)
+                        Error(ctx, "Expecting type for alignof");
+                    factor->alignof_expr.type = type_node;
+                } break;
+            case TOK_SizeOf:
+                {
+                    factor = PushExpr<Ast_SizeOf_Expr>(ctx, AST_SizeOf, size_align_of_tok);
+                    Ast_Node *type_node = ParseType(ctx);
+                    if (!type_node)
+                        Error(ctx, "Expecting type for alignof");
+                    factor->sizeof_expr.type = type_node;
+                } break;
+            default:
+                INVALID_CODE_PATH;
+            }
+            Expect(ctx, TOK_CloseParent);
+        }
+    }
+
+    if (!factor)
+    {
         if (pre_op)
         {
             Error(ctx, "Expecting operand for unary prefix operator");

@@ -347,7 +347,7 @@ static b32 CheckTypeCoercion(Type *from, Type *to)
     return false;
 }
 
-static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
+static Type* CheckType_(Sem_Check_Context *ctx, Ast_Node *node)
 {
     ASSERT(node != nullptr);
     switch (node->type)
@@ -365,13 +365,12 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
                     case SYM_Constant:
                     case SYM_Variable:
                     case SYM_Parameter:
-                        //ErrorSymbolNotTypename(ctx, node, node->type_node.plain.name);
                         break;
 
                     case SYM_Struct:
                         return symbol->type;
                     //case SYM_Enum:
-                    //    NOT_IMPLEMENTED("enum and typealias in CheckType");
+                    //    NOT_IMPLEMENTED("enum in CheckType");
                     //    break;
                     case SYM_Typealias:
                         return symbol->type;
@@ -387,7 +386,7 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
         {
             Type *pointer_type = nullptr;
             s64 indirection = node->type_node.pointer.indirection;
-            Type *base_type = CheckType(ctx, node->type_node.pointer.base_type);
+            Type *base_type = CheckType_(ctx, node->type_node.pointer.base_type);
             ASSERT(indirection > 0);
             while (indirection > 0)
             {
@@ -399,7 +398,7 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
         } break;
     case AST_Type_Array:
         NOT_IMPLEMENTED("Array type check");
-        return CheckType(ctx, node->type_node.array.base_type);
+        return CheckType_(ctx, node->type_node.array.base_type);
     case AST_Type_Function:
         {
             s64 param_count = node->type_node.function.param_count;
@@ -409,19 +408,26 @@ static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
             s64 i = 0;
             while (param_type)
             {
-                ftype->function_type.parameter_types[i] = CheckType(ctx, param_type->type);
+                ftype->function_type.parameter_types[i] = CheckType_(ctx, param_type->type);
                 param_type = param_type->next;
                 i++;
             }
 
             Ast_Node *return_type = node->type_node.function.return_type;
-            ftype->function_type.return_type = CheckType(ctx, return_type);
+            ftype->function_type.return_type = CheckType_(ctx, return_type);
             return ftype;
         } break;
     default:
         INVALID_CODE_PATH;
     }
     return nullptr;
+}
+
+static Type* CheckType(Sem_Check_Context *ctx, Ast_Node *node)
+{
+    Type *type = CheckType_(ctx, node);
+    node->type_node.type = type;
+    return type;
 }
 
 static Ast_Expr* MakeTypecast(Sem_Check_Context *ctx,
@@ -682,6 +688,20 @@ static Type* CheckVariableRef(Sem_Check_Context *ctx, Ast_Expr *expr)
     }
     expr->variable_ref.symbol = symbol;
     return symbol->type;
+}
+
+static Type* CheckAlignOfExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
+{
+    *vt = VT_NonAssignable;
+    CheckType(ctx, expr->alignof_expr.type);
+    return GetBuiltinType(ctx->env, TYP_u64);
+}
+
+static Type* CheckSizeOfExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
+{
+    *vt = VT_NonAssignable;
+    CheckType(ctx, expr->sizeof_expr.type);
+    return GetBuiltinType(ctx->env, TYP_u64);
 }
 
 static Type* CheckTypecastExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt)
@@ -1153,8 +1173,9 @@ static Type* CoerceBinaryExprType(Sem_Check_Context *ctx,
         }
         else if (TypeIsSigned(rtype))
         {
-            Error(ctx, expr->file_loc,
-                "Invalid operation on unsigned and signed operands");
+            //Error(ctx, expr->file_loc,
+            //    "Invalid operation on unsigned and signed operands");
+            return nullptr;
         }
         Ast_Expr *cast_expr = MakeTypecast(ctx, right, ltype);
         expr->binary_expr.right = cast_expr;
@@ -1164,8 +1185,9 @@ static Type* CoerceBinaryExprType(Sem_Check_Context *ctx,
     {
         if (TypeIsSigned(ltype))
         {
-            Error(ctx, expr->file_loc,
-                "Invalid operation on signed and unsigned operands");
+            //Error(ctx, expr->file_loc,
+            //    "Invalid operation on signed and unsigned operands");
+            return nullptr;
         }
         Ast_Expr *cast_expr = MakeTypecast(ctx, left, rtype);
         expr->binary_expr.left = cast_expr;
@@ -1746,6 +1768,12 @@ static Type* CheckExpr(Sem_Check_Context *ctx, Ast_Expr *expr, Value_Type *vt, I
             break;
         case AST_TypecastExpr:
             result_type = CheckTypecastExpr(ctx, expr, vt);
+            break;
+        case AST_AlignOf:
+            result_type = CheckAlignOfExpr(ctx, expr, vt);
+            break;
+        case AST_SizeOf:
+            result_type = CheckSizeOfExpr(ctx, expr, vt);
             break;
     }
     expr->expr_type = result_type;

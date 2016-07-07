@@ -61,6 +61,9 @@ enum Ast_Expr_Type
     AST_AccessExpr,     // <expr>.<variable_ref>
     AST_SubscriptExpr,  // <expr>[<expr>]
     AST_TypecastExpr,   // <expr> -> <type>
+
+    AST_AlignOf,
+    AST_SizeOf,
 };
 
 // TODO(henrik): Add bit rotate operators?
@@ -189,6 +192,16 @@ struct Ast_Typecast_Expr
     Ast_Node *type;
 };
 
+struct Ast_AlignOf_Expr
+{
+    Ast_Node *type;
+};
+
+struct Ast_SizeOf_Expr
+{
+    Ast_Node *type;
+};
+
 struct Ast_Variable_Ref
 {
     Name name;
@@ -229,6 +242,8 @@ struct Ast_Expr
         Ast_Access_Expr     access_expr;
         Ast_Subscript_Expr  subscript_expr;
         Ast_Typecast_Expr   typecast_expr;
+        Ast_AlignOf_Expr    alignof_expr;
+        Ast_SizeOf_Expr     sizeof_expr;
         Ast_Variable_Ref    variable_ref;
         Ast_Function_Call   function_call;
         Ast_Assignment      assignment;
@@ -251,6 +266,7 @@ struct Ast_Param_Type
 
 struct Ast_Type_Node
 {
+    Type *type;
     struct Plain {
         Name name;
     };

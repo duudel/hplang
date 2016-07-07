@@ -24,6 +24,7 @@ enum Token_Type
 
     TOK_Identifier,     // identifier
 
+    TOK_AlignOf,        // alignof
     TOK_Break,          // break
     TOK_Continue,       // continue
     TOK_Else,           // else
@@ -32,6 +33,7 @@ enum Token_Type
     TOK_If,             // if
     TOK_Import,         // import
     TOK_Return,         // return
+    TOK_SizeOf,         // sizeof
     TOK_Struct,         // struct
     TOK_Typealias,      // typealias
     TOK_While,          // while

@@ -99,9 +99,10 @@ init_bodies :: ()
     // or
     //bodies = alloc(Body, BODY_COUNT);
 
-    size_of_Body := 8 * 7;
-    bodies = alloc(BODY_COUNT * size_of_Body) -> Body*;
-    //bodies = alloc(BODY_COUNT * size_of(Body)) -> Body*;
+    //size_of_Body := 8 * 7;
+    //size_of_Body := sizeof(Body) -> s64;
+    //bodies = alloc(BODY_COUNT * size_of_Body) -> Body*;
+    bodies = alloc(BODY_COUNT * sizeof(Body) -> s64) -> Body*;
     //bodies = alloc(BODY_COUNT * Body.size) -> Body*;
 
     i := 0;
