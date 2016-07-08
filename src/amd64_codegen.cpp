@@ -1729,7 +1729,7 @@ static s64 PushArgs(Codegen_Context *ctx,
     // NOTE(henrik): The allocated stack space is added to alloc_stack_instr
     // instruction later.
     Instruction *alloc_stack_instr = PushInstruction(ctx, OP_sub,
-            RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write));
+            RegOperand(REG_rsp, Oper_Data_Type::U64, AF_ReadWrite));
 
     ASSERT(ir_instr->oper2.oper_type == IR_OPER_Immediate);
     s64 arg_instr_idx = ir_instr->oper2.imm_s64;
@@ -2109,7 +2109,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                         OP_call, IrOperand(ctx, &ir_instr->oper1, AF_Read));
                 call->uses = uses;
                 PushInstruction(ctx, OP_add,
-                        RegOperand(REG_rsp, Oper_Data_Type::U64, AF_Write),
+                        RegOperand(REG_rsp, Oper_Data_Type::U64, AF_ReadWrite),
                         ImmOperand(arg_stack_alloc, AF_Read));
                 if (ir_instr->target.oper_type != IR_OPER_None)
                 {

@@ -403,6 +403,13 @@ b32 SymbolIsIntrinsic(Symbol *symbol)
     return (symbol->flags & SYMF_Intrinsic) != 0;
 }
 
+static void SetBuiltinFileLocation(Environment *env)
+{
+    File_Location file_loc = { };
+    file_loc.file = PushStruct<Open_File>(&env->arena);
+    file_loc.file->filename = PushString(&env->arena, "<builtin>");
+    env->builtin_file_loc = file_loc;
+}
 
 static void AddBuiltinTypes(Environment *env)
 {
@@ -429,7 +436,7 @@ static void AddBuiltinTypes(Environment *env)
         env->builtin_types[type_info.tag] = type;
 
         if (type_info.tag >= TYP_FIRST_BUILTIN_SYM)
-            AddSymbol(env, type_info.sym_type, name, type, NoFileLocation());
+            AddSymbol(env, type_info.sym_type, name, type, env->builtin_file_loc);
     }
     Type *string_type = GetBuiltinType(env, TYP_string);
     Struct_Member *members = PushArray<Struct_Member>(&env->arena, 2);
@@ -451,17 +458,17 @@ static void AddBuiltinFunctions(Environment *env)
     Type *hp_alloc_type = PushFunctionType(env, TYP_Function, 1);
     hp_alloc_type->function_type.return_type = GetPointerType(env, void_type);
     hp_alloc_type->function_type.parameter_types[0] = GetBuiltinType(env, TYP_s64);
-    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "alloc"), hp_alloc_type, NoFileLocation());
+    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "alloc"), hp_alloc_type, env->builtin_file_loc);
 
     Type *hp_free_type = PushFunctionType(env, TYP_Function, 1);
     hp_free_type->function_type.return_type = void_type;
     hp_free_type->function_type.parameter_types[0] = GetPointerType(env, void_type);
-    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "free"), hp_free_type, NoFileLocation());
+    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "free"), hp_free_type, env->builtin_file_loc);
 
     Type *c_exit_type = PushFunctionType(env, TYP_Function, 1);
     c_exit_type->function_type.return_type = void_type;
     c_exit_type->function_type.parameter_types[0] = GetBuiltinType(env, TYP_s32);
-    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "exit"), c_exit_type, NoFileLocation());
+    AddSymbol(env, SYM_ForeignFunction, PushName(&env->arena, "exit"), c_exit_type, env->builtin_file_loc);
 
     Name sqrt_name = PushName(&env->arena, "sqrt");
     Type *sqrt_f64_type = PushFunctionType(env, TYP_Function, 1);
@@ -476,6 +483,9 @@ Environment NewEnvironment(const char *main_func_name)
     Environment result = { };
     OpenScope(&result);
     result.root = result.current;
+
+    SetBuiltinFileLocation(&result);
+
     AddBuiltinTypes(&result);
     AddBuiltinFunctions(&result);
     result.main_func_name = PushName(&result.arena, main_func_name);

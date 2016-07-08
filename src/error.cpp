@@ -59,7 +59,9 @@ void PrintFileLine(IoFile *file, File_Location file_loc)
     ASSERT(open_file != nullptr);
 
     const char *file_start = (const char*)open_file->contents.ptr;
-    ASSERT(file_start != nullptr);
+    // NOTE(henrik): The file contents of <builitin> are empty (null).
+    if (!file_start) return;
+    //ASSERT(file_start != nullptr);
 
     const char *line_start = SeekToLineStart(open_file, file_loc.offset_start);
     s64 line_len = 0;

@@ -55,8 +55,9 @@ run:
 	@#-./$(EXENAME) -dRI -o out tests/exec/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/reg_alloc.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -pit -o out samples/cons.hp 2> stderr.out
-	-./$(EXENAME) -o out tests/exec/sizeof.hp
-	./out
+	@#-./$(EXENAME) -o out tests/exec/sizeof.hp
+	-./$(EXENAME) -o out samples/bintrees.hp
+	@#./out
 
 
 GDB := /usr/bin/gdb

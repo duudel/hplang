@@ -193,6 +193,7 @@ struct Environment
     Name main_func_name;
     s64 next_scope_id;
 
+    File_Location builtin_file_loc;
     Type *builtin_types[TYP_LAST_BUILTIN + 1];
 };
 

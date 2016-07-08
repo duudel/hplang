@@ -1,0 +1,143 @@
+// The Computer Language Benchmarks Game
+// http://benchmarksgame.alioth.debian.org/
+//
+// Contributed by Jeremy Zerfas
+// Based on the C++ program from Jon Harrop, Alex Mizrahi, and Bruno Coutinho.
+
+// This controls the width of lines that are output by this program.
+//
+// Translated to hplang by Henrik Paananen
+
+import ":io";
+
+MAXIMUM_LINE_WIDTH := 60;
+
+Tree_Node :: struct
+{
+   left : Tree_Node*;
+   right : Tree_Node*;
+   value : s32;
+}
+
+
+// Create a binary tree of depth tree_Depth in memory_Pool, set the root node's
+// value to root_Node_Value, and finally return a pointer to the created binary
+// tree.
+create_tree :: (root_node_value : s64, tree_depth : s64) : Tree_Node*
+{
+    root_node := alloc(sizeof(Tree_Node)->s64) -> Tree_Node*;
+
+    // If tree_depth is one or more then recursively call create_tree() in order
+    // to create the left and right subtrees using 2*root_node_value-1 and
+    // 2*root_node_value respectively as the root values for those subtrees.
+    if(tree_depth>0)
+    {
+        root_node.left = create_tree(2*root_node_value-1, tree_depth-1);
+        root_node.right = create_tree(2*root_node_value, tree_depth-1);
+    }
+    else
+    {
+        //root_node.left = root_node.right = null;
+        root_node.left = null;
+        root_node.right = null;
+    }
+
+    root_node.value = root_node_value -> s32;
+    return root_node;
+}
+
+
+// Compute and return the checksum for the binary tree that has root_Node as the
+// root node.
+compute_tree_checksum :: (root_node : Tree_Node*) : s64
+{
+    // If there are subtrees then recursively call compute_tree_checksum() on
+    // them and factor their values into the checksum, otherwise just return
+    // the value of root_node.
+    if (root_node.left != null)
+    {
+        return compute_tree_checksum(root_node.left)
+            -compute_tree_checksum(root_node.right)
+            +root_node.value;
+    }
+    return root_node.value;
+}
+
+free_tree :: (n : Tree_Node*)
+{
+    if (n.left != null)
+    {
+        free_tree(n.left);
+        free_tree(n.right);
+    }
+    free(n -> void*);
+}
+
+main :: ()
+{
+    // Set minimum_Tree_Depth to 4 and maximum_Tree_Depth to the maximum of what
+    // was specified as the argument to the program and minimum_Tree_Depth+2.
+    minimum_tree_depth := 4;
+    maximum_tree_depth := 20;
+    if(maximum_tree_depth < minimum_tree_depth+2)
+        maximum_tree_depth = minimum_tree_depth+2;
+
+    // create a binary tree of depth maximum_Tree_Depth+1,
+    // compute the checksum of the binary tree, print the statistics, and then
+    // delete the memory pool.
+    stretch_tree := create_tree(0, maximum_tree_depth+1);
+    print("stretch tree of depth ");
+    print(maximum_tree_depth+1);
+    print("\t check: ");
+    println(compute_tree_checksum(stretch_tree) -> s32);
+    free_tree(stretch_tree);
+
+    // create a long-lived binary tree of depth
+    // maximum_Tree_Depth which will be left alone for a while while
+    // more binary trees get allocated and deallocaited as required by the
+    // rules. We'll finish working with this later.
+    long_lived_tree := create_tree(0, maximum_tree_depth);
+
+    // Create a lot of binary trees of depths ranging from
+    // minimum_tree_depth to maximum_tree_depth, compute and tally up all their
+    // checksums, destroy the trees, and then print the statistics.
+    current_tree_depth := 0;
+    for (current_tree_depth = minimum_tree_depth;
+        current_tree_depth<=maximum_tree_depth; current_tree_depth+=2)
+    {
+        iterations := 1<<(maximum_tree_depth-current_tree_depth+minimum_tree_depth);
+
+        total_trees_checksum : s64 = 0;
+        for (i := 1; i<=iterations; i += 1)
+        {
+            // Create two binary trees of depth current_tree_depth but with one
+            // having a root node value of i and the other a root node value of
+            // -1.
+            tree_1 := create_tree(i, current_tree_depth);
+            total_trees_checksum += compute_tree_checksum(tree_1);
+            free_tree(tree_1);
+
+            tree_2 := create_tree(-i, current_tree_depth);
+            total_trees_checksum += compute_tree_checksum(tree_2);
+            free_tree(tree_2);
+        }
+
+        // Print the statistics for the trees of depth current_tree_depth.
+        print(2*iterations);
+        print("\t trees of depth ");
+        print(current_tree_depth);
+        print("\t check: ");
+        println(total_trees_checksum -> s32);
+    }
+
+    // Compute the checksum of the long-lived binary tree that we created
+    // earlier, print the statistics.
+    print("long lived tree of depth ");
+    print(maximum_tree_depth);
+    print("\t check: ");
+    println(compute_tree_checksum(long_lived_tree) -> s32);
+    free_tree(long_lived_tree);
+
+    return 0;
+}
+
