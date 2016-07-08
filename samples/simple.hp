@@ -2,64 +2,84 @@
 
 import ":io";
 
-//foreign {
-//    printf :: (fmt : char*, a1 : char*) : s64;
-//}
+function10 :: (x : s64)
+{
+    if (x > 0) return x;
+    return x + x;
+}
 
-//func :: (x : s64, y : f64) : f64
-//{
-//    return (x > 0) ? y : 0.0;
-//    //return y + 0.2;
-//}
+function9 :: (x : s64)
+{
+    if (x > 0) return x - function10(x);
+    return x + function10(x);
+}
 
-//foreign {
-//    sqrt :: (x : f64) : f64;
-//}
+function8 :: (x : s64)
+{
+    if (x > 0) return x - function9(x*2);
+    return x + function9(x);
+}
+
+function7 :: (x : s64)
+{
+    if (x > 0) return x - function8(x);
+    return x + function8(-x);
+}
+
+function6 :: (x : s64)
+{
+    if (x > 0) return x - function7(x);
+    return x + function7(x);
+}
+
+function5 :: (x : s64)
+{
+    if (x > 0) return x - function6(x*2);
+    return x + function6(x);
+}
+
+function3 :: (x : s64)
+{
+    if (x > 0) return x - function4(x*2);
+    return x + function4(-x);
+}
+
+function4 :: (x : s64)
+{
+    if (x > 0) return x - function5(x);
+    return x + function5(x);
+}
+
+function2 :: (x : s64)
+{
+    if (x > 0) return x - function3(x);
+    return x + function3(x);
+}
+
+function1 :: (x : s64)
+{
+    if (x > 0) return x - function2(x);
+    return x + function2(-x);
+}
 
 main :: ()
 {
-    //x := 12;
-    //z := func(x, 0.5);
-    //if (z > 0.0)
-    //    x = x + 5;
-
-    //y := 2.0;
-
-    //x + y;
-
-    //printf("hello %s!\n".data, "world".data);
-
-    s := "A string whose length is ...";
-    println(s.size);
-    println(s);
-    s.size = 10;
-    println(s.size);
-    println(s);
-
-    data := alloc(16) -> char*;
-    data[0] = 'a';
-    data[1] = '\0';
-    hp_fwrite(stdout, 1, data -> u8*);
-
-    println();
-
-    y := sqrt(4.0);
-    print(y);
-    println();
-
+    println(function1(10));
+    println(function2(10));
+    println(function3(10));
+    println(function4(10));
+    println(function5(10));
+    println(function6(10));
+    println(function7(10));
+    println(function8(10));
+    println(function1(-10));
+    println(function2(-10));
+    println(function3(-10));
+    println(function4(-10));
+    println(function5(-10));
+    println(function6(-10));
+    println(function7(-10));
+    println(function8(-10));
     return 0;
 }
 
-/*
-buf : char[];
-buf += "Hello ";
-buf += name;
-buf += "!";
-
-greeting := to_string(buf);
-free(name);
-free(buf);
-
-print(greeting);
-free(greeting);
-*/

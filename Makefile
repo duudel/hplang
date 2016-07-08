@@ -46,9 +46,7 @@ run:
 	@#-./$(EXENAME) -dIR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/and_or.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out -pi tests/exec/bitshift.hp 2> stderr.out
-	@#-./$(EXENAME) -dRI -o out samples/simple.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out samples/fibo.hp 2> stderr.out
-	@#-./$(EXENAME) -dRI -o out samples/test.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out samples/nbody.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -pi -o out samples/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -pi -o out_ samples/mandelbrot_other.hp 2> stderr.out
@@ -56,7 +54,10 @@ run:
 	@#-./$(EXENAME) -dIR -o out tests/exec/reg_alloc.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -pit -o out samples/cons.hp 2> stderr.out
 	@#-./$(EXENAME) -o out tests/exec/sizeof.hp
-	-./$(EXENAME) -o out samples/bintrees.hp
+	@#-./$(EXENAME) -o out samples/bintrees.hp
+	@#-./$(EXENAME) -dRI -o out samples/test.hp 2> stderr.out
+	@#-./$(EXENAME) -pit -o out samples/simple.hp 2> stderr.out
+	-./$(EXENAME) -o out tests/sem_check_fail/undefined_func_call.hp
 	@#./out
 
 

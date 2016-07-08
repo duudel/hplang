@@ -370,6 +370,7 @@ static Fail_Test fail_tests[] = {
     (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/access_non_struct.hp",            {7, 10} },
     (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/deref_void_ptr.hp",               {7, 10} },
     (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/break_out_of_place.hp",           {6, 5} },
+    (Fail_Test){ PHASE_SemanticCheck,   "tests/sem_check_fail/undefined_func_call.hp",          {6, 14} },
 };
 
 static Succeed_Test succeed_tests[] = {

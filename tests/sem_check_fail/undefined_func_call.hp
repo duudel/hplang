@@ -1,0 +1,8 @@
+// Test for function call of undefined function.
+// 2016-07-08
+
+main :: ()
+{
+    x := 5 + test(10) - 10;
+    return 0;
+}
