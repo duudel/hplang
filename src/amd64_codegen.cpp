@@ -3674,7 +3674,7 @@ static b32 IsCommentedOut(Instruction *instr)
     return (instr->flags & IF_CommentedOut) != 0;
 }
 
-void CommentOut(Instruction *instr)
+static void CommentOut(Instruction *instr)
 {
     instr->flags |= IF_CommentedOut;
 }
@@ -3688,7 +3688,7 @@ static bool HasSideEffectsBesidesDefOper1(Instruction *instr)
         ((instr->oper3.access_flags & AF_Write) == AF_Write));
 }
 
-void OptimizeCode(Codegen_Context *ctx, Routine *routine)
+static void OptimizeCode(Codegen_Context *ctx, Routine *routine)
 {
     PROFILE_SCOPE("Optimize code");
 
@@ -3701,7 +3701,7 @@ void OptimizeCode(Codegen_Context *ctx, Routine *routine)
             if (IsSame(instr->oper1, instr->oper2))
             {
                 //MakeNop(instr);
-                instr->flags |= IF_CommentedOut;
+                CommentOut(instr);
             }
         }
     }
@@ -3772,7 +3772,7 @@ static s64 CountInstructions(Routine *routine)
     for (s64 i = 0; i < routine->instructions.count; i++)
     {
         Instruction *instr = routine->instructions[i];
-        if ((instr->flags & IF_CommentedOut) == 0)
+        if (!IsCommentedOut(instr))
             count++;
     }
     return count;
