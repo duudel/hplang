@@ -11,7 +11,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
-#include <sys/time.h>
+#include <time.h>
 #endif
 
 namespace hplang
@@ -85,7 +85,7 @@ struct Profiling_Scope
     const char *name;
     s64 total_time;
     s32 sample_count;
-    s32 depth; 
+    s32 depth;
 };
 
 static const s64 MAX_SCOPES = 80;
