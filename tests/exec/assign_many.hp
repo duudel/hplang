@@ -1,0 +1,29 @@
+// Test asserts that assigning multiple values in one expression behaves
+// correctly.
+// 2016-07-09
+
+import ":io";
+
+My_Struct :: struct
+{
+    a : s32;
+    b : s32;
+}
+
+main :: ()
+{
+    x, y := 15;
+    println(x);
+    println(y);
+
+    x = y = -2;
+    println(x);
+    println(y);
+
+    s : My_Struct;
+    s.a = s.b = 42;
+    println(s.a);
+    println(s.b);
+
+    return 0;
+}

@@ -412,6 +412,7 @@ static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/function_var.hp",        nullptr,                            0 },
     (Execute_Test){ "tests/exec/alignof.hp",        "tests/exec/alignof.stdout",        0 },
     (Execute_Test){ "tests/exec/sizeof.hp",         "tests/exec/sizeof.stdout",         0 },
+    (Execute_Test){ "tests/exec/assign_many.hp",    "tests/exec/assign_many.stdout",    0 },
 };
 
 //static void PrintError(const char *filename, s64 line, s64 column, const char *message)
@@ -590,6 +591,51 @@ const char *test_exe = "out.exe";
 const char *test_exe = "./out";
 #endif
 
+static s64 print_some_buf(FILE *outfile,
+        const char *buf, s64 buf_size, s64 start, s64 end,
+        bool print_nl_as_esc = false)
+{
+    start = (start < 0) ? 0 : start;
+    end = (end > buf_size) ? buf_size : end;
+    s64 len = end - start;
+    s64 nl_count = 0;
+    for (s64 i = 0; i < len; i++)
+    {
+        if (nl_count > 2) return start + i;
+
+        char c = buf[start + i];
+        if (c == '\n')
+        {
+            if (print_nl_as_esc)
+                fprintf(outfile, "\\n");
+            else
+            {
+                nl_count++;
+                fwrite(&c, 1, 1, outfile);
+            }
+        }
+        else if (!isprint(c))
+        {
+            fprintf(outfile, "\\0x%x;", c);
+        }
+        else
+        {
+            fwrite(&c, 1, 1, outfile);
+        }
+    }
+    return end;
+}
+
+static void print_buf_contents(FILE *outfile, const char *title,
+        const char *buf, s64 buf_size, s64 start, s64 end)
+{
+    fprintf(outfile, "%s:\n", title);
+    end = print_some_buf(outfile, buf, buf_size, start, end);
+    if (end < buf_size) fprintf(outfile, "...");
+    fprintf(outfile, "\n");
+
+}
+
 b32 RunTest(const Execute_Test &test)
 {
     b32 failed = false;
@@ -648,16 +694,25 @@ b32 RunTest(const Execute_Test &test)
                                     if (test_buf[i] != expected_buf[i])
                                     {
                                         fprintf(outfile, "TEST ERROR: Test output mismatch\n");
-                                        fprintf(outfile, "%s:%d:%d: (test output) '%c' != '%c' ; %d != %d (expected)\n",
-                                                test.expected_output_filename, loc.line, loc.column,
-                                                test_buf[i], expected_buf[i], test_buf[i], expected_buf[i]);
+                                        fprintf(outfile, "%s:%d:%d: '",
+                                                test.expected_output_filename, loc.line, loc.column);
+                                        print_some_buf(outfile, test_buf, test_size, i, i + 1, true);
+                                        fprintf(outfile, "' != '");
+                                        print_some_buf(outfile, expected_buf, expected_size, i, i + 1, true);
+                                        fprintf(outfile, "'\n");
+
+                                        print_buf_contents(outfile, "Expected",
+                                                expected_buf, expected_size, i - 5, i + 10);
+                                        print_buf_contents(outfile, "Got",
+                                                test_buf, test_size, i - 5, i + 10);
+
                                         failed = true;
                                         break;
                                     }
                                     if (test_buf[i] == '\n')
                                     {
                                         loc.line++;
-                                        loc.column = 0;
+                                        loc.column = 1;
                                     }
                                     else
                                     {
