@@ -43,6 +43,8 @@ run:
 	@#-./$(EXENAME) -dIR -o out tests/exec/arg_passing.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/continue2.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/nbody.hp 2> stderr.out
+	-./$(EXENAME) -dIR -o out tests/exec/nbody_p.hp 2> stderr.out
+	@#-./$(EXENAME) -dIR -o out tests/exec/struct_as_arg.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/and_or.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out -pi tests/exec/bitshift.hp 2> stderr.out
@@ -57,7 +59,7 @@ run:
 	@#-./$(EXENAME) -o out samples/bintrees.hp
 	@#-./$(EXENAME) -dRI -o out samples/test.hp 2> stderr.out
 	@#-./$(EXENAME) -pit -o out samples/simple.hp 2> stderr.out
-	-./$(EXENAME) -o out tests/sem_check_fail/undefined_func_call.hp
+	@#-./$(EXENAME) -dRI -o out tests/exec/assign_many.hp 2> stderr.out
 	@#./out
 
 

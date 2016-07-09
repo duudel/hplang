@@ -171,7 +171,7 @@ IR_IMM(String, TYP_string, imm_str)
 
 static Type* StripPendingType(Type *type)
 {
-    if (type->tag == TYP_pending)
+    if (TypeIsPending(type))
     {
         ASSERT(type->base_type);
         return type->base_type;
@@ -600,7 +600,7 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     ASSERT(member_index >= 0);
 
     Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
-    base_res.type = base_res.type->base_type;
+    //base_res.type = base_res.type->base_type;
     Ir_Operand member_res = NewTemp(ctx, routine, member_type);
     Ir_Operand member_offs = NewImmediateOffset(ctx->env, routine, member_index);
     PushInstruction(ctx, routine, IR_MovMember, member_res, base_res, member_offs);
@@ -616,6 +616,7 @@ static Ir_Operand GenRefAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
 
     Name member_name = member_expr->variable_ref.name;
     s64 member_index = -1;
+
     if (TypeIsPointer(base_type))
         base_type = base_type->base_type;
     ASSERT(TypeIsStruct(base_type));
@@ -628,7 +629,7 @@ static Ir_Operand GenRefAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
     ASSERT(member_index >= 0);
 
     Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
-    base_res.type = base_res.type->base_type;
+    //base_res.type = base_res.type->base_type;
     Ir_Operand member_res = NewTemp(ctx, routine, GetPointerType(ctx->env, member_type));
     Ir_Operand member_offs = NewImmediateOffset(ctx->env, routine, member_index);
     PushInstruction(ctx, routine, IR_LoadMemberAddr, member_res, base_res, member_offs);
@@ -645,6 +646,7 @@ static Ir_Operand GenSubscriptExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
     Ir_Operand elem_res = NewTemp(ctx, routine, expr->expr_type);
     if (TypeIsStruct(expr->expr_type))
     {
+        //elem_res.type = GetPointerType(ctx->env, elem_res.type);
         PushInstruction(ctx, routine, IR_LoadElementAddr, elem_res, base_res, index_res);
     }
     else
@@ -760,10 +762,14 @@ static Ir_Operand GenUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *
                 //else
                 {
                     ASSERT(TypeIsPointer(expr->expr_type));
-                    Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
                     Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
-                    PushInstruction(ctx, routine, IR_Addr, target, oper);
-                    return target;
+                    if (!TypeIsStruct(oper_expr->expr_type))
+                    {
+                        Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
+                        PushInstruction(ctx, routine, IR_Addr, target, oper);
+                        return target;
+                    }
+                    return oper;
                 }
             }
         case UN_OP_Deref:
@@ -916,7 +922,7 @@ static Ir_Operand GenBinaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     return target;
 }
 
-static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
+static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine, bool *load_result = nullptr)
 {
     Assignment_Op op = expr->assignment.op;
     Ast_Expr *left = expr->assignment.left;
@@ -924,12 +930,17 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
     Ir_Operand roper = GenExpression(ctx, right, routine);
     Ir_Operand loper = GenRefExpression(ctx, left, routine);
     ASSERT(loper.type);
-    ASSERT(TypeIsPointer(loper.type));
-    loper.type = loper.type->base_type;
+    //ASSERT(TypeIsPointer(loper.type));
+    //loper.type = loper.type->base_type;
+
+    bool left_is_mem_oper =
+        (left->type != AST_VariableRef) ||
+        (loper.oper_type == IR_OPER_GlobalVariable);
+    if (load_result) *load_result = left_is_mem_oper;
     switch (op)
     {
     case AS_OP_Assign:
-        if (left->type != AST_VariableRef)
+        if (left_is_mem_oper)
         {
             PushInstruction(ctx, routine, IR_Store, loper, roper);
         }
@@ -940,7 +951,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         break;
     case AS_OP_AddAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -954,7 +965,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_SubtractAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -968,7 +979,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_MultiplyAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -982,7 +993,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_DivideAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -996,7 +1007,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_ModuloAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1010,7 +1021,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_LeftShiftAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1024,7 +1035,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_RightShiftAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1038,7 +1049,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_BitAndAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1052,7 +1063,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_BitOrAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1066,7 +1077,7 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
         } break;
     case AS_OP_BitXorAssign:
         {
-            if (left->type != AST_VariableRef || loper.oper_type == IR_OPER_GlobalVariable)
+            if (left_is_mem_oper)
             {
                 Ir_Operand temp = NewTemp(ctx, routine, left->expr_type);
                 PushInstruction(ctx, routine, IR_Load, temp, loper);
@@ -1084,80 +1095,69 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
 
 static Ir_Operand GenAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
-    //Ir_Operand oper = GenRefExpression(ctx, expr, routine);
-    //Ir_Operand result = NewTemp(ctx, routine, expr->expr_type);
-    //PushInstruction(ctx, routine, IR_Load, result, oper);
-    Ir_Operand result = GenRefExpression(ctx, expr, routine);
-    return result;
+    bool load_result = false;
+    Ir_Operand oper = GenRefAssignmentExpr(ctx, expr, routine, &load_result);
+    if (load_result)
+    {
+        Ir_Operand result = NewTemp(ctx, routine, expr->expr_type);
+        PushInstruction(ctx, routine, IR_Load, result, oper);
+        return result;
+    }
+    return oper;
+}
+
+static Ir_Operand GenVariableRef_(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine, Type *type)
+{
+    (void)ctx;
+    Symbol *symbol = expr->variable_ref.symbol;
+    Name name = symbol->unique_name;
+    switch (symbol->sym_type)
+    {
+        case SYM_Function:
+            return NewRoutineRef(routine, type, name);
+        case SYM_ForeignFunction:
+            return NewForeignRoutineRef(routine, type, symbol->name);
+        case SYM_Parameter:
+        {
+            if (TypeIsStruct(expr->expr_type))
+            {
+                //Type *ref_type = GetPointerType(ctx->env, expr->expr_type);
+                Type *ref_type = GetPointerType(ctx->env, type);
+                //PrintName((IoFile*)stdout, name);
+                //printf(": ");
+                //PrintType((IoFile*)stdout, expr->expr_type);
+                //printf("\n");
+                return NewVariableRef(routine, ref_type, name);
+            }
+            return NewVariableRef(routine, type, name);
+        }
+        case SYM_Variable:
+        {
+            if (SymbolIsGlobal(symbol))
+                return NewGlobalVariableRef(routine, type, name);
+            return NewVariableRef(routine, type, name);
+        }
+        case SYM_Constant:
+            return NewVariableRef(routine, type, name);
+        case SYM_Module:
+        case SYM_PrimitiveType:
+        case SYM_Struct:
+        case SYM_Typealias:
+            break;
+    }
+    INVALID_CODE_PATH;
+    return NoneOperand();
 }
 
 static Ir_Operand GenVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
-    (void)ctx;
-    Symbol *symbol = expr->variable_ref.symbol;
-    Name name = symbol->unique_name;
-    if (symbol->sym_type == SYM_Function)
-    {
-        return NewRoutineRef(routine, expr->expr_type, name);
-    }
-    else if (symbol->sym_type == SYM_ForeignFunction)
-    {
-        return NewForeignRoutineRef(routine, expr->expr_type, symbol->name);
-    }
-    else if (symbol->sym_type == SYM_Parameter)
-    {
-        Type *ref_type = GetPointerType(ctx->env, expr->expr_type);
-        if (TypeIsStruct(expr->expr_type))
-            return NewVariableRef(routine, ref_type, name);
-        return NewVariableRef(routine, expr->expr_type, name);
-    }
-    else if (symbol->sym_type == SYM_Variable)
-    {
-        if (SymbolIsGlobal(symbol))
-            return NewGlobalVariableRef(routine, expr->expr_type, name);
-        else
-            return NewVariableRef(routine, expr->expr_type, name);
-    }
-    else if (symbol->sym_type == SYM_Constant)
-    {
-        return NewVariableRef(routine, expr->expr_type, name);
-    }
-    INVALID_CODE_PATH;
-    return NoneOperand();
+    return GenVariableRef_(ctx, expr, routine, expr->expr_type);
 }
 
 static Ir_Operand GenRefVariableRef(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
 {
-    (void)ctx;
-    Symbol *symbol = expr->variable_ref.symbol;
-    Name name = symbol->unique_name;
-
-    Type *ref_type = GetPointerType(ctx->env, expr->expr_type);
-    if (symbol->sym_type == SYM_Function)
-    {
-        return NewRoutineRef(routine, ref_type, name);
-    }
-    else if (symbol->sym_type == SYM_ForeignFunction)
-    {
-        return NewForeignRoutineRef(routine, ref_type, symbol->name);
-    }
-    else if (symbol->sym_type == SYM_Parameter)
-    {
-        return NewVariableRef(routine, ref_type, name);
-    }
-    else if (symbol->sym_type == SYM_Variable)
-    {
-        if (SymbolIsGlobal(symbol))
-            return NewGlobalVariableRef(routine, ref_type, name);
-        else
-            return NewVariableRef(routine, ref_type, name);
-    }
-    else if (symbol->sym_type == SYM_Constant)
-    {
-        return NewVariableRef(routine, ref_type, name);
-    }
-    INVALID_CODE_PATH;
-    return NoneOperand();
+    return GenVariableRef_(ctx, expr, routine, expr->expr_type);
+    return GenVariableRef_(ctx, expr, routine, GetPointerType(ctx->env, expr->expr_type));
 }
 
 static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *routine)
@@ -1752,6 +1752,11 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
             len += PrintName(file, oper.var.name, 15);
             len += fprintf(file, ">");
             break;
+    }
+    if (oper.type)
+    {
+        len += fprintf(file, ":");
+        len += PrintType((IoFile*)file, oper.type);
     }
     PrintPadding(file, len, 20);
 }

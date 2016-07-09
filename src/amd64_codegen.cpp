@@ -1832,6 +1832,9 @@ static void AddLocal(Codegen_Context *ctx, Ir_Operand *ir_oper)
 
         Local_Offset *offs = PushStruct<Local_Offset>(&ctx->arena);
 
+        // TODO(henrik): Should this be more like:
+        // locals_size += GetSize(type);
+        // locals_size = Align(locals_size, GetAlign(type));
         routine->locals_size += GetAlignedSize(ir_oper->type);
         routine->locals_size = Align(routine->locals_size, 8);
         offs->name = name;
@@ -1839,9 +1842,9 @@ static void AddLocal(Codegen_Context *ctx, Ir_Operand *ir_oper)
 
         hashtable::Put(routine->local_offsets, name, offs);
 
-        PushLoadAddr(ctx,
-                IrOperand(ctx, ir_oper, AF_Write),
-                BaseOffsetOperand(REG_rbp, offs->offset, Oper_Data_Type::PTR, AF_Read));
+        //PushLoadAddr(ctx,
+        //        IrOperand(ctx, ir_oper, AF_Write),
+        //        BaseOffsetOperand(REG_rbp, offs->offset, Oper_Data_Type::PTR, AF_Read));
     }
 }
 
@@ -1959,8 +1962,9 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 if (TypeIsStruct(ir_instr->target.type))
                 {
                     Type *type = ir_instr->target.type;
-                    if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
+                    if (false && ir_instr->oper1.oper_type == IR_OPER_Immediate)
                     {
+                        // TODO(henrik): Why is there a version for immediate values?
                         Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                         Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
                         PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
@@ -1982,8 +1986,9 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 {
                     Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                    if ( 0 && oper1.type == Oper_Type::Immediate)
+                    if (false && oper1.type == Oper_Type::Immediate)
                     {
+                        // TODO(henrik): Why is there a version for immediate values?
                         oper1.data_type = target.data_type;
                         Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
                         PushLoad(ctx, temp, oper1);
@@ -2041,20 +2046,28 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 s64 member_index = ir_instr->oper2.imm_s64;
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
 
-                if (TypeIsPointer(oper_type))
-                    oper_type = oper_type->base_type;
-
+                bool is_ptr = TypeIsPointer(oper_type);
+                if (is_ptr) oper_type = oper_type->base_type;
                 ASSERT(TypeIsStruct(oper_type));
+
                 s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
-                PushLoad(ctx, temp, oper1);
-                temp.data_type = target.data_type;
-                PushLoad(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
-                //Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                //oper1.data_type = target.data_type;
-                //PushLoad(ctx, target,
-                //        BaseOffsetOperand(oper1, member_offset, AF_Read));
+                //if (ir_instr->oper1.oper_type == IR_OPER_Parameter)// || !is_ptr)
+                if (is_ptr)
+                {
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoad(ctx, temp, oper1);
+                    temp.data_type = target.data_type;
+                    PushLoad(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                }
+                else
+                {
+                    Operand oper1 = R_(GetAddress(ctx, &ir_instr->oper1));
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoadAddr(ctx, temp, oper1);
+                    temp.data_type = target.data_type;
+                    PushLoad(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                }
             } break;
         case IR_LoadMemberAddr:
             {
@@ -2063,12 +2076,28 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 ASSERT(target.data_type == Oper_Data_Type::PTR);
 
-                if (TypeIsPointer(oper_type))
-                    oper_type = oper_type->base_type;
+                bool is_ptr = TypeIsPointer(oper_type);
+                if (is_ptr) oper_type = oper_type->base_type;
+                ASSERT(TypeIsStruct(oper_type));
 
                 s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                PushLoadAddr(ctx, target, BaseOffsetOperand(oper1, member_offset, AF_Read));
+                //if (ir_instr->oper1.oper_type == IR_OPER_Parameter)// || !is_ptr)
+                if (is_ptr)
+                {
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoad(ctx, temp, oper1);
+                    temp.data_type = target.data_type;
+                    PushLoadAddr(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                }
+                else
+                {
+                    Operand oper1 = R_(GetAddress(ctx, &ir_instr->oper1));
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoadAddr(ctx, temp, oper1);
+                    temp.data_type = target.data_type;
+                    PushLoadAddr(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                }
             } break;
         case IR_MovElement:
             {

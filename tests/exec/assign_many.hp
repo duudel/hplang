@@ -24,6 +24,8 @@ main :: ()
     s.a = s.b = 42;
     println(s.a);
     println(s.b);
+    s.b = 32;
+    println(s.b);
 
     return 0;
 }
