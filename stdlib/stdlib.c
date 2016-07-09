@@ -80,3 +80,6 @@ s64 hp_fprint_f32(FILE *file, f32 x, s32 precision)
 s64 hp_fprint_f64(FILE *file, f64 x, s32 precision)
 { return fprintf(stdout, "%.*f", precision, x); }
 
+s64 hp_fprint_ptr(FILE *file, void *x)
+{ return fprintf(stdout, "%p", x); }
+

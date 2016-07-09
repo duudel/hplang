@@ -14,6 +14,7 @@ foreign {
     hp_fprint_int :: (file : FILE*, x : s64) : s64;
     hp_fprint_f32 :: (file : FILE*, x : f32, precision : s32) : s64;
     hp_fprint_f64 :: (file : FILE*, x : f64, precision : s32) : s64;
+    hp_fprint_ptr :: (file : FILE*, x : void*) : s64;
 }
 
 stdout : FILE* = hp_get_stdout();
@@ -124,6 +125,19 @@ println :: (x : f64) : s64
 println :: (x : f64, precision : s32) : s64
 {
     n := hp_fprint_f64(stdout, x, precision);
+    return n + println();
+}
+
+// pointer
+
+print :: (x : void*) : s64
+{
+    return hp_fprint_ptr(stdout, x);
+}
+
+println :: (x : void*) : s64
+{
+    n := hp_fprint_ptr(stdout, x);
     return n + println();
 }
 
