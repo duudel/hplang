@@ -460,7 +460,8 @@ static Operand FixedRegOperand(Codegen_Context *ctx, Reg reg, Oper_Data_Type dat
     result.access_flags = access_flags;
     result.data_type = data_type;
     result.fixed_reg.reg = reg;
-    result.fixed_reg.name = PushName(&ctx->arena, buf, reg_name_len);
+    //result.fixed_reg.name = PushName(&ctx->arena, buf, reg_name_len);
+    result.name = PushName(&ctx->arena, buf, reg_name_len);
     return result;
 }
 
@@ -475,7 +476,8 @@ static Operand VirtualRegOperand(Name name, Oper_Data_Type data_type, Oper_Acces
     result.type = Oper_Type::VirtualRegister;
     result.access_flags = access_flags;
     result.data_type = data_type;
-    result.virtual_reg.name = name;
+    //result.virtual_reg.name = name;
+    result.name = name;
     return result;
 }
 
@@ -626,7 +628,8 @@ static Operand LabelOperand(Name name, Oper_Access_Flags access_flags)
     result.type = Oper_Type::Label;
     result.access_flags = access_flags;
     result.data_type = Oper_Data_Type::PTR;
-    result.label.name = name;
+    //result.label.name = name;
+    result.name = name;
     return result;
 }
 
@@ -643,14 +646,17 @@ static Operand LabelOperand(Ir_Operand *ir_oper, Oper_Access_Flags access_flags)
     {
     default: break;
     case IR_OPER_Label:
-        result.label.name = ir_oper->label->name;
+        //result.label.name = ir_oper->label->name;
+        result.name = ir_oper->label->name;
         break;
     case IR_OPER_Routine:
     case IR_OPER_ForeignRoutine:
-        result.label.name = ir_oper->var.name;
+        //result.label.name = ir_oper->var.name;
+        result.name = ir_oper->var.name;
         break;
     }
-    ASSERT(result.label.name.str.size != 0);
+    //ASSERT(result.label.name.str.size != 0);
+    ASSERT(result.name.str.size != 0);
     return result;
 }
 
@@ -1003,7 +1009,25 @@ static Amd64_Opcode MoveOp(Oper_Data_Type data_type)
     return OP_mov;
 }
 
-static Operand LoadImmediates(Codegen_Context *ctx,
+
+static b32 AddToSpilled(Codegen_Context *ctx, Operand oper)
+{
+    if (!hashtable::Lookup(ctx->spilled_opers, oper.name))
+    {
+        Spilled_Oper *spilled_oper = PushStruct<Spilled_Oper>(&ctx->arena);
+        spilled_oper->name = oper.name;
+        hashtable::Put(ctx->spilled_opers, oper.name, spilled_oper);
+        return true;
+    }
+    return false;
+}
+
+static b32 IsSpilled(Codegen_Context *ctx, Operand oper)
+{
+    return hashtable::Lookup(ctx->spilled_opers, oper.name) != nullptr;
+}
+
+static Operand ModifyOperand(Codegen_Context *ctx,
         Amd64_Opcode opcode,
         s64 oper_idx,
         Instruction_List &instructions,
@@ -1055,6 +1079,7 @@ static Operand LoadImmediates(Codegen_Context *ctx,
     }
     else if (oper.addr_mode == Oper_Addr_Mode::BaseOffset
             //|| oper.addr_mode == Oper_Addr_Mode::BaseIndexOffset
+            || IsSpilled(ctx, oper)
             )
     {
         if ((opflags & (O1_MEM << opshift)) == 0 ||
@@ -1113,10 +1138,10 @@ static Instruction* PushInstruction(Codegen_Context *ctx,
         Operand oper2 = NoneOperand(),
         Operand oper3 = NoneOperand())
 {
-    oper1 = LoadImmediates(ctx, opcode, 0, instructions, instructions.count, oper1);
+    oper1 = ModifyOperand(ctx, opcode, 0, instructions, instructions.count, oper1);
     bool o1_mem = (oper1.addr_mode == Oper_Addr_Mode::BaseOffset);
-    oper2 = LoadImmediates(ctx, opcode, 1, instructions, instructions.count, oper2, o1_mem);
-    oper3 = LoadImmediates(ctx, opcode, 2, instructions, instructions.count, oper3, o1_mem);
+    oper2 = ModifyOperand(ctx, opcode, 1, instructions, instructions.count, oper2, o1_mem);
+    oper3 = ModifyOperand(ctx, opcode, 2, instructions, instructions.count, oper3, o1_mem);
     Instruction *instr = NewInstruction(ctx, opcode, oper1, oper2, oper3);
     array::Push(instructions, instr);
     return instr;
@@ -1140,10 +1165,10 @@ static Instruction* InsertInstruction(Codegen_Context *ctx,
         Operand oper2 = NoneOperand(),
         Operand oper3 = NoneOperand())
 {
-    oper1 = LoadImmediates(ctx, opcode, 0, instructions, instr_index, oper1);
+    oper1 = ModifyOperand(ctx, opcode, 0, instructions, instr_index, oper1);
     bool o1_mem = (oper1.addr_mode == Oper_Addr_Mode::BaseOffset);
-    oper2 = LoadImmediates(ctx, opcode, 1, instructions, instr_index, oper2, o1_mem);
-    oper3 = LoadImmediates(ctx, opcode, 2, instructions, instr_index, oper3, o1_mem);
+    oper2 = ModifyOperand(ctx, opcode, 1, instructions, instr_index, oper2, o1_mem);
+    oper3 = ModifyOperand(ctx, opcode, 2, instructions, instr_index, oper3, o1_mem);
     Instruction *instr = NewInstruction(ctx, opcode, oper1, oper2, oper3);
     array::Insert(instructions, instr_index, instr);
     instr_index++;
@@ -1216,7 +1241,8 @@ static void PushLabel(Codegen_Context *ctx, Name name)
 {
     Operand oper = { };
     oper.type = Oper_Type::Label;
-    oper.label.name = name;
+    //oper.label.name = name;
+    oper.name = name;
     PushInstruction(ctx, OP_LABEL, oper);
 }
 
@@ -1911,15 +1937,21 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                     PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
                     break;
                 }
+                Operand oper = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                if (IsSpilled(ctx, oper))
+                {
+                    // Already spilled
+                }
+                else
+                {
+                    PushInstruction(ctx, OP_SPILL, oper);
+                }
 
                 Operand addr_oper = GetAddress(ctx, &ir_instr->oper1);
-                Operand oper = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                //PushLoad(ctx, W_(addr_oper), IrOperand(ctx, &ir_instr->oper1, AF_Read));
-                PushInstruction(ctx, OP_SPILL, oper);
-                //PushSpill(ctx, oper);
                 PushLoadAddr(ctx,
                         IrOperand(ctx, &ir_instr->target, AF_Write),
                         R_(addr_oper));
+                AddToSpilled(ctx, oper);
             } break;
 
         case IR_Mov:
@@ -2233,12 +2265,13 @@ static void CollectLabelInstructions(Codegen_Context *ctx, Routine *routine)
                 }
             }
 
-            Label label = instr->oper1.label;
+            //Name label_name = instr->oper1.label.name;
+            Name label_name = instr->oper1.name;
             Label_Instr *label_instr = PushStruct<Label_Instr>(&ctx->arena);
-            label_instr->name = label.name;
+            label_instr->name = label_name;
             label_instr->instr = next_instr;
             label_instr->instr_index = next_i;
-            hashtable::Put(routine->labels, label.name, label_instr);
+            hashtable::Put(routine->labels, label_name, label_instr);
         }
     }
 }
@@ -2354,8 +2387,12 @@ static Name GetOperName(Operand oper)
     switch (oper.type)
     {
         default: break;
-        case Oper_Type::FixedRegister:      name = oper.fixed_reg.name; break;
-        case Oper_Type::VirtualRegister:    name = oper.virtual_reg.name; break;
+        //case Oper_Type::FixedRegister:      name = oper.fixed_reg.name; break;
+        //case Oper_Type::VirtualRegister:    name = oper.virtual_reg.name; break;
+        case Oper_Type::FixedRegister:
+        case Oper_Type::VirtualRegister:
+            name = oper.name;
+            break;
     }
     return name;
 }
@@ -2367,12 +2404,19 @@ static Name GetOperName(Operand oper, Reg *fixed_reg)
     switch (oper.type)
     {
         default: break;
+        //case Oper_Type::FixedRegister:
+        //    name = oper.fixed_reg.name;
+        //    *fixed_reg = oper.fixed_reg.reg;
+        //    break;
+        //case Oper_Type::VirtualRegister:
+        //    name = oper.virtual_reg.name;
+        //    break;
         case Oper_Type::FixedRegister:
-            name = oper.fixed_reg.name;
+            name = oper.name;
             *fixed_reg = oper.fixed_reg.reg;
             break;
         case Oper_Type::VirtualRegister:
-            name = oper.virtual_reg.name;
+            name = oper.name;
             break;
     }
     return name;
@@ -2488,7 +2532,8 @@ static void ComputeLiveness(Codegen_Context *ctx,
             if ((instr->flags & IF_Branch) != 0)
             {
                 ASSERT(instr->oper1.type == Oper_Type::Label);
-                Name label_name = instr->oper1.label.name;
+                //Name label_name = instr->oper1.label.name;
+                Name label_name = instr->oper1.name;
                 const Label_Instr *li = hashtable::Lookup(routine->labels, label_name);
                 ASSERT(li != nullptr);
                 if (li->instr)
@@ -2513,7 +2558,8 @@ static void ComputeLiveness(Codegen_Context *ctx,
         if ((instr->flags & IF_Branch) != 0)
         {
             ASSERT(instr->oper1.type == Oper_Type::Label);
-            Name label_name = instr->oper1.label.name;
+            //Name label_name = instr->oper1.label.name;
+            Name label_name = instr->oper1.name;
             const Label_Instr *li = hashtable::Lookup(routine->labels, label_name);
             ASSERT(li != nullptr);
             s64 label_instr_index = -1;
@@ -3613,7 +3659,8 @@ static b32 IsSame(Operand oper1, Operand oper2)
         case Oper_Type::Register:
             return oper1.reg == oper2.reg;
         case Oper_Type::Label:
-            return oper1.label.name == oper2.label.name;
+            return oper1.name == oper2.name;
+            //return oper1.label.name == oper2.label.name;
         case Oper_Type::Immediate:
             return oper1.imm_ptr == oper2.imm_ptr;
         default:
@@ -3665,7 +3712,8 @@ void OptimizeCode(Codegen_Context *ctx, Routine *routine)
         if ((Amd64_Opcode)instr_0->opcode == OP_jmp &&
             (Amd64_Opcode)instr_1->opcode == OP_LABEL)
         {
-            if (instr_0->oper1.label.name == instr_1->oper1.label.name)
+            //if (instr_0->oper1.label.name == instr_1->oper1.label.name)
+            if (instr_0->oper1.name == instr_1->oper1.name)
             {
                 CommentOut(instr_0);
             }
@@ -3812,7 +3860,8 @@ static s64 PrintOperandV(IoFile *file, Operand oper)
         case Oper_Type::None:
             break;
         case Oper_Type::Label:
-            len += PrintName(file, oper.label.name);
+            //len += PrintName(file, oper.label.name);
+            len += PrintName(file, oper.name);
             break;
         case Oper_Type::Register:
             if (oper.addr_mode == Oper_Addr_Mode::Direct)
@@ -3837,7 +3886,8 @@ static s64 PrintOperandV(IoFile *file, Operand oper)
             }
             break;
         case Oper_Type::VirtualRegister:
-            len += PrintName(file, oper.virtual_reg.name);
+            //len += PrintName(file, oper.virtual_reg.name);
+            len += PrintName(file, oper.name);
             break;
         case Oper_Type::Immediate:
             len += fprintf((FILE*)file, "%" PRIu64, oper.imm_u64);
@@ -3927,7 +3977,8 @@ static s64 PrintOperand(IoFile *file,
 static s64 PrintLabel(IoFile *file, Operand label_oper)
 {
     s64 len = 0;
-    len += PrintString(file, label_oper.label.name.str);
+    len += PrintString(file, label_oper.name.str);
+    //len += PrintString(file, label_oper.label.name.str);
     len += fprintf((FILE*)file, ":");
     return len;
 }

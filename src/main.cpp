@@ -8,6 +8,7 @@
 #include "codegen.h"
 
 #include <cstdio>
+#include <cinttypes>
 #include <cstring>
 
 #include "args_util.h"
@@ -185,17 +186,17 @@ static int ParseProfilingOption(Arg_Option_Result option_result, Compiler_Option
 int main(int argc, char **argv)
 {
 #if 0
-    printf("sizeof(File_Location) %lld\n", sizeof(File_Location));
-    printf("sizeof(Name) %lld\n", sizeof(Name));
-    printf("sizeof(Ast_Node) %lld\n", sizeof(Ast_Node));
-    printf("sizeof(Ast_Expr) %lld\n", sizeof(Ast_Expr));
-    printf("sizeof(Ast_Function_Def) %lld\n", sizeof(Ast_Function_Def));
-    printf("sizeof(Ir_Operand) %lld\n", sizeof(Ir_Operand));
-    printf("sizeof(Ir_Instruction) %lld\n", sizeof(Ir_Instruction));
-    printf("sizeof(Operand) %lld\n", sizeof(Operand));
-    printf("sizeof(Instruction) %lld\n", sizeof(Instruction));
-    printf("sizeof(Oper_Data_Type) %lld\n", sizeof(Oper_Data_Type));
-    printf("sizeof(Oper_Access_Flags) %lld\n", sizeof(Oper_Access_Flags));
+    printf("sizeof(File_Location) %" PRId64 "\n", sizeof(File_Location));
+    printf("sizeof(Name) %" PRId64 "\n", sizeof(Name));
+    printf("sizeof(Ast_Node) %" PRId64 "\n", sizeof(Ast_Node));
+    printf("sizeof(Ast_Expr) %" PRId64 "\n", sizeof(Ast_Expr));
+    printf("sizeof(Ast_Function_Def) %" PRId64 "\n", sizeof(Ast_Function_Def));
+    printf("sizeof(Ir_Operand) %" PRId64 "\n", sizeof(Ir_Operand));
+    printf("sizeof(Ir_Instruction) %" PRId64 "\n", sizeof(Ir_Instruction));
+    printf("sizeof(Operand) %" PRId64 "\n", sizeof(Operand));
+    printf("sizeof(Instruction) %" PRId64 "\n", sizeof(Instruction));
+    printf("sizeof(Oper_Data_Type) %" PRId64 "\n", sizeof(Oper_Data_Type));
+    printf("sizeof(Oper_Access_Flags) %" PRId64 "\n", sizeof(Oper_Access_Flags));
     fflush(stdout);
     return 0;
 #endif

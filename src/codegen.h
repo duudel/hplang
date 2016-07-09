@@ -56,19 +56,16 @@ enum class Oper_Addr_Mode : u8
 
 struct Label
 {
-    Name name;
 };
 
 // Physical register
 struct Fixed_Reg
 {
     Reg reg;
-    Name name;
 };
 
 struct Virtual_Reg
 {
-    Name name;
 };
 
 enum Oper_Access_Flag_Bits
@@ -88,6 +85,7 @@ struct Operand
     Oper_Data_Type data_type;
     Oper_Addr_Mode addr_mode;
     s32 scale_offset;
+    Name name;
     union {
         Reg         reg;
         Fixed_Reg   fixed_reg;
@@ -196,6 +194,11 @@ struct String_Const
     String value;
 };
 
+struct Spilled_Oper
+{
+    Name name;
+};
+
 struct Compiler_Context;
 struct Reg_Alloc;
 
@@ -216,6 +219,8 @@ struct Codegen_Context
     Array<Float32_Const> float32_consts;
     Array<Float64_Const> float64_consts;
     Array<String_Const> str_consts;
+
+    Array<Spilled_Oper*> spilled_opers;
 
     s64 routine_count;
     Routine *routines;
