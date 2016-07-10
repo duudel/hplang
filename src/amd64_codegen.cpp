@@ -1841,10 +1841,6 @@ static void AddLocal(Codegen_Context *ctx, Ir_Operand *ir_oper)
         offs->offset = -routine->locals_size;
 
         hashtable::Put(routine->local_offsets, name, offs);
-
-        //PushLoadAddr(ctx,
-        //        IrOperand(ctx, ir_oper, AF_Write),
-        //        BaseOffsetOperand(REG_rbp, offs->offset, Oper_Data_Type::PTR, AF_Read));
     }
 }
 
@@ -1896,29 +1892,18 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
             AddLocal(ctx, &ir_instr->target);
             break;
 
-        case IR_Add:
-        case IR_Sub:
-        case IR_Mul:
-        case IR_Div:
-        case IR_Mod:
-        case IR_LShift:
-        case IR_RShift:
-        case IR_And:
-        case IR_Or:
-        case IR_Xor:
-        case IR_Not:
-        case IR_Neg:
-        case IR_Compl:
+        case IR_Add: case IR_Sub:
+        case IR_Mul: case IR_Div: case IR_Mod:
+        case IR_LShift: case IR_RShift:
+        case IR_And: case IR_Or: case IR_Xor:
+        case IR_Not: case IR_Neg: case IR_Compl:
         case IR_Sqrt:
             GenerateArithmetic(ctx, ir_instr);
             break;
 
-        case IR_Eq:
-        case IR_Neq:
-        case IR_Lt:
-        case IR_Leq:
-        case IR_Gt:
-        case IR_Geq:
+        case IR_Eq: case IR_Neq:
+        case IR_Lt: case IR_Leq:
+        case IR_Gt: case IR_Geq:
             GenerateCompare(ctx, ir_instr, ir_next_instr, skip_next);
             break;
 

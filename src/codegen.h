@@ -211,6 +211,8 @@ struct Codegen_Context
 
     Name return_label_name;
 
+    Routine *current_routine;
+
     s64 current_arg_count;
     s64 fixed_reg_id;
     s64 temp_id;
@@ -224,8 +226,6 @@ struct Codegen_Context
 
     s64 routine_count;
     Routine *routines;
-
-    Routine *current_routine;
 
     s64 foreign_routine_count;
     Name *foreign_routines;
