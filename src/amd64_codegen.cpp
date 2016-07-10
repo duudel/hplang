@@ -2841,14 +2841,36 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                                 //fprintf(dbgout, " -- regs NOT same at %d -> %d!\n",
                                 //        edge.instr_index, edge.branch_instr_index);
                             }
-                            //else
-                            //    fprintf(dbgout, "regs same at %d!\n", edge.instr_index);
+                            else
+                            {
+                                //index = -2;
+                                //fprintf(dbgout, "regs same at %d!\n", edge.instr_index);
+                            }
                             break;
                         }
                     }
                 }
                 // No confilicting interval found, continue to next interval.
+#if 1
                 if (index == -1) continue;
+#else
+                if (index == -2) continue;
+                if (index == -1)
+                {
+                    for (s64 ii = 0; ii < edge.intervals.count; ii++)
+                    {
+                        iters++;
+                        if (edge.intervals[ii] == li.name)
+                        {
+                            //PrintName((IoFile*)dbgout, li.name);
+                            //fprintf(dbgout, "; no active interval at %d; must have been spilled!\n", edge.instr_index);
+                            Unspill(ctx->reg_alloc, li, edge.instr_index, 1, "consistency");
+                            break;
+                        }
+                    }
+                    continue;
+                }
+#endif
 
                 // Check if there are other intervals using the register at the
                 // branch point.

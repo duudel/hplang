@@ -43,7 +43,8 @@ run:
 	@#-./$(EXENAME) -dIR -o out tests/exec/arg_passing.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/continue2.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/nbody.hp 2> stderr.out
-	-./$(EXENAME) -dIR -o out tests/exec/nbody_p.hp 2> stderr.out
+	@#-./$(EXENAME) -dIR -o out tests/exec/nbody_p.hp 2> stderr.out
+	-./$(EXENAME) -dIR -o out tests/exec/bintrees.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/struct_as_arg.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/and_or.hp 2> stderr.out

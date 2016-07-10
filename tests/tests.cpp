@@ -402,17 +402,18 @@ static Execute_Test exec_tests[] = {
     (Execute_Test){ "tests/exec/continue2.hp",      "tests/exec/continue2.stdout",      0 },
     (Execute_Test){ "tests/exec/struct_as_arg.hp",  nullptr,                            10 },
     (Execute_Test){ "tests/exec/arg_passing.hp",    "tests/exec/arg_passing.stdout",    120 },
+    (Execute_Test){ "tests/exec/alignof.hp",        "tests/exec/alignof.stdout",        0 },
+    (Execute_Test){ "tests/exec/sizeof.hp",         "tests/exec/sizeof.stdout",         0 },
+    (Execute_Test){ "tests/exec/assign_many.hp",    "tests/exec/assign_many.stdout",    0 },
     (Execute_Test){ "tests/exec/module_test.hp",    nullptr,                            42 },
     (Execute_Test){ "tests/exec/modules_test.hp",   nullptr,                            210 },
     (Execute_Test){ "tests/exec/nbody.hp",          "tests/exec/nbody.stdout",          0 },
     (Execute_Test){ "tests/exec/nbody_p.hp",        "tests/exec/nbody.stdout",          0 },
     (Execute_Test){ "tests/exec/mandelbrot.hp",     "tests/exec/mandelbrot.stdout",     0 },
+    (Execute_Test){ "tests/exec/bintrees.hp",       "tests/exec/bintrees.stdout",       0 },
     (Execute_Test){ "tests/pointer_arith.hp",       nullptr,                            0 },
     (Execute_Test){ "tests/member_access.hp",       nullptr,                            0 },
     (Execute_Test){ "tests/function_var.hp",        nullptr,                            0 },
-    (Execute_Test){ "tests/exec/alignof.hp",        "tests/exec/alignof.stdout",        0 },
-    (Execute_Test){ "tests/exec/sizeof.hp",         "tests/exec/sizeof.stdout",         0 },
-    (Execute_Test){ "tests/exec/assign_many.hp",    "tests/exec/assign_many.stdout",    0 },
 };
 
 //static void PrintError(const char *filename, s64 line, s64 column, const char *message)
