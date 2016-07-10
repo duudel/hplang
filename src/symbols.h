@@ -104,8 +104,8 @@ b32 TypeIsStruct(Type *t);
 b32 TypeIsSigned(Type *t);
 b32 TypeIsUnsigned(Type *t);
 
-void PrintType(IoFile *file, Type *type);
-void PrintFunctionType(IoFile *file, Type *return_type, s64 param_count, Type **param_types);
+s64 PrintType(IoFile *file, Type *type);
+s64 PrintFunctionType(IoFile *file, Type *return_type, s64 param_count, Type **param_types);
 
 
 enum Symbol_Type

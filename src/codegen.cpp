@@ -50,6 +50,7 @@ void FreeCodegenContext(Codegen_Context *ctx)
     array::Free(ctx->float32_consts);
     array::Free(ctx->float64_consts);
     array::Free(ctx->str_consts);
+    array::Free(ctx->spilled_opers);
 
     FreeMemoryArena(&ctx->arena);
 }

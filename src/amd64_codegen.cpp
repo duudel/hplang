@@ -1832,16 +1832,15 @@ static void AddLocal(Codegen_Context *ctx, Ir_Operand *ir_oper)
 
         Local_Offset *offs = PushStruct<Local_Offset>(&ctx->arena);
 
+        // TODO(henrik): Should this be more like:
+        // locals_size += GetSize(type);
+        // locals_size = Align(locals_size, GetAlign(type));
         routine->locals_size += GetAlignedSize(ir_oper->type);
         routine->locals_size = Align(routine->locals_size, 8);
         offs->name = name;
         offs->offset = -routine->locals_size;
 
         hashtable::Put(routine->local_offsets, name, offs);
-
-        PushLoadAddr(ctx,
-                IrOperand(ctx, ir_oper, AF_Write),
-                BaseOffsetOperand(REG_rbp, offs->offset, Oper_Data_Type::PTR, AF_Read));
     }
 }
 
@@ -1893,38 +1892,24 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
             AddLocal(ctx, &ir_instr->target);
             break;
 
-        case IR_Add:
-        case IR_Sub:
-        case IR_Mul:
-        case IR_Div:
-        case IR_Mod:
-        case IR_LShift:
-        case IR_RShift:
-        case IR_And:
-        case IR_Or:
-        case IR_Xor:
-        case IR_Not:
-        case IR_Neg:
-        case IR_Compl:
+        case IR_Add: case IR_Sub:
+        case IR_Mul: case IR_Div: case IR_Mod:
+        case IR_LShift: case IR_RShift:
+        case IR_And: case IR_Or: case IR_Xor:
+        case IR_Not: case IR_Neg: case IR_Compl:
         case IR_Sqrt:
             GenerateArithmetic(ctx, ir_instr);
             break;
 
-        case IR_Eq:
-        case IR_Neq:
-        case IR_Lt:
-        case IR_Leq:
-        case IR_Gt:
-        case IR_Geq:
+        case IR_Eq: case IR_Neq:
+        case IR_Lt: case IR_Leq:
+        case IR_Gt: case IR_Geq:
             GenerateCompare(ctx, ir_instr, ir_next_instr, skip_next);
             break;
 
+            // TODO(henrik): IR_Deref seems to be useless. Remove.
         case IR_Deref:
             {
-                //Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                //PushLoad(ctx,
-                //        target,
-                //        BaseOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read));
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                 PushLoad(ctx, target, source);
@@ -1938,11 +1923,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                     break;
                 }
                 Operand oper = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                if (IsSpilled(ctx, oper))
-                {
-                    // Already spilled
-                }
-                else
+                if (!IsSpilled(ctx, oper))
                 {
                     PushInstruction(ctx, OP_SPILL, oper);
                 }
@@ -1959,42 +1940,22 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 if (TypeIsStruct(ir_instr->target.type))
                 {
                     Type *type = ir_instr->target.type;
-                    if (ir_instr->oper1.oper_type == IR_OPER_Immediate)
-                    {
-                        Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                        Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                        PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
-                        PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
-                        Copy(ctx, target, source_addr, type);
-                    }
-                    else
-                    {
-                        Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                        Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Write);
-                        PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
-                        //Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                        //PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
-                        //PushLoad(ctx, source_addr, IrOperand(ctx, &ir_instr->oper1, AF_Read));
-                        Copy(ctx, target, source, type);
-                    }
+                    Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                    Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Write);
+                    PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
+                    //Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                    //PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
+                    //PushLoad(ctx, source_addr, IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                    Copy(ctx, target, source, type);
                 }
                 else
                 {
                     Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                    if ( 0 && oper1.type == Oper_Type::Immediate)
-                    {
-                        oper1.data_type = target.data_type;
-                        Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
-                        PushLoad(ctx, temp, oper1);
-                        PushLoad(ctx, target, R_(temp));
-                    }
-                    else
-                    {
-                        // TODO(henrik): remove this data_type "coercion"
-                        oper1.data_type = target.data_type;
-                        PushLoad(ctx, target, oper1);
-                    }
+
+                    // TODO(henrik): remove this data_type "coercion"
+                    oper1.data_type = target.data_type;
+                    PushLoad(ctx, target, oper1);
                 }
             } break;
         case IR_MovSX:
@@ -2041,20 +2002,27 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 s64 member_index = ir_instr->oper2.imm_s64;
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
 
-                if (TypeIsPointer(oper_type))
-                    oper_type = oper_type->base_type;
-
+                bool is_ptr = TypeIsPointer(oper_type);
+                if (is_ptr) oper_type = oper_type->base_type;
                 ASSERT(TypeIsStruct(oper_type));
+
                 s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
-                PushLoad(ctx, temp, oper1);
-                temp.data_type = target.data_type;
-                PushLoad(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
-                //Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                //oper1.data_type = target.data_type;
-                //PushLoad(ctx, target,
-                //        BaseOffsetOperand(oper1, member_offset, AF_Read));
+                if (is_ptr)
+                {
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoad(ctx, temp, oper1);
+                    temp.data_type = target.data_type;
+                    PushLoad(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                }
+                else
+                {
+                    Operand oper1 = R_(GetAddress(ctx, &ir_instr->oper1));
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoadAddr(ctx, temp, oper1);
+                    temp.data_type = target.data_type;
+                    PushLoad(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                }
             } break;
         case IR_LoadMemberAddr:
             {
@@ -2063,12 +2031,27 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 ASSERT(target.data_type == Oper_Data_Type::PTR);
 
-                if (TypeIsPointer(oper_type))
-                    oper_type = oper_type->base_type;
+                bool is_ptr = TypeIsPointer(oper_type);
+                if (is_ptr) oper_type = oper_type->base_type;
+                ASSERT(TypeIsStruct(oper_type));
 
                 s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                PushLoadAddr(ctx, target, BaseOffsetOperand(oper1, member_offset, AF_Read));
+                if (is_ptr)
+                {
+                    Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoad(ctx, temp, oper1);
+                    temp.data_type = target.data_type;
+                    PushLoadAddr(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                }
+                else
+                {
+                    Operand oper1 = R_(GetAddress(ctx, &ir_instr->oper1));
+                    Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
+                    PushLoadAddr(ctx, temp, oper1);
+                    temp.data_type = target.data_type;
+                    PushLoadAddr(ctx, target, BaseOffsetOperand(temp, member_offset, AF_Read));
+                }
             } break;
         case IR_MovElement:
             {
@@ -3674,7 +3657,7 @@ static b32 IsCommentedOut(Instruction *instr)
     return (instr->flags & IF_CommentedOut) != 0;
 }
 
-void CommentOut(Instruction *instr)
+static void CommentOut(Instruction *instr)
 {
     instr->flags |= IF_CommentedOut;
 }
@@ -3688,7 +3671,7 @@ static bool HasSideEffectsBesidesDefOper1(Instruction *instr)
         ((instr->oper3.access_flags & AF_Write) == AF_Write));
 }
 
-void OptimizeCode(Codegen_Context *ctx, Routine *routine)
+static void OptimizeCode(Codegen_Context *ctx, Routine *routine)
 {
     PROFILE_SCOPE("Optimize code");
 
@@ -3701,7 +3684,7 @@ void OptimizeCode(Codegen_Context *ctx, Routine *routine)
             if (IsSame(instr->oper1, instr->oper2))
             {
                 //MakeNop(instr);
-                instr->flags |= IF_CommentedOut;
+                CommentOut(instr);
             }
         }
     }
@@ -3772,7 +3755,7 @@ static s64 CountInstructions(Routine *routine)
     for (s64 i = 0; i < routine->instructions.count; i++)
     {
         Instruction *instr = routine->instructions[i];
-        if ((instr->flags & IF_CommentedOut) == 0)
+        if (!IsCommentedOut(instr))
             count++;
     }
     return count;

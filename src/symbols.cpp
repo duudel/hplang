@@ -332,65 +332,63 @@ Type* GetPointerType(Environment *env, Type *base_type)
     return pointer_type;
 }
 
-void PrintFunctionType(IoFile *file, Type *return_type, s64 param_count, Type **param_types)
+
+s64 PrintFunctionType(IoFile *file, Type *return_type, s64 param_count, Type **param_types)
 {
-    fprintf((FILE*)file, "(");
+    s64 n = fprintf((FILE*)file, "(");
     for (s64 i = 0; i < param_count; i++)
     {
-        if (i > 0) fprintf((FILE*)file, ", ");
-        PrintType(file, param_types[i]);
+        if (i > 0) n += fprintf((FILE*)file, ", ");
+        n += PrintType(file, param_types[i]);
     }
-    fprintf((FILE*)file, ")");
-    fprintf((FILE*)file, " : ");
+    n += fprintf((FILE*)file, ")");
+    n += fprintf((FILE*)file, " : ");
     if (return_type)
-        PrintType(file, return_type);
+        n += PrintType(file, return_type);
     else
-        fprintf((FILE*)file, "?");
+        n += fprintf((FILE*)file, "?");
+    return n;
 }
 
-void PrintType(IoFile *file, Type *type)
+s64 PrintType(IoFile *file, Type *type)
 {
     switch (type->tag)
     {
     case TYP_pending:
         //fprintf((FILE*)file, "(?");
         if (type->base_type)
-            PrintType(file, type->base_type);
+            return PrintType(file, type->base_type);
         //fprintf((FILE*)file, ")");
         break;
     case TYP_string:
     case TYP_Struct:
-        PrintString(file, type->struct_type.name.str);
-        break;
+        return PrintString(file, type->struct_type.name.str);
     case TYP_Function:
         {
-            PrintFunctionType(file, type->function_type.return_type,
+            return PrintFunctionType(file, type->function_type.return_type,
                     type->function_type.parameter_count,
                     type->function_type.parameter_types);
         } break;
     case TYP_pointer:
         {
-            PrintType(file, type->base_type);
-            fprintf((FILE*)file, "*");
+            s64 n = PrintType(file, type->base_type);
+            return n + fprintf((FILE*)file, "*");
         } break;
 
     // NOTE(henrik): Even thoug this should not appear in any normal case,
     // this could still happen, when function overload resolution fails.
     case TYP_null:
-        fprintf((FILE*)file, "(?*)null");
-        //NOT_IMPLEMENTED("null type printing");
+        return fprintf((FILE*)file, "(?*)null");
         break;
 
     default:
         if (type->tag <= TYP_LAST_BUILTIN)
         {
-            PrintString(file, type->type_name.str);
-        }
-        else
-        {
-            INVALID_CODE_PATH;
+            return PrintString(file, type->type_name.str);
         }
     }
+    INVALID_CODE_PATH;
+    return 0;
 }
 
 b32 SymbolIsGlobal(Symbol *symbol)
