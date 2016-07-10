@@ -1832,11 +1832,8 @@ static void AddLocal(Codegen_Context *ctx, Ir_Operand *ir_oper)
 
         Local_Offset *offs = PushStruct<Local_Offset>(&ctx->arena);
 
-        // TODO(henrik): Should this be more like:
-        // locals_size += GetSize(type);
-        // locals_size = Align(locals_size, GetAlign(type));
-        routine->locals_size += GetAlignedSize(ir_oper->type);
-        routine->locals_size = Align(routine->locals_size, 8);
+        routine->locals_size += GetSize(ir_oper->type);
+        routine->locals_size = Align(routine->locals_size, GetAlign(ir_oper->type));
         offs->name = name;
         offs->offset = -routine->locals_size;
 
