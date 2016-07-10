@@ -600,7 +600,6 @@ static Ir_Operand GenAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine 
     ASSERT(member_index >= 0);
 
     Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
-    //base_res.type = base_res.type->base_type;
     Ir_Operand member_res = NewTemp(ctx, routine, member_type);
     Ir_Operand member_offs = NewImmediateOffset(ctx->env, routine, member_index);
     PushInstruction(ctx, routine, IR_MovMember, member_res, base_res, member_offs);
@@ -629,7 +628,6 @@ static Ir_Operand GenRefAccessExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routi
     ASSERT(member_index >= 0);
 
     Ir_Operand base_res = GenRefExpression(ctx, base_expr, routine);
-    //base_res.type = base_res.type->base_type;
     Ir_Operand member_res = NewTemp(ctx, routine, GetPointerType(ctx->env, member_type));
     Ir_Operand member_offs = NewImmediateOffset(ctx->env, routine, member_index);
     PushInstruction(ctx, routine, IR_LoadMemberAddr, member_res, base_res, member_offs);
@@ -754,29 +752,20 @@ static Ir_Operand GenUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routine *
             }
         case UN_OP_Address:
             {
-                //if (expr->type != AST_VariableRef)
-                //{
-                //    Ir_Operand oper = GenRefExpression(ctx, oper_expr, routine);
-                //    return oper;
-                //}
-                //else
+                ASSERT(TypeIsPointer(expr->expr_type));
+                Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
+                if (!TypeIsStruct(oper_expr->expr_type))
                 {
-                    ASSERT(TypeIsPointer(expr->expr_type));
-                    Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
-                    if (!TypeIsStruct(oper_expr->expr_type))
-                    {
-                        Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
-                        PushInstruction(ctx, routine, IR_Addr, target, oper);
-                        return target;
-                    }
-                    return oper;
+                    Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
+                    PushInstruction(ctx, routine, IR_Addr, target, oper);
+                    return target;
                 }
+                return oper;
             }
         case UN_OP_Deref:
             {
                 Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
                 Ir_Operand oper = GenExpression(ctx, oper_expr, routine);
-                //PushInstruction(ctx, routine, IR_Deref, target, oper);
                 PushInstruction(ctx, routine, IR_Load, target, oper);
                 return target;
             }
@@ -790,7 +779,6 @@ static Ir_Operand GenRefUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     Unary_Op op = expr->unary_expr.op;
     Ast_Expr *oper_expr = expr->unary_expr.expr;
     Ir_Operand oper = GenRefExpression(ctx, oper_expr, routine);
-    //Ir_Operand target = NewTemp(ctx, routine, expr->expr_type);
     switch (op)
     {
         case UN_OP_Positive:
@@ -803,13 +791,14 @@ static Ir_Operand GenRefUnaryExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
 
         case UN_OP_Deref:
             {
-                //return oper;
+                // TODO(henrik): IR_Deref seems to be useless. Remove.
+                // (First make sure to have a test case where dereferencing should happen).
+                break;
                 Ir_Operand target = NewTemp(ctx, routine, oper_expr->expr_type);
                 PushInstruction(ctx, routine, IR_Deref, target, oper);
                 return target;
             } break;
     }
-    //return target;
     return oper;
 }
 
@@ -930,8 +919,6 @@ static Ir_Operand GenRefAssignmentExpr(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_R
     Ir_Operand roper = GenExpression(ctx, right, routine);
     Ir_Operand loper = GenRefExpression(ctx, left, routine);
     ASSERT(loper.type);
-    //ASSERT(TypeIsPointer(loper.type));
-    //loper.type = loper.type->base_type;
 
     bool left_is_mem_oper =
         (left->type != AST_VariableRef) ||
@@ -1177,7 +1164,6 @@ static Ir_Operand GenFunctionCall(Ir_Gen_Context *ctx, Ast_Expr *expr, Ir_Routin
     // indices.  This makes it impossible (or impractical) to delete or insert
     // instructions later to the ir instruction list.
     s64 arg_instr_idx = -1;
-    //for (s64 i = 0; i < expr->function_call.args.count; i++)
     for (s64 i = expr->function_call.args.count - 1; i >= 0; i--)
     {
         Ast_Expr *arg = expr->function_call.args[i];
@@ -1415,9 +1401,7 @@ static void GenFunctionDef(Ir_Gen_Context *ctx, Ast_Node *node)
     {
         Ast_Node *param_node = array::At(node->function_def.parameters, i);
         Type *type = symbol->type->function_type.parameter_types[i];
-        //if (TypeIsStruct(type)) type = GetPointerType(&ctx->comp_ctx->env, type);
         Name name = param_node->parameter.symbol->unique_name;
-        //param_node->parameter.symbol->type = type;
         func_routine->args[i] = NewVariableRef(func_routine, type, name);
     }
     GenIr(ctx, node->function_def.body, func_routine);
@@ -1748,7 +1732,6 @@ static void PrintOperand(FILE *file, Ir_Operand oper)
         case IR_OPER_Routine:
         case IR_OPER_ForeignRoutine:
             len += fprintf(file, "<");
-            //len += PrintName(file, oper.routine->name, 15);
             len += PrintName(file, oper.var.name, 15);
             len += fprintf(file, ">");
             break;

@@ -1922,12 +1922,9 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
             GenerateCompare(ctx, ir_instr, ir_next_instr, skip_next);
             break;
 
+            // TODO(henrik): IR_Deref seems to be useless. Remove.
         case IR_Deref:
             {
-                //Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                //PushLoad(ctx,
-                //        target,
-                //        BaseOffsetOperand(ctx, &ir_instr->oper1, 0, target.data_type, AF_Read));
                 Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                 Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Read);
                 PushLoad(ctx, target, source);
@@ -1941,11 +1938,7 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                     break;
                 }
                 Operand oper = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                if (IsSpilled(ctx, oper))
-                {
-                    // Already spilled
-                }
-                else
+                if (!IsSpilled(ctx, oper))
                 {
                     PushInstruction(ctx, OP_SPILL, oper);
                 }
@@ -1962,44 +1955,22 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 if (TypeIsStruct(ir_instr->target.type))
                 {
                     Type *type = ir_instr->target.type;
-                    if (false && ir_instr->oper1.oper_type == IR_OPER_Immediate)
-                    {
-                        // TODO(henrik): Why is there a version for immediate values?
-                        Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                        Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                        PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
-                        PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
-                        Copy(ctx, target, source_addr, type);
-                    }
-                    else
-                    {
-                        Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
-                        Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Write);
-                        PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
-                        //Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
-                        //PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
-                        //PushLoad(ctx, source_addr, IrOperand(ctx, &ir_instr->oper1, AF_Read));
-                        Copy(ctx, target, source, type);
-                    }
+                    Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
+                    Operand source = IrOperand(ctx, &ir_instr->oper1, AF_Write);
+                    PushLoadAddr(ctx, target, R_(GetAddress(ctx, &ir_instr->target)));
+                    //Operand source_addr = TempOperand(ctx, Oper_Data_Type::PTR, AF_Write);
+                    //PushLoadAddr(ctx, source_addr, R_(GetAddress(ctx, &ir_instr->oper1)));
+                    //PushLoad(ctx, source_addr, IrOperand(ctx, &ir_instr->oper1, AF_Read));
+                    Copy(ctx, target, source, type);
                 }
                 else
                 {
                     Operand target = IrOperand(ctx, &ir_instr->target, AF_Write);
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
-                    if (false && oper1.type == Oper_Type::Immediate)
-                    {
-                        // TODO(henrik): Why is there a version for immediate values?
-                        oper1.data_type = target.data_type;
-                        Operand temp = TempOperand(ctx, oper1.data_type, AF_Write);
-                        PushLoad(ctx, temp, oper1);
-                        PushLoad(ctx, target, R_(temp));
-                    }
-                    else
-                    {
-                        // TODO(henrik): remove this data_type "coercion"
-                        oper1.data_type = target.data_type;
-                        PushLoad(ctx, target, oper1);
-                    }
+
+                    // TODO(henrik): remove this data_type "coercion"
+                    oper1.data_type = target.data_type;
+                    PushLoad(ctx, target, oper1);
                 }
             } break;
         case IR_MovSX:
@@ -2051,7 +2022,6 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 ASSERT(TypeIsStruct(oper_type));
 
                 s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                //if (ir_instr->oper1.oper_type == IR_OPER_Parameter)// || !is_ptr)
                 if (is_ptr)
                 {
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
@@ -2081,7 +2051,6 @@ static void GenerateCode(Codegen_Context *ctx, Ir_Routine *routine,
                 ASSERT(TypeIsStruct(oper_type));
 
                 s64 member_offset = GetStructMemberOffset(oper_type, member_index);
-                //if (ir_instr->oper1.oper_type == IR_OPER_Parameter)// || !is_ptr)
                 if (is_ptr)
                 {
                     Operand oper1 = IrOperand(ctx, &ir_instr->oper1, AF_Read);
