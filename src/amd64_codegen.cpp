@@ -1563,20 +1563,21 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
         } break;
 
     case IR_And:
-        PushInstruction(ctx, OP_and,
-                IrOperand(ctx, &ir_instr->oper1, AF_ReadWrite),
-                IrOperand(ctx, &ir_instr->oper2, AF_Read));
-        break;
     case IR_Or:
-        PushInstruction(ctx, OP_or,
-                IrOperand(ctx, &ir_instr->oper1, AF_ReadWrite),
-                IrOperand(ctx, &ir_instr->oper2, AF_Read));
-        break;
     case IR_Xor:
-        PushInstruction(ctx, OP_xor,
-                IrOperand(ctx, &ir_instr->oper1, AF_ReadWrite),
-                IrOperand(ctx, &ir_instr->oper2, AF_Read));
-        break;
+        {
+            Amd64_Opcode op = OP_and;
+            if (ir_instr->opcode == IR_Or)
+                op = OP_or;
+            else if (ir_instr->opcode == IR_Xor)
+                op = OP_xor;
+
+            if (ir_instr->target != ir_instr->oper1)
+                PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+            PushInstruction(ctx, op,
+                    IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
+                    IrOperand(ctx, &ir_instr->oper2, AF_Read));
+        } break;
 
     case IR_Neg:
         if (is_float)
