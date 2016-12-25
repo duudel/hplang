@@ -44,6 +44,7 @@ run:
 	@#-./$(EXENAME) -dIR -o out tests/exec/continue2.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/nbody.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/nbody_p.hp 2> stderr.out
+	-./$(EXENAME) -dIR -o out tests/exec/bintrees.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/struct_as_arg.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/reg_pressure.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR tests/exec/and_or.hp 2> stderr.out
@@ -51,7 +52,7 @@ run:
 	@#-./$(EXENAME) -dRI -o out samples/fibo.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out samples/nbody.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -pi -o out samples/mandelbrot.hp 2> stderr.out
-	-./$(EXENAME) -dRI -pi -o out samples/mandelbrot_other.hp 2> stderr.out
+	@#-./$(EXENAME) -dRI -pi -o out samples/mandelbrot_other.hp 2> stderr.out
 	@#-./$(EXENAME) -dRI -o out tests/exec/mandelbrot.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -o out tests/exec/reg_alloc.hp 2> stderr.out
 	@#-./$(EXENAME) -dIR -pit -o out samples/cons.hp 2> stderr.out

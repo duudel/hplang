@@ -1,0 +1,121 @@
+/* The Computer Language Shootout Benchmarks
+   http://shootout.alioth.debian.org/
+
+   contributed by Kevin Carson
+   compilation:
+       gcc -O3 -fomit-frame-pointer -funroll-loops -static binary-trees.c -lm
+       icc -O3 -ip -unroll -static binary-trees.c -lm
+
+Translated to hplang by Henrik Paananen
+*/
+
+import ":io";
+
+Tree_Node :: struct
+{
+    left : Tree_Node*;
+    right : Tree_Node*;
+    item : s32;
+}
+
+
+NewTreeNode :: (left : Tree_Node*, right : Tree_Node*, item : s32)
+{
+    result := alloc(sizeof(Tree_Node)->s64) -> Tree_Node*;
+
+    result.left = left;
+    result.right = right;
+    result.item = item;
+
+    return result;
+}
+
+
+ItemCheck :: (tree : Tree_Node*)
+{
+    if (tree.left == null)
+        return tree.item;
+    else
+        return tree.item + ItemCheck(tree.left) - ItemCheck(tree.right);
+}
+
+
+// Note: if the return type is not specified, but let for the compiler to
+// infer, the compiler crashes.
+BottomUpTree :: (item : s32, depth : u64) : Tree_Node*
+{
+    if (depth > 0u)
+        return NewTreeNode
+        (
+            BottomUpTree(2 * item - 1, depth - 1u),
+            BottomUpTree(2 * item, depth - 1u),
+            item
+        );
+    else
+        return NewTreeNode(null, null, item);
+}
+
+
+DeleteTree :: (tree : Tree_Node*)
+{
+    if (tree.left != null)
+    {
+        DeleteTree(tree.left);
+        DeleteTree(tree.right);
+    }
+
+    free(tree->void*);
+}
+
+
+main :: ()
+{
+    N := 12;
+
+    minDepth := 4;
+    maxDepth := N;
+    if ((minDepth + 2) > N)
+        maxDepth = minDepth + 2;
+
+    stretchDepth := maxDepth + 1;
+    stretchTree := BottomUpTree(0, stretchDepth);
+    print( "stretch tree of depth ");
+    print(stretchDepth);
+    print("\t check: ");
+    println(ItemCheck(stretchTree));
+
+    DeleteTree(stretchTree);
+
+    longLivedTree := BottomUpTree(0, maxDepth);
+
+    for (depth := minDepth; depth <= maxDepth; depth += 2)
+    {
+        // Note: there is no pow function yet.
+        //iterations := pow(2, maxDepth - depth + minDepth);
+        iterations := 1 << (maxDepth - depth + minDepth);
+        check := 0;
+        for (i := 1; i <= iterations; i += 1)
+        {
+            tempTree := BottomUpTree(i, depth);
+            check += ItemCheck(tempTree);
+            DeleteTree(tempTree);
+
+            tempTree = BottomUpTree(-i, depth);
+            check += ItemCheck(tempTree);
+            DeleteTree(tempTree);
+        }
+
+        print(iterations * 2);
+        print("\t trees of depth ");
+        print(depth);
+        print("\t check: ");
+        println(check);
+    }
+
+    print("long lived tree of depth ");
+    print(maxDepth);
+    print("\t check: ");
+    println(ItemCheck(longLivedTree));
+
+    return 0;
+}

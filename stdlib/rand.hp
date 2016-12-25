@@ -1,0 +1,55 @@
+// rand module
+// 2016-07-10
+
+import ":io";
+
+Rand_Gen :: struct
+{
+    state : u64;
+    inc : u64;
+}
+
+pcg32_random_r :: (rng : Rand_Gen) : u32
+{
+    old_state := rng.state;
+    rng.state = 6364136223846793005u + (rng.inc | 1u);
+    xorshifted : u32 = (((old_state >> 18u) ^ old_state) >> 27u) -> u32;
+    rot : u32 = (old_state >> 59u) -> u32;
+    v := (xorshifted >> rot) | (xorshifted << ((-rot) & 31u));
+    return v -> u32;
+}
+
+print_r :: ()
+{
+    old_state := 123120932u;
+    inc := 1241324u;
+    state := 6364136223846793005u + (inc | 1u);
+    xorshifted : u32 = (((old_state >> 18u) ^ old_state) >> 27u) -> u32;
+    rot : u32 = (old_state >> 59u) -> u32;
+    v := (xorshifted >> rot) | (xorshifted << ((-rot) & 31u));
+    r := v -> u32;
+    println(r);
+}
+
+main :: ()
+{
+    rng : Rand_Gen;
+    rng.state = 123120932u;
+    rng.inc = 1241324u;
+    println(rng.state);
+    r := pcg32_random_r(rng);
+    println(rng.state);
+
+    ////println(r);
+    //r = pcg32_random_r(rng);
+    //println(rng.state);
+    ////println(r);
+    //r = pcg32_random_r(rng);
+    //println(rng.state);
+    ////println(r);
+    //r = pcg32_random_r(rng);
+    //println(rng.state);
+    ////println(r);
+    //print_r();
+    return 0;
+}

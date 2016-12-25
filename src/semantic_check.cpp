@@ -588,6 +588,25 @@ static Type* CheckFunctionCall(Sem_Check_Context *ctx, Ast_Expr *expr)
         Ast_Expr *arg = array::At(function_call->args, i);
         arg_types[i] = CheckExpr(ctx, arg, &vt);
 
+#if 0
+        // TODO(henrik): There is a problem with pending types. When a pending
+        // type occurs in a deep expression hierarchy, we would need to save
+        // the expression at hand and re-evaluate it at a later time. For this
+        // we would also need a way to terminate the check early. Also, the
+        // expression types checked so far should be cached in the expr_type of
+        // the Ast_Expr for later use in the re-evaluation.
+        if (TypeIsPending(arg_types[i]) && !arg_types[i]->base_type)
+        {
+            Pending_Expr pe = { };
+            pe.expr = expr;
+            pe.scope = CurrentScope(ctx->env);
+            array::Push(ctx->pending_exprs, pe);
+            Type *t = GetBuiltinType(ctx->env, TYP_pending);
+            t->base_type = nullptr;
+            return t;
+        }
+#endif
+
         if (TypeIsNone(arg_types[i]))
             args_have_none_type = true;
     }

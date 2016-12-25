@@ -1563,20 +1563,21 @@ static void GenerateArithmetic(Codegen_Context *ctx, Ir_Instruction *ir_instr)
         } break;
 
     case IR_And:
-        PushInstruction(ctx, OP_and,
-                IrOperand(ctx, &ir_instr->oper1, AF_ReadWrite),
-                IrOperand(ctx, &ir_instr->oper2, AF_Read));
-        break;
     case IR_Or:
-        PushInstruction(ctx, OP_or,
-                IrOperand(ctx, &ir_instr->oper1, AF_ReadWrite),
-                IrOperand(ctx, &ir_instr->oper2, AF_Read));
-        break;
     case IR_Xor:
-        PushInstruction(ctx, OP_xor,
-                IrOperand(ctx, &ir_instr->oper1, AF_ReadWrite),
-                IrOperand(ctx, &ir_instr->oper2, AF_Read));
-        break;
+        {
+            Amd64_Opcode op = OP_and;
+            if (ir_instr->opcode == IR_Or)
+                op = OP_or;
+            else if (ir_instr->opcode == IR_Xor)
+                op = OP_xor;
+
+            if (ir_instr->target != ir_instr->oper1)
+                PushLoad(ctx, &ir_instr->target, &ir_instr->oper1);
+            PushInstruction(ctx, op,
+                    IrOperand(ctx, &ir_instr->target, AF_ReadWrite),
+                    IrOperand(ctx, &ir_instr->oper2, AF_Read));
+        } break;
 
     case IR_Neg:
         if (is_float)
@@ -1832,11 +1833,8 @@ static void AddLocal(Codegen_Context *ctx, Ir_Operand *ir_oper)
 
         Local_Offset *offs = PushStruct<Local_Offset>(&ctx->arena);
 
-        // TODO(henrik): Should this be more like:
-        // locals_size += GetSize(type);
-        // locals_size = Align(locals_size, GetAlign(type));
-        routine->locals_size += GetAlignedSize(ir_oper->type);
-        routine->locals_size = Align(routine->locals_size, 8);
+        routine->locals_size += GetSize(ir_oper->type);
+        routine->locals_size = Align(routine->locals_size, GetAlign(ir_oper->type));
         offs->name = name;
         offs->offset = -routine->locals_size;
 
@@ -2844,8 +2842,11 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                                 //fprintf(dbgout, " -- regs NOT same at %d -> %d!\n",
                                 //        edge.instr_index, edge.branch_instr_index);
                             }
-                            //else
-                            //    fprintf(dbgout, "regs same at %d!\n", edge.instr_index);
+                            else
+                            {
+                                //index = -2;
+                                //fprintf(dbgout, "regs same at %d!\n", edge.instr_index);
+                            }
                             break;
                         }
                     }
@@ -2854,14 +2855,17 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
 #if 1
                 if (index == -1) continue;
 #else
+                if (index == -2) continue;
                 if (index == -1)
                 {
-                    for (s64 ii = 0; ii < edge.branch_intervals.count; ii++)
+                    for (s64 ii = 0; ii < edge.intervals.count; ii++)
                     {
                         iters++;
-                        if (edge.branch_intervals[ii] == li.name)
+                        if (edge.intervals[ii] == li.name)
                         {
-                            Unspill(ctx->reg_alloc, li, edge.instr_index, 1, "consistency !!");
+                            //PrintName((IoFile*)dbgout, li.name);
+                            //fprintf(dbgout, "; no active interval at %d; must have been spilled!\n", edge.instr_index);
+                            Unspill(ctx->reg_alloc, li, edge.instr_index, 1, "consistency");
                             break;
                         }
                     }
