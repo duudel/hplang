@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <cinttypes>
 #include <cstdlib> // for WIFEXITED etc.
-#include <cctype> // for WIFEXITED etc.
+#include <cctype> // for isprint
 
 #define NO_CRASH_TESTS
 

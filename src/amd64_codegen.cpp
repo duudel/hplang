@@ -2851,7 +2851,23 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                     }
                 }
                 // No confilicting interval found, continue to next interval.
+#if 1
                 if (index == -1) continue;
+#else
+                if (index == -1)
+                {
+                    for (s64 ii = 0; ii < edge.branch_intervals.count; ii++)
+                    {
+                        iters++;
+                        if (edge.branch_intervals[ii] == li.name)
+                        {
+                            Unspill(ctx->reg_alloc, li, edge.instr_index, 1, "consistency !!");
+                            break;
+                        }
+                    }
+                    continue;
+                }
+#endif
 
                 // Check if there are other intervals using the register at the
                 // branch point.
@@ -2944,6 +2960,28 @@ static void CfgEdgeResolution(Codegen_Context *ctx,
                             Unspill(ctx->reg_alloc, li, edge.instr_index, 1, "consistency");
                             break;
                         }
+                    }
+                }
+                else
+                {
+                    continue;
+                    Live_Interval interval = live_intervals[active_index];
+                    if (interval.reg != li.reg)
+                    {
+#if 1
+                    //Move(ctx->reg_alloc, interval, li.reg, edge.instr_index, "consistency");
+                    Move(ctx->reg_alloc, li, interval.reg, edge.instr_index, "consistency");
+#elif 0
+                    Live_Interval spill = li;
+                    Spill(ctx->reg_alloc, spill, edge.instr_index, 0, "consistency");
+                    spill.reg = interval.reg;
+                    Unspill(ctx->reg_alloc, spill, edge.instr_index, 1, "consistency");
+#else
+                    Live_Interval spill = interval;
+                    Spill(ctx->reg_alloc, spill, edge.instr_index, 0, "consistency");
+                    spill.reg = li.reg;
+                    Unspill(ctx->reg_alloc, spill, edge.instr_index, 1, "consistency");
+#endif
                     }
                 }
             }

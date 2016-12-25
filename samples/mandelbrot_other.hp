@@ -19,7 +19,7 @@ putc :: (c : u8, datap : u8**)
     //datap[0] = c;
     dp := @datap;
     //@(@datap) = c;
-    //@dp = c;
+    @dp = c;
     dp += 1;
     //@dp = c;
     print(dp -> void*);
@@ -95,13 +95,6 @@ main :: ()
         //datap += 1;
     }
 
-    //for (i : s64 = 0; i < data_size; i += 1)
-    //{
-    //    hp_fwrite(stdout, 1, data + i);
-    //    //print(data[i]);
-    //}
-    //for (i : s64 = 0; i < data_size; i += 1)
-    //    hp_fwrite(stdout, 1, &data[i]);
     hp_fwrite(stdout, data_size, data);
     println();
 
